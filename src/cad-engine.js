@@ -68,12 +68,12 @@ export class Vector2D {
   static projectOnSegment(p, a, b) {
     const ab = new Vector2D(b.x - a.x, b.y - a.y);
     const lenSq = ab.x * ab.x + ab.y * ab.y;
-    if (lenSq === 0) return { point: new Vector2D(a.x, a.y), t: 0, distance: p.distanceTo(a) };
+    if (lenSq === 0) return { point: new Vector2D(a.x, a.y), t: 0, distance: Math.hypot(p.x - a.x, p.y - a.y) };
     const ap = new Vector2D(p.x - a.x, p.y - a.y);
     let t = (ap.x * ab.x + ap.y * ab.y) / lenSq;
     t = Math.max(0, Math.min(1, t));
     const proj = new Vector2D(a.x + ab.x * t, a.y + ab.y * t);
-    return { point: proj, t, distance: p.distanceTo(proj) };
+    return { point: proj, t, distance: Math.hypot(p.x - proj.x, p.y - proj.y) };
   }
 }
 
@@ -575,7 +575,12 @@ export class CadEngine {
     this.doors = [];
     this.windows = [];
     this.dimensions = []; // Cotas lineares e alinhadas técnicas (NBR 6492)
-    this.dimStartPoint = null; // Primeiro ponto de inserção de cota
+    this.dimStartPoint = null; // 1º ponto de inserção de cota (Origem)
+    this.dimEndPoint = null;   // 2º ponto de inserção de cota (Destino)
+    this.dimPendingOffset = 0.40; // Offset perpendicular dinâmico da cota
+    this.dimStage = 0;         // 0: aguardando P1, 1: aguardando P2, 2: posicionando offset dinâmico
+    this.typedLength = '';     // Buffer de entrada direta de distância (AutoCAD Direct Distance Entry)
+    this.draggedWallVertices = []; // Vértices coincidentes arrastados em grupo para manter quinas fechadas
     this.roomDividers = [];
     this.wireAllocations = new Map();
 
@@ -716,6 +721,232 @@ export class CadEngine {
 
   notify() {
     for (const fn of this.listeners) fn();
+  }
+
+  // Agrupa vértices de paredes coincidentes para movimentação articulada mantendo quinas fechadas
+  collectConnectedWallVertices(pt) {
+    this.draggedWallVertices = [];
+    if (!pt) return;
+    for (let i = 0; i < this.walls.length; i++) {
+      const w = this.walls[i];
+      if (Math.hypot(w.a.x - pt.x, w.a.y - pt.y) < 0.18) {
+        this.draggedWallVertices.push({ wallIndex: i, handle: 'a' });
+      }
+      if (Math.hypot(w.b.x - pt.x, w.b.y - pt.y) < 0.18) {
+        this.draggedWallVertices.push({ wallIndex: i, handle: 'b' });
+      }
+    }
+  }
+
+  // AutoCAD Direct Distance Entry: insere parede contínua com comprimento exato digitado via teclado
+  applyTypedLength(valStr) {
+    if (!this.wallStartPoint) return false;
+    const val = typeof valStr === 'number' ? valStr : parseFloat(String(valStr).replace(',', '.'));
+    if (isNaN(val) || val <= 0.05) return false;
+
+    const S = this.wallStartPoint;
+    const curWorld = this.mouseWorldPos || { x: S.x + 1, y: S.y };
+    const dx = curWorld.x - S.x;
+    const dy = curWorld.y - S.y;
+    let rawAngle = Math.atan2(dy, dx);
+
+    // Se Ortho estiver ativo, trava na orientação angular
+    if (this.snapSettings.ortho45) {
+      const step = Math.PI / 4; // Ângulos de 45°
+      rawAngle = Math.round(rawAngle / step) * step;
+    } else {
+      const step = Math.PI / 2; // Ortogonal puro 90°
+      rawAngle = Math.round(rawAngle / step) * step;
+    }
+
+    const dirX = Math.cos(rawAngle);
+    const dirY = Math.sin(rawAngle);
+
+    const endPoint = {
+      x: Number((S.x + dirX * val).toFixed(3)),
+      y: Number((S.y + dirY * val).toFixed(3))
+    };
+
+    this.saveSnapshot();
+    const newWall = {
+      id: `wall_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      a: { x: S.x, y: S.y },
+      b: endPoint,
+      thickness: this.currentWallThickness || 0.15
+    };
+    this.walls.push(newWall);
+
+    // Encadeia desenho contínuo no novo ponto final exatamente como no AutoCAD
+    this.wallStartPoint = { x: endPoint.x, y: endPoint.y };
+    this.typedLength = '';
+    this.notify();
+
+    if (typeof window !== 'undefined' && window.__showToast) {
+      window.__showToast(`Parede de ${val.toFixed(2)} m adicionada com sucesso!`);
+    }
+    return true;
+  }
+
+  // Identifica cotas vinculadas à parede selecionada (NBR 6492 / Paramétricas Revit)
+  getDrivingDimensionsForWall(wallIndex) {
+    const wall = this.walls[wallIndex];
+    if (!wall) return [];
+    const results = [];
+    const wLen = Math.hypot(wall.b.x - wall.a.x, wall.b.y - wall.a.y);
+    if (wLen < 0.05) return [];
+    const wDir = new Vector2D((wall.b.x - wall.a.x) / wLen, (wall.b.y - wall.a.y) / wLen);
+    const wNorm = wDir.orthogonal();
+
+    for (let i = 0; i < (this.dimensions || []).length; i++) {
+      const dim = this.dimensions[i];
+      if (!dim) continue;
+      const ptA = dim.a || dim.ptA;
+      const ptB = dim.b || dim.ptB;
+      if (!ptA || !ptB) continue;
+
+      const dLen = Math.hypot(ptB.x - ptA.x, ptB.y - ptA.y);
+      if (dLen < 0.05) continue;
+      const dDir = new Vector2D((ptB.x - ptA.x) / dLen, (ptB.y - ptA.y) / dLen);
+
+      // 1. Cota Longitudinal: mede o comprimento da própria alvenaria
+      const dotDir = Math.abs(dDir.x * wDir.x + dDir.y * wDir.y);
+      if (dotDir > 0.88) {
+        const distA = Vector2D.projectOnSegment(ptA, wall.a, wall.b).distance;
+        const distB = Vector2D.projectOnSegment(ptB, wall.a, wall.b).distance;
+        if (distA < 0.35 && distB < 0.35) {
+          results.push({
+            dimIndex: i,
+            dim,
+            type: 'length',
+            label: `Comprimento da Parede (${dLen.toFixed(2)} m)`,
+            currentDist: Number(dLen.toFixed(2))
+          });
+          continue;
+        }
+      }
+
+      // 2. Cota Transversal / Vão Interno: mede distância entre esta parede e outra paralela
+      const dotNorm = Math.abs(dDir.x * wNorm.x + dDir.y * wNorm.y);
+      if (dotNorm > 0.85) {
+        const projA = Vector2D.projectOnSegment(ptA, wall.a, wall.b);
+        const projB = Vector2D.projectOnSegment(ptB, wall.a, wall.b);
+
+        if (projA.distance < 0.35 || projB.distance < 0.35) {
+          const isPtBOnWall = projB.distance < projA.distance;
+          results.push({
+            dimIndex: i,
+            dim,
+            type: 'offset',
+            label: `Vão / Distância Interna (${dLen.toFixed(2)} m)`,
+            currentDist: Number(dLen.toFixed(2)),
+            wallNearB: isPtBOnWall
+          });
+        }
+      }
+    }
+    return results;
+  }
+
+  // Aplica valor paramétrico à cota, deslocando a parede e mantendo cantos fechados (Revit-Style)
+  applyDrivingDimension(dimIndex, newDist, wallIndex) {
+    const dim = this.dimensions[dimIndex];
+    const wall = this.walls[wallIndex];
+    if (!dim || !wall || isNaN(newDist) || newDist <= 0.10) return false;
+
+    this.saveSnapshot();
+
+    const ptA = dim.a || dim.ptA;
+    const ptB = dim.b || dim.ptB;
+    const curDist = Math.hypot(ptB.x - ptA.x, ptB.y - ptA.y);
+    const delta = newDist - curDist;
+    if (Math.abs(delta) < 0.001) return true;
+
+    const dDir = new Vector2D((ptB.x - ptA.x) / curDist, (ptB.y - ptA.y) / curDist);
+    const wLen = Math.hypot(wall.b.x - wall.a.x, wall.b.y - wall.a.y);
+    const wDir = new Vector2D((wall.b.x - wall.a.x) / wLen, (wall.b.y - wall.a.y) / wLen);
+
+    const dotDir = Math.abs(dDir.x * wDir.x + dDir.y * wDir.y);
+
+    if (dotDir > 0.88) {
+      // Cota longitudinal: estica a parede pelo ponto B
+      const shiftX = wDir.x * delta;
+      const shiftY = wDir.y * delta;
+      const oldB = { x: wall.b.x, y: wall.b.y };
+
+      wall.b.x += shiftX;
+      wall.b.y += shiftY;
+
+      // Mantém outras paredes conectadas unidas à quina B
+      for (const other of this.walls) {
+        if (other === wall) continue;
+        if (Math.hypot(other.a.x - oldB.x, other.a.y - oldB.y) < 0.18) {
+          other.a.x += shiftX; other.a.y += shiftY;
+        }
+        if (Math.hypot(other.b.x - oldB.x, other.b.y - oldB.y) < 0.18) {
+          other.b.x += shiftX; other.b.y += shiftY;
+        }
+      }
+
+      ptB.x += shiftX;
+      ptB.y += shiftY;
+      dim.dist = Number(newDist.toFixed(2));
+    } else {
+      // Cota transversal: translada a parede inteira
+      const projA = Vector2D.projectOnSegment(ptA, wall.a, wall.b);
+      const projB = Vector2D.projectOnSegment(ptB, wall.a, wall.b);
+      const isWallAtB = projB.distance < projA.distance;
+
+      const dispDir = isWallAtB ? dDir : new Vector2D(-dDir.x, -dDir.y);
+      const shiftX = dispDir.x * delta;
+      const shiftY = dispDir.y * delta;
+
+      const oldA = { x: wall.a.x, y: wall.a.y };
+      const oldB = { x: wall.b.x, y: wall.b.y };
+
+      wall.a.x += shiftX; wall.a.y += shiftY;
+      wall.b.x += shiftX; wall.b.y += shiftY;
+
+      // Conexões de quina em A e B acompanham juntas
+      for (const other of this.walls) {
+        if (other === wall) continue;
+        if (Math.hypot(other.a.x - oldA.x, other.a.y - oldA.y) < 0.18) {
+          other.a.x += shiftX; other.a.y += shiftY;
+        }
+        if (Math.hypot(other.b.x - oldA.x, other.b.y - oldA.y) < 0.18) {
+          other.b.x += shiftX; other.b.y += shiftY;
+        }
+        if (Math.hypot(other.a.x - oldB.x, other.a.y - oldB.y) < 0.18) {
+          other.a.x += shiftX; other.a.y += shiftY;
+        }
+        if (Math.hypot(other.b.x - oldB.x, other.b.y - oldB.y) < 0.18) {
+          other.b.x += shiftX; other.b.y += shiftY;
+        }
+      }
+
+      if (isWallAtB) {
+        ptB.x += shiftX; ptB.y += shiftY;
+      } else {
+        ptA.x += shiftX; ptA.y += shiftY;
+      }
+      dim.dist = Number(newDist.toFixed(2));
+    }
+
+    this.recalculateWiring();
+    this.notify();
+    if (typeof window !== 'undefined' && window.__showToast) {
+      window.__showToast(`Cota paramétrica atualizada: ${newDist.toFixed(2)} m`);
+    }
+    return true;
+  }
+
+  // Inverte a orientação de uma cota existente (lado interno / externo)
+  flipDimensionOffset(dimIndex) {
+    const dim = this.dimensions[dimIndex];
+    if (dim) {
+      dim.offset = -(dim.offset || 0.35);
+      this.saveSnapshot();
+      this.notify();
+    }
   }
 
   addNode(type, position, circuitId = 1, command = null) {
@@ -1245,28 +1476,52 @@ export class CadEngine {
       return;
     }
 
-    // 7.1 Inserir Cota Técnica Linear / Alinhada (NBR 6492)
+    // 7.1 Inserir Cota Técnica Linear / Alinhada (NBR 6492 - Fluxo Profissional em 3 Passos)
     if (this.activeTool === 'dimension') {
       const snapPt = snap.snapped ? snap.point : worldPos;
-      if (!this.dimStartPoint) {
+
+      // PASSO 1: Fixar Ponto Origem (A)
+      if (this.dimStage === 0 || !this.dimStartPoint) {
         this.dimStartPoint = { x: snapPt.x, y: snapPt.y };
+        this.dimEndPoint = null;
+        this.dimStage = 1;
         if (typeof window !== 'undefined' && window.__showToast) {
-          window.__showToast('Primeiro ponto da cota definido. Clique no ponto final.');
+          window.__showToast('Origem da cota definida. Clique no segundo ponto (destino).');
         }
-      } else {
+      }
+      // PASSO 2: Fixar Ponto Destino (B) e passar para o ajuste de Offset
+      else if (this.dimStage === 1) {
         const len = Math.hypot(snapPt.x - this.dimStartPoint.x, snapPt.y - this.dimStartPoint.y);
+        if (len > 0.05) {
+          this.dimEndPoint = { x: snapPt.x, y: snapPt.y };
+          this.dimStage = 2;
+          this.dimPendingOffset = 0.40;
+          if (typeof window !== 'undefined' && window.__showToast) {
+            window.__showToast('Mova o mouse para posicionar a linha de cota e clique para fixar (Esc para cancelar).');
+          }
+        }
+      }
+      // PASSO 3: Fixar Offset e Concluir Inserção
+      else if (this.dimStage === 2) {
+        const ptA = this.dimStartPoint;
+        const ptB = this.dimEndPoint;
+        const len = Math.hypot(ptB.x - ptA.x, ptB.y - ptA.y);
         if (len > 0.05) {
           this.saveSnapshot();
           this.dimensions.push({
             id: `dim_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
-            a: { x: this.dimStartPoint.x, y: this.dimStartPoint.y },
-            b: { x: snapPt.x, y: snapPt.y },
-            offset: 0.35
+            a: { x: ptA.x, y: ptA.y },
+            b: { x: ptB.x, y: ptB.y },
+            dist: Number(len.toFixed(2)),
+            offset: Number(this.dimPendingOffset.toFixed(2))
           });
+          const insertedDist = len.toFixed(2);
           this.dimStartPoint = null;
+          this.dimEndPoint = null;
+          this.dimStage = 0;
           this.notify();
           if (typeof window !== 'undefined' && window.__showToast) {
-            window.__showToast(`Cota inserida: ${len.toFixed(2)} m`);
+            window.__showToast(`Cota técnica NBR 6492 fixada: ${insertedDist} m!`);
           }
         }
       }
@@ -1300,16 +1555,26 @@ export class CadEngine {
           this.selectedElement = { type: 'wall', index: cand.index, handle: cand.handle };
           this.selectedNodeId = null;
           this.isDragging = true;
+          if (cand.handle) {
+            const w = this.walls[cand.index];
+            if (w) this.collectConnectedWallVertices(cand.handle === 'a' ? w.a : w.b);
+          }
           this.notify();
           return;
         } else if (cand.type === 'wall_segment') {
           this.selectedElement = { type: 'wall', index: cand.index };
           this.selectedNodeId = null;
-          this.isDragging = true;
+          this.isDragging = false;
           this.notify();
           return;
         } else if (cand.type === 'room') {
           this.selectedElement = { type: 'room', index: cand.index };
+          this.selectedNodeId = null;
+          this.isDragging = true;
+          this.notify();
+          return;
+        } else if (cand.type === 'dimension') {
+          this.selectedElement = { type: 'dimension', index: cand.index };
           this.selectedNodeId = null;
           this.isDragging = true;
           this.notify();
@@ -1387,22 +1652,31 @@ export class CadEngine {
         return;
       }
 
-      // 8.5 Cotas Técnicas
+      // 8.5 Cotas Técnicas (NBR 6492)
       if (this.layers.dimensions) {
         for (let i = 0; i < (this.dimensions || []).length; i++) {
           const dim = this.dimensions[i];
-          const midX = (dim.a.x + dim.b.x) / 2;
-          const midY = (dim.a.y + dim.b.y) / 2;
-          const sMid = this.viewport.worldToScreen({ x: midX, y: midY });
-          if (sMid.distanceTo(screenPt) < 22) {
-            this.selectedElement = { type: 'dimension', index: i };
-            this.notify();
-            return;
+          const ptA = dim.a || dim.ptA;
+          const ptB = dim.b || dim.ptB;
+          if (!ptA || !ptB) continue;
+          const off = dim.offset || 0.35;
+          const L = Math.hypot(ptB.x - ptA.x, ptB.y - ptA.y);
+          if (L > 0.05) {
+            const u = new Vector2D((ptB.x - ptA.x) / L, (ptB.y - ptA.y) / L);
+            const n = u.orthogonal();
+            const midDim = new Vector2D((ptA.x + ptB.x) / 2 + n.x * off, (ptA.y + ptB.y) / 2 + n.y * off);
+            const sMid = this.viewport.worldToScreen(midDim);
+            if (sMid.distanceTo(screenPt) < 24) {
+              this.selectedElement = { type: 'dimension', index: i };
+              this.isDragging = true;
+              this.notify();
+              return;
+            }
           }
         }
       }
 
-      // 8.6 Vértices de Parede
+      // 8.6 Vértices de Parede (Articulação Conjunta de Quinas)
       if (!this.isPlanLocked && this.layers.walls) {
         for (let i = 0; i < this.walls.length; i++) {
           const w = this.walls[i];
@@ -1411,12 +1685,27 @@ export class CadEngine {
           if (sA.distanceTo(screenPt) < 14) {
             this.selectedElement = { type: 'wall', index: i, handle: 'a' };
             this.isDragging = true;
+            this.collectConnectedWallVertices(w.a);
             this.notify();
             return;
           }
           if (sB.distanceTo(screenPt) < 14) {
             this.selectedElement = { type: 'wall', index: i, handle: 'b' };
             this.isDragging = true;
+            this.collectConnectedWallVertices(w.b);
+            this.notify();
+            return;
+          }
+        }
+
+        // 8.6.1 Segmento de Parede (Corpo da parede para Cotas Paramétricas)
+        for (let i = 0; i < this.walls.length; i++) {
+          const w = this.walls[i];
+          const proj = Vector2D.projectOnSegment(worldPos, w.a, w.b);
+          const sProj = this.viewport.worldToScreen(proj.point);
+          if (sProj.distanceTo(screenPt) < 14) {
+            this.selectedElement = { type: 'wall', index: i };
+            this.isDragging = false;
             this.notify();
             return;
           }
@@ -1469,16 +1758,41 @@ export class CadEngine {
           this.recalculateWiring();
         }
       }
-      // 3. Vértice de Parede
-      else if (!this.isPlanLocked && this.selectedElement && this.selectedElement.type === 'wall') {
-        const wall = this.walls[this.selectedElement.index];
-        if (wall) {
-          if (this.selectedElement.handle === 'a') {
-            wall.a.x = curWorld.x;
-            wall.a.y = curWorld.y;
-          } else if (this.selectedElement.handle === 'b') {
-            wall.b.x = curWorld.x;
-            wall.b.y = curWorld.y;
+      // 3. Vértice de Parede (Articulação Conjunta de Quinas)
+      else if (!this.isPlanLocked && this.selectedElement && this.selectedElement.type === 'wall' && this.selectedElement.handle) {
+        const snap = this.findSnap(screenPt);
+        const targetPt = snap.snapped && snap.type === 'endpoint' ? snap.point : curWorld;
+        if (this.draggedWallVertices && this.draggedWallVertices.length > 0) {
+          for (const item of this.draggedWallVertices) {
+            const w = this.walls[item.wallIndex];
+            if (w) {
+              w[item.handle].x = targetPt.x;
+              w[item.handle].y = targetPt.y;
+            }
+          }
+        } else {
+          const wall = this.walls[this.selectedElement.index];
+          if (wall) {
+            wall[this.selectedElement.handle].x = targetPt.x;
+            wall[this.selectedElement.handle].y = targetPt.y;
+          }
+        }
+      }
+      // 3.1 Mover Cota Técnica (Ajustar Offset Perpendicular para Dentro / Fora)
+      else if (this.selectedElement && this.selectedElement.type === 'dimension') {
+        const dim = this.dimensions[this.selectedElement.index];
+        if (dim) {
+          const ptA = dim.a || dim.ptA;
+          const ptB = dim.b || dim.ptB;
+          const L = Math.hypot(ptB.x - ptA.x, ptB.y - ptA.y);
+          if (L > 0.05) {
+            const u = new Vector2D((ptB.x - ptA.x) / L, (ptB.y - ptA.y) / L);
+            const n = u.orthogonal();
+            const rawOffset = (curWorld.x - ptA.x) * n.x + (curWorld.y - ptA.y) * n.y;
+            let off = Math.round(rawOffset * 20) / 20; // Incrementos de 0.05m
+            if (Math.abs(off) < 0.10) off = off >= 0 ? 0.20 : -0.20;
+            dim.offset = Number(off.toFixed(2));
+            this.notify();
           }
         }
       }
@@ -1536,6 +1850,48 @@ export class CadEngine {
     this.mouseScreenPos = screenPt;
     this.mouseWorldPos = curWorld;
     this.currentSnap = this.findSnap(screenPt);
+
+    // Inserção de Cota Técnica (Passo 2 -> 3): cálculo dinâmico de offset e alinhamento magnético
+    if (this.activeTool === 'dimension' && this.dimStage === 2 && this.dimStartPoint && this.dimEndPoint) {
+      const ptA = this.dimStartPoint;
+      const ptB = this.dimEndPoint;
+      const L = Math.hypot(ptB.x - ptA.x, ptB.y - ptA.y);
+      if (L > 0.05) {
+        const u = new Vector2D((ptB.x - ptA.x) / L, (ptB.y - ptA.y) / L);
+        const n = u.orthogonal();
+        const rawOffset = (curWorld.x - ptA.x) * n.x + (curWorld.y - ptA.y) * n.y;
+
+        // 1. Snap magnético padrão em múltiplos de 0.10m
+        let snappedOffset = Math.round(rawOffset * 10) / 10;
+
+        // 2. Snap magnético de alinhamento com outras cotas existentes (paralelas)
+        for (const existDim of (this.dimensions || [])) {
+          const eA = existDim.a || existDim.ptA;
+          const eB = existDim.b || existDim.ptB;
+          if (!eA || !eB) continue;
+          const eLen = Math.hypot(eB.x - eA.x, eB.y - eA.y);
+          if (eLen < 0.05) continue;
+          const eu = new Vector2D((eB.x - eA.x) / eLen, (eB.y - eA.y) / eLen);
+          const dot = Math.abs(eu.x * u.x + eu.y * u.y);
+          if (dot > 0.95) {
+            const eOff = existDim.offset || 0.35;
+            const en = eu.orthogonal();
+            const eMid = new Vector2D((eA.x + eB.x) / 2 + en.x * eOff, (eA.y + eB.y) / 2 + en.y * eOff);
+            const testOffset = (eMid.x - ptA.x) * n.x + (eMid.y - ptA.y) * n.y;
+            if (Math.abs(rawOffset - testOffset) < 0.18) {
+              snappedOffset = Number(testOffset.toFixed(2));
+              break;
+            }
+          }
+        }
+
+        if (Math.abs(snappedOffset) < 0.10) {
+          snappedOffset = snappedOffset >= 0 ? 0.25 : -0.25;
+        }
+
+        this.dimPendingOffset = snappedOffset;
+      }
+    }
 
     if (this.activeTool === 'select' && !this.isDragging) {
       this.updateHoverCandidates(screenPt);
@@ -1679,6 +2035,33 @@ export class CadEngine {
       });
     }
 
+    // 8. Cotas Técnicas (NBR 6492)
+    if (this.layers.dimensions) {
+      for (let i = 0; i < (this.dimensions || []).length; i++) {
+        const dim = this.dimensions[i];
+        if (!dim) continue;
+        const ptA = dim.a || dim.ptA;
+        const ptB = dim.b || dim.ptB;
+        if (!ptA || !ptB) continue;
+        const off = dim.offset || 0.35;
+        const L = Math.hypot(ptB.x - ptA.x, ptB.y - ptA.y);
+        if (L > 0.05) {
+          const u = new Vector2D((ptB.x - ptA.x) / L, (ptB.y - ptA.y) / L);
+          const n = u.orthogonal();
+          const midDim = new Vector2D((ptA.x + ptB.x) / 2 + n.x * off, (ptA.y + ptB.y) / 2 + n.y * off);
+          const sMid = this.viewport.worldToScreen(midDim);
+          if (sMid.distanceTo(screenPt) < 26) {
+            candidates.push({
+              type: 'dimension',
+              index: i,
+              label: `Cota NBR 6492: ${L.toFixed(2)}m`,
+              pos: midDim
+            });
+          }
+        }
+      }
+    }
+
     this.hoverCandidates = candidates;
     if (this.hoverCandidateIndex >= candidates.length) {
       this.hoverCandidateIndex = 0;
@@ -1694,6 +2077,30 @@ export class CadEngine {
 
   onMouseUp() {
     if (this.isDragging) {
+      // Fusão e Snap de Quinas ao soltar vértice de parede
+      if (this.draggedWallVertices && this.draggedWallVertices.length > 0) {
+        const first = this.draggedWallVertices[0];
+        const w0 = this.walls[first.wallIndex];
+        const curPt = w0 ? w0[first.handle] : null;
+        if (curPt) {
+          // Procurar se há algum outro vértice próximo (que não estava no grupo) para selar a quina
+          for (let i = 0; i < this.walls.length; i++) {
+            const other = this.walls[i];
+            for (const h of ['a', 'b']) {
+              const inGroup = this.draggedWallVertices.some(item => item.wallIndex === i && item.handle === h);
+              if (!inGroup && Math.hypot(other[h].x - curPt.x, other[h].y - curPt.y) < 0.22) {
+                // Selamento perfeito de quina: atrai todas as pontas do grupo
+                for (const item of this.draggedWallVertices) {
+                  this.walls[item.wallIndex][item.handle].x = other[h].x;
+                  this.walls[item.wallIndex][item.handle].y = other[h].y;
+                }
+                break;
+              }
+            }
+          }
+        }
+        this.draggedWallVertices = [];
+      }
       this.saveSnapshot();
     }
     this.isPanning = false;
@@ -1822,6 +2229,10 @@ export class CadEngine {
   // Renderizador de Cotas Lineares e Alinhadas Técnicas (NBR 6492)
   renderDimensions(ctx, isPaperSpace = false) {
     if (!this.layers.dimensions) return;
+    const drivingDims = (!isPaperSpace && this.selectedElement && this.selectedElement.type === 'wall' && typeof this.selectedElement.index === 'number')
+      ? this.getDrivingDimensionsForWall(this.selectedElement.index).map(d => d.dimIndex)
+      : [];
+
     for (let i = 0; i < (this.dimensions || []).length; i++) {
       const dim = this.dimensions[i];
       if (!dim) continue;
@@ -1829,16 +2240,33 @@ export class CadEngine {
       const ptB = dim.b || dim.ptB;
       if (!ptA || !ptB) continue;
       const isSelected = !isPaperSpace && this.selectedElement && this.selectedElement.type === 'dimension' && this.selectedElement.index === i;
-      this.drawSingleDimension(ctx, ptA, ptB, dim.offset || 0.35, isSelected);
+      const isDriving = !isPaperSpace && drivingDims.includes(i);
+      this.drawSingleDimension(ctx, ptA, ptB, dim.offset || 0.35, isSelected, false, isDriving);
     }
 
-    // Prévia dinâmica se estiver inserindo cota
-    if (this.activeTool === 'dimension' && this.dimStartPoint && this.mouseWorldPos) {
-      this.drawSingleDimension(ctx, this.dimStartPoint, this.mouseWorldPos, 0.35, false, true);
+    // Prévia dinâmica se estiver inserindo cota em 3 passos
+    if (this.activeTool === 'dimension') {
+      if (this.dimStage === 1 && this.dimStartPoint && this.mouseWorldPos) {
+        // Passo 1 -> Passo 2: linha elástica pontilhada conectando P1 ao mouse
+        ctx.save();
+        ctx.strokeStyle = '#0284c7';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 4]);
+        const sP1 = this.viewport.worldToScreen(this.dimStartPoint);
+        const sCur = this.viewport.worldToScreen(this.mouseWorldPos);
+        ctx.beginPath();
+        ctx.moveTo(sP1.x, sP1.y);
+        ctx.lineTo(sCur.x, sCur.y);
+        ctx.stroke();
+        ctx.restore();
+      } else if (this.dimStage === 2 && this.dimStartPoint && this.dimEndPoint) {
+        // Passo 2 -> Passo 3: cota completa com offset dinâmico definido pelo mouse
+        this.drawSingleDimension(ctx, this.dimStartPoint, this.dimEndPoint, this.dimPendingOffset, false, true, false);
+      }
     }
   }
 
-  drawSingleDimension(ctx, ptA, ptB, offset = 0.35, isSelected = false, isPreview = false) {
+  drawSingleDimension(ctx, ptA, ptB, offset = 0.35, isSelected = false, isPreview = false, isDriving = false) {
     if (!ptA || !ptB || typeof ptA.x === 'undefined' || typeof ptB.x === 'undefined') return;
     const L = Math.hypot(ptB.x - ptA.x, ptB.y - ptA.y);
     if (L < 0.02) return;
@@ -1856,10 +2284,14 @@ export class CadEngine {
     const sDimB = this.viewport.worldToScreen(offWorldB);
 
     ctx.save();
-    const mainColor = isSelected ? '#0284c7' : (isPreview ? '#0284c7' : '#047857'); // Verde cota técnica ou azul se selecionado
+    let mainColor = '#047857'; // Verde técnico padrão ABNT NBR 6492
+    if (isSelected) mainColor = '#0284c7'; // Azul seleção
+    else if (isPreview) mainColor = '#0284c7'; // Azul prévia
+    else if (isDriving) mainColor = '#2563eb'; // Azul realçado Cota Paramétrica Revit
+
     ctx.strokeStyle = mainColor;
     ctx.fillStyle = mainColor;
-    ctx.lineWidth = isSelected ? 2.0 : 1.2;
+    ctx.lineWidth = isSelected || isDriving ? 2.2 : 1.2;
 
     if (isPreview) {
       ctx.setLineDash([3, 3]);
@@ -1867,12 +2299,12 @@ export class CadEngine {
 
     // 1. Linhas de extensão / chamada
     ctx.beginPath();
-    const sExtA1 = this.viewport.worldToScreen(new Vector2D(ptA.x + normal.x * 0.05, ptA.y + normal.y * 0.05));
-    const sExtA2 = this.viewport.worldToScreen(new Vector2D(ptA.x + normal.x * (offset + 0.10), ptA.y + normal.y * (offset + 0.10)));
+    const sExtA1 = this.viewport.worldToScreen(new Vector2D(ptA.x + normal.x * (offset > 0 ? 0.04 : -0.04), ptA.y + normal.y * (offset > 0 ? 0.04 : -0.04)));
+    const sExtA2 = this.viewport.worldToScreen(new Vector2D(ptA.x + normal.x * (offset + (offset > 0 ? 0.08 : -0.08)), ptA.y + normal.y * (offset + (offset > 0 ? 0.08 : -0.08))));
     ctx.moveTo(sExtA1.x, sExtA1.y); ctx.lineTo(sExtA2.x, sExtA2.y);
 
-    const sExtB1 = this.viewport.worldToScreen(new Vector2D(ptB.x + normal.x * 0.05, ptB.y + normal.y * 0.05));
-    const sExtB2 = this.viewport.worldToScreen(new Vector2D(ptB.x + normal.x * (offset + 0.10), ptB.y + normal.y * (offset + 0.10)));
+    const sExtB1 = this.viewport.worldToScreen(new Vector2D(ptB.x + normal.x * (offset > 0 ? 0.04 : -0.04), ptB.y + normal.y * (offset > 0 ? 0.04 : -0.04)));
+    const sExtB2 = this.viewport.worldToScreen(new Vector2D(ptB.x + normal.x * (offset + (offset > 0 ? 0.08 : -0.08)), ptB.y + normal.y * (offset + (offset > 0 ? 0.08 : -0.08))));
     ctx.moveTo(sExtB1.x, sExtB1.y); ctx.lineTo(sExtB2.x, sExtB2.y);
     ctx.stroke();
 
@@ -1887,7 +2319,7 @@ export class CadEngine {
     const tickLen = 6;
     const ang = Math.atan2(sDimB.y - sDimA.y, sDimB.x - sDimA.x);
     [sDimA, sDimB].forEach(pt => {
-      ctx.lineWidth = 1.8;
+      ctx.lineWidth = isSelected || isDriving ? 2.2 : 1.8;
       ctx.beginPath();
       ctx.moveTo(pt.x - Math.cos(ang + Math.PI / 4) * tickLen, pt.y - Math.sin(ang + Math.PI / 4) * tickLen);
       ctx.lineTo(pt.x + Math.cos(ang + Math.PI / 4) * tickLen, pt.y + Math.sin(ang + Math.PI / 4) * tickLen);
@@ -1897,7 +2329,7 @@ export class CadEngine {
     // 4. Texto centralizado com máscara de fundo branco
     const midX = (sDimA.x + sDimB.x) / 2;
     const midY = (sDimA.y + sDimB.y) / 2;
-    const txt = `${L.toFixed(2)} m`;
+    const txt = isDriving ? `✏️ ${L.toFixed(2)} m` : `${L.toFixed(2)} m`;
 
     ctx.save();
     ctx.translate(midX, midY);
@@ -1905,12 +2337,17 @@ export class CadEngine {
     if (rot > Math.PI / 2 || rot < -Math.PI / 2) rot += Math.PI;
     ctx.rotate(rot);
 
-    ctx.font = 'bold 10px Arial, sans-serif';
-    const m = ctx.measureText ? ctx.measureText(txt) : { width: 36 };
-    const tw = m && typeof m.width === 'number' ? m.width : 36;
+    ctx.font = isDriving ? 'bold 11px Arial, sans-serif' : 'bold 10px Arial, sans-serif';
+    const m = ctx.measureText ? ctx.measureText(txt) : { width: 40 };
+    const tw = m && typeof m.width === 'number' ? m.width : 40;
 
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(-tw / 2 - 4, -8, tw + 8, 16);
+    ctx.fillStyle = isDriving ? '#eff6ff' : '#ffffff';
+    ctx.fillRect(-tw / 2 - 5, -9, tw + 10, 18);
+    if (isDriving) {
+      ctx.strokeStyle = '#2563eb';
+      ctx.lineWidth = 1.0;
+      ctx.strokeRect(-tw / 2 - 5, -9, tw + 10, 18);
+    }
 
     ctx.fillStyle = mainColor;
     ctx.textAlign = 'center';
@@ -2252,7 +2689,7 @@ export class CadEngine {
         ];
 
         for (const pair of pairs) {
-          if (Math.hypot(pair.pt1.x - pair.pt2.x, pair.pt1.y - pair.pt2.y) < 0.08) {
+          if (Math.hypot(pair.pt1.x - pair.pt2.x, pair.pt1.y - pair.pt2.y) < 0.25) {
             if (pair.end1 === 'a') g1.connectsA = true; else g1.connectsB = true;
             if (pair.end2 === 'a') g2.connectsA = true; else g2.connectsB = true;
 
@@ -2266,7 +2703,7 @@ export class CadEngine {
               lineIntersect(p1L, g1.u, p2R, g2.u),
               lineIntersect(p1R, g1.u, p2L, g2.u),
               lineIntersect(p1R, g1.u, p2R, g2.u)
-            ].filter(p => p !== null && Math.hypot(p.x - pair.pt1.x, p.y - pair.pt1.y) < 0.35);
+            ].filter(p => p !== null && Math.hypot(p.x - pair.pt1.x, p.y - pair.pt1.y) < 0.45);
 
             if (candidates.length >= 2) {
               candidates.sort((pA, pB) => Math.hypot(pA.x - pair.pt1.x, pA.y - pair.pt1.y) - Math.hypot(pB.x - pair.pt1.x, pB.y - pair.pt1.y));
@@ -2533,13 +2970,38 @@ export class CadEngine {
       ctx.setLineDash([]);
 
       const midX = (sStart.x + sEnd.x) / 2;
-      const midY = (sStart.y + sEnd.y) / 2 - 12;
-      ctx.fillStyle = '#0284c7';
-      ctx.font = 'bold 11px Arial, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
+      const midY = (sStart.y + sEnd.y) / 2 - 14;
       const angleTxt = this.polarGuide ? ` [${this.polarGuide.angleDeg}°]` : '';
-      ctx.fillText(`${dist.toFixed(2)} m${angleTxt}`, midX, midY);
+
+      ctx.save();
+      if (this.typedLength) {
+        const hudText = `Distância: [ ${this.typedLength} ] m  ↵ Enter`;
+        ctx.font = 'bold 12px Arial, sans-serif';
+        const tw = ctx.measureText(hudText).width;
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(midX - tw / 2 - 8, midY - 12, tw + 16, 24);
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 1.8;
+        ctx.strokeRect(midX - tw / 2 - 8, midY - 12, tw + 16, 24);
+        ctx.fillStyle = '#38bdf8';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(hudText, midX, midY);
+      } else {
+        const hudText = `${dist.toFixed(2)} m${angleTxt}`;
+        ctx.font = 'bold 11px Arial, sans-serif';
+        const tw = ctx.measureText(hudText).width;
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+        ctx.fillRect(midX - tw / 2 - 5, midY - 9, tw + 10, 18);
+        ctx.strokeStyle = '#0284c7';
+        ctx.lineWidth = 1.0;
+        ctx.strokeRect(midX - tw / 2 - 5, midY - 9, tw + 10, 18);
+        ctx.fillStyle = '#0284c7';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(hudText, midX, midY);
+      }
+      ctx.restore();
     }
 
     // 8. Linha Guia Polar de Snap (0°, 45°, 90°, etc.)

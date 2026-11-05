@@ -989,7 +989,8 @@
     // Cotas Técnicas Iniciais (NBR 6492)
     engine.dimensions = [
       { id: 'dim1', a: { x: 1.0, y: 1.0 }, b: { x: 10.0, y: 1.0 }, dist: 9.0, offset: 0.8 },
-      { id: 'dim2', a: { x: 1.0, y: 1.0 }, b: { x: 1.0, y: 11.0 }, dist: 10.0, offset: -0.8 }
+      { id: 'dim2', a: { x: 1.0, y: 1.0 }, b: { x: 1.0, y: 11.0 }, dist: 10.0, offset: -0.8 },
+      { id: 'dim3', a: { x: 1.0, y: 3.2 }, b: { x: 6.5, y: 3.2 }, dist: 5.5, offset: -0.5 }
     ];
 
     // Pontos Elétricos Lançados
@@ -1462,17 +1463,69 @@
           const wall = engine.walls[engine.selectedElement.index];
           if (wall) {
             const len = Math.hypot(wall.b.x - wall.a.x, wall.b.y - wall.a.y);
+            const drivingDims = engine.getDrivingDimensionsForWall(engine.selectedElement.index);
+
             content.innerHTML = `
               <div class="prop-row"><span class="prop-label">Tipo:</span><span class="prop-val">Parede de Alvenaria</span></div>
               <div class="prop-row"><span class="prop-label">Comprimento:</span><span class="prop-val">${len.toFixed(2)} m</span></div>
               <div class="prop-row"><span class="prop-label">Espessura:</span><span class="prop-val">${((wall.thickness || 0.15) * 100).toFixed(0)} cm</span></div>
               <div class="prop-row"><span class="prop-label">Altura:</span><span class="prop-val">2.80 m</span></div>
 
+              ${drivingDims.length > 0 ? `
+                <div style="margin: 14px 0 6px 0; font-size:11px; font-weight:700; color:#2563eb; display:flex; align-items:center; gap:5px;">
+                  <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M21.3 15.3l-1.4-1.4L18 16l-2-2 1.4-1.4-4-4L6 16l2 2 1.4-1.4 2 2-1.4 1.4 1.4 1.4c.8.8 2 .8 2.8 0l7.1-7.1c.8-.8.8-2 0-2.8z"></path></svg>
+                  COTAS PARAMÉTRICAS (REVIT)
+                </div>
+                <div style="font-size:10.5px; color:#64748b; margin-bottom:8px;">Edite a medida para ajustar o vão mantendo as quinas fechadas:</div>
+                ${drivingDims.map(d => `
+                  <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:6px; padding:6px 8px; margin-bottom:6px;">
+                    <div style="font-size:10.5px; font-weight:600; color:#334155; margin-bottom:4px;">${d.label}</div>
+                    <div style="display:flex; align-items:center; gap:6px;">
+                      <input type="number" step="0.05" class="form-control inspector-driving-input" data-dim-idx="${d.dimIndex}" value="${d.currentDist.toFixed(2)}" style="width:70px; padding:2px 6px; font-size:11px; font-weight:bold; color:#1e3a8a;" />
+                      <span style="font-size:11px; color:#64748b;">m</span>
+                      <button class="btn-eng-action btn-apply-driving" data-dim-idx="${d.dimIndex}" style="padding:2px 8px; font-size:10.5px; background:#eff6ff; color:#2563eb; border-color:#bfdbfe;">Aplicar ↵</button>
+                    </div>
+                  </div>
+                `).join('')}
+              ` : ''}
+
               <button class="btn-eng-action" id="btn-delete-element" style="margin-top:14px; width:100%; justify-content:center; color:#ef4444; border-color:#fca5a5; background:#fef2f2;">
                 <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                 Excluir Parede (Del)
               </button>
             `;
+
+            // Anexar listeners de Cotas Paramétricas (Estilo Revit)
+            content.querySelectorAll('.btn-apply-driving').forEach(btn => {
+              btn.addEventListener('click', () => {
+                const dimIdx = parseInt(btn.dataset.dimIdx);
+                const input = content.querySelector(`.inspector-driving-input[data-dim-idx="${dimIdx}"]`);
+                if (input) {
+                  const val = parseFloat(input.value);
+                  if (val > 0.1) {
+                    engine.applyDrivingDimension(dimIdx, val, engine.selectedElement.index);
+                    updateInspector();
+                    engine.render(ctx, canvas.width, canvas.height);
+                  }
+                }
+              });
+            });
+
+            content.querySelectorAll('.inspector-driving-input').forEach(input => {
+              input.addEventListener('keydown', (ev) => {
+                if (ev.key === 'Enter') {
+                  ev.preventDefault();
+                  const dimIdx = parseInt(input.dataset.dimIdx);
+                  const val = parseFloat(input.value);
+                  if (val > 0.1) {
+                    engine.applyDrivingDimension(dimIdx, val, engine.selectedElement.index);
+                    updateInspector();
+                    engine.render(ctx, canvas.width, canvas.height);
+                  }
+                }
+              });
+            });
+
             document.getElementById('btn-delete-element')?.addEventListener('click', deleteCurrentSelection);
             return;
           }
@@ -1534,16 +1587,45 @@
           return;
         } else if (engine.selectedElement.type === 'dimension') {
           const dim = engine.dimensions[engine.selectedElement.index];
+          const distVal = dim ? (dim.dist || Math.hypot(dim.b.x - dim.a.x, dim.b.y - dim.a.y)).toFixed(2) : '0.00';
           content.innerHTML = `
             <div class="prop-row"><span class="prop-label">Elemento:</span><span class="prop-val">Cota Técnica ABNT</span></div>
-            <div class="prop-row"><span class="prop-label">Medida:</span><span class="prop-val">${dim ? dim.dist.toFixed(2) : '0.00'} m</span></div>
             <div class="prop-row"><span class="prop-label">Norma:</span><span class="prop-val">NBR 6492</span></div>
+            <div class="prop-row"><span class="prop-label">Medida:</span><span class="prop-val" style="font-weight:700; color:#047857;">${distVal} m</span></div>
+            <div class="prop-row">
+              <span class="prop-label">Offset da Linha:</span>
+              <div style="display:flex; align-items:center; gap:4px;">
+                <input type="number" step="0.05" class="form-control" id="inspector-dim-offset" value="${(dim?.offset || 0.35).toFixed(2)}" style="width:75px; padding:2px 6px; font-size:11px;" /> m
+              </div>
+            </div>
 
-            <button class="btn-eng-action" id="btn-delete-element" style="margin-top:14px; width:100%; justify-content:center; color:#ef4444; border-color:#fca5a5; background:#fef2f2;">
+            <button class="btn-eng-action" id="btn-flip-dim" style="margin-top:10px; width:100%; justify-content:center; color:#0284c7; border-color:#bae6fd; background:#f0f9ff;">
+              <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"></path></svg>
+              Inverter Lado (Dentro / Fora)
+            </button>
+
+            <button class="btn-eng-action" id="btn-delete-element" style="margin-top:10px; width:100%; justify-content:center; color:#ef4444; border-color:#fca5a5; background:#fef2f2;">
               <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
               Excluir Cota (Del)
             </button>
           `;
+
+          document.getElementById('inspector-dim-offset')?.addEventListener('change', (e) => {
+            if (dim) {
+              dim.offset = parseFloat(e.target.value) || 0.35;
+              engine.saveSnapshot();
+              engine.render(ctx, canvas.width, canvas.height);
+            }
+          });
+
+          document.getElementById('btn-flip-dim')?.addEventListener('click', () => {
+            if (dim) {
+              engine.flipDimensionOffset(engine.selectedElement.index);
+              updateInspector();
+              engine.render(ctx, canvas.width, canvas.height);
+            }
+          });
+
           document.getElementById('btn-delete-element')?.addEventListener('click', deleteCurrentSelection);
           return;
         }
@@ -1606,9 +1688,33 @@
       engine.render(ctx, canvas.width, canvas.height);
     });
 
-    // Tecla ESPAÇO para inverter porta (Flip nos 4 sentidos), TAB para ciclar seleção, ESC, DELETE e UNDO/REDO
+    // Tecla ESPAÇO para inverter porta (Flip nos 4 sentidos), TAB para ciclar seleção, ESC, DELETE, UNDO/REDO e AutoCAD Direct Distance Entry
     window.addEventListener('keydown', (e) => {
-      if (e.code === 'Space') {
+      const isInputFocused = document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'SELECT');
+
+      // 1. AutoCAD Direct Distance Entry (Digitar distância ao desenhar parede contínua)
+      if (!isInputFocused && engine.activeTool === 'wall' && engine.wallStartPoint) {
+        if ((e.key >= '0' && e.key <= '9') || e.key === '.' || e.key === ',') {
+          e.preventDefault();
+          engine.typedLength = (engine.typedLength || '') + (e.key === ',' ? '.' : e.key);
+          engine.render(ctx, canvas.width, canvas.height);
+          return;
+        }
+        if (e.key === 'Backspace' && engine.typedLength) {
+          e.preventDefault();
+          engine.typedLength = engine.typedLength.slice(0, -1);
+          engine.render(ctx, canvas.width, canvas.height);
+          return;
+        }
+        if (e.key === 'Enter' && engine.typedLength) {
+          e.preventDefault();
+          engine.applyTypedLength(engine.typedLength);
+          engine.render(ctx, canvas.width, canvas.height);
+          return;
+        }
+      }
+
+      if (e.code === 'Space' && !isInputFocused) {
         e.preventDefault();
         engine.toggleFlip();
         updateContextSubtoolbar();
@@ -1626,13 +1732,17 @@
 
       if (e.key === 'Escape') {
         engine.wallStartPoint = null;
+        engine.typedLength = '';
+        engine.dimStartPoint = null;
+        engine.dimEndPoint = null;
+        engine.dimStage = 0;
         engine.conduitStartNodeId = null;
         engine.activeTool = 'select';
         document.querySelectorAll('.ribbon-btn[data-tool]').forEach(b => b.classList.remove('active'));
         document.querySelector('.ribbon-btn[data-tool="select"]')?.classList.add('active');
         updateContextSubtoolbar();
         engine.render(ctx, canvas.width, canvas.height);
-      } else if (e.key === 'Delete' || (e.key === 'Backspace' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'SELECT')) {
+      } else if (!isInputFocused && (e.key === 'Delete' || e.key === 'Backspace')) {
         deleteCurrentSelection();
       } else if (e.ctrlKey && e.key.toLowerCase() === 'z') {
         e.preventDefault();
