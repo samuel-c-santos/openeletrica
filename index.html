@@ -1,0 +1,2716 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OpenElétrica — CAD Elétrico Predial ABNT NBR 5410</title>
+  <!-- Favicon oficial OpenElétrica conforme identidade visual de engenharia -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23000000'/%3E%3Cpath d='M 71.8 79.1 A 38 38 0 1 0 28.2 79.1 L 37.4 66.0 A 22 22 0 1 1 62.6 66.0 Z' fill='%23ffffff'/%3E%3Cpolygon points='56,30 38,53 51,53 41,77 64,45 51,45' fill='%23fab816'/%3E%3C/svg%3E">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; background: #ffffff; color: #1e293b; overflow: hidden; display: flex; flex-direction: column; height: 100vh; }
+    
+    /* Top Header Bar (Estilo CAD Engenharia) */
+    #header { height: 48px; background: #ffffff; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; z-index: 20; }
+    .header-left { display: flex; align-items: center; gap: 14px; }
+    .logo { display: flex; align-items: center; gap: 9px; font-weight: 800; font-size: 15px; color: #0f172a; letter-spacing: -0.4px; }
+    .logo-badge { width: 30px; height: 30px; background: #000000; border-radius: 7px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+    
+    .project-input { border: 1px solid #cbd5e1; border-radius: 4px; padding: 5px 12px; font-size: 13px; font-weight: 600; color: #334155; width: 280px; text-transform: uppercase; outline: none; }
+    .project-input:focus { border-color: #0284c7; box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.15); }
+
+    .header-actions { display: flex; align-items: center; gap: 4px; }
+    .icon-btn { width: 34px; height: 34px; border: 1px solid transparent; border-radius: 6px; background: transparent; display: flex; align-items: center; justify-content: center; color: #475569; cursor: pointer; transition: all 0.12s; }
+    .icon-btn:hover { background: #f1f5f9; color: #0f172a; border-color: #e2e8f0; }
+    .icon-btn svg { width: 18px; height: 18px; stroke-width: 1.8; }
+    .divider-v { width: 1px; height: 22px; background: #e2e8f0; margin: 0 6px; }
+
+    .btn-ai-regenerate { background: #ea580c; color: white; border: none; padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 1px 3px rgba(234, 88, 12, 0.3); transition: background 0.15s; }
+    .btn-ai-regenerate:hover { background: #c2410c; }
+    .btn-ai-regenerate svg { width: 15px; height: 15px; }
+
+    /* Ribbon Toolbar (Segunda linha de ferramentas - Compacta e Sem Rolagem) */
+    #ribbon { height: 42px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; padding: 0 10px; gap: 3px; z-index: 15; overflow-x: hidden; }
+    .ribbon-group { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+    .ribbon-btn { min-width: 30px; height: 32px; padding: 0 6px; border: 1px solid transparent; border-radius: 4px; background: transparent; color: #334155; font-size: 11.5px; font-weight: 500; display: flex; align-items: center; gap: 4px; cursor: pointer; transition: all 0.12s; white-space: nowrap; flex-shrink: 0; }
+    .ribbon-btn:hover { background: #e2e8f0; color: #0f172a; }
+    .ribbon-btn.active { background: #e0f2fe; color: #0284c7; border-color: #bae6fd; font-weight: 600; }
+    .ribbon-btn svg { width: 15px; height: 15px; stroke-width: 1.8; }
+    .ribbon-btn .badge-sub { font-size: 8.5px; font-weight: 700; background: #0284c7; color: white; border-radius: 2px; padding: 0 3px; margin-left: 1px; }
+
+    .thickness-select { border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px 6px; font-size: 11px; font-weight: 600; color: #334155; background: #ffffff; outline: none; margin-left: 2px; }
+
+    /* Viewport Principal (100% Tela) */
+    #viewport-container { flex: 1; position: relative; background: #ffffff; overflow: hidden; cursor: crosshair; }
+    #canvas { width: 100%; height: 100%; display: block; }
+
+    /* Controles Flutuantes Inferiores Esquerdos */
+    .floating-bottom-left { position: absolute; bottom: 16px; left: 16px; display: flex; align-items: center; gap: 8px; z-index: 25; }
+    .zoom-pill-btn { height: 32px; min-width: 32px; padding: 0 10px; background: #10b981; color: white; border: none; border-radius: 6px; font-weight: 700; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3); transition: all 0.15s; }
+    .zoom-pill-btn:hover { filter: brightness(0.92); }
+    .zoom-pill-btn svg { width: 15px; height: 15px; stroke-width: 2.2; }
+    .zoom-pill-btn.unlocked { background: #f59e0b; box-shadow: 0 2px 8px rgba(245, 158, 11, 0.35); }
+    .zoom-pill-btn.secondary { background: #334155; box-shadow: 0 2px 8px rgba(51, 65, 85, 0.3); font-size: 11px; }
+    .zoom-pill-btn.secondary.active { background: #0284c7; }
+
+    /* Botões Flutuantes Direitos (Editar / Layers) */
+    .floating-right { position: absolute; top: 110px; right: 16px; display: flex; flex-direction: column; gap: 10px; z-index: 25; }
+    .circle-tool-btn { width: 44px; height: 44px; border-radius: 22px; background: #ffffff; border: 1px solid #cbd5e1; box-shadow: 0 4px 12px rgba(0,0,0,0.08); display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; color: #475569; cursor: pointer; transition: all 0.15s; gap: 2px; }
+    .circle-tool-btn:hover { background: #f8fafc; border-color: #0284c7; color: #0284c7; }
+    .circle-tool-btn svg { width: 16px; height: 16px; stroke-width: 1.8; }
+
+    /* Modais Genéricos */
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.5); backdrop-filter: blur(4px); z-index: 50; align-items: center; justify-content: center; }
+    .modal-box { width: 90%; max-width: 920px; max-height: 85vh; background: #ffffff; border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.2); display: flex; flex-direction: column; overflow: hidden; }
+    .modal-header { padding: 16px 20px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
+    .modal-title { font-size: 15px; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 8px; }
+    .modal-close { background: transparent; border: none; font-size: 20px; color: #64748b; cursor: pointer; }
+    .modal-body { padding: 20px; overflow-y: auto; flex: 1; }
+    .table-nbr { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .table-nbr th { background: #f1f5f9; color: #334155; font-weight: 600; text-align: left; padding: 10px 12px; border-bottom: 2px solid #cbd5e1; }
+    .table-nbr td { padding: 9px 12px; border-bottom: 1px solid #f1f5f9; color: #1e293b; }
+    .table-nbr tr:hover { background: #f8fafc; }
+
+    /* Inspetor Flutuante Deslizante */
+    #inspector-drawer { position: absolute; top: 16px; right: -330px; width: 310px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 10px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); padding: 16px; z-index: 30; transition: right 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
+    #inspector-drawer.open { right: 70px; }
+    .drawer-title { font-size: 13px; font-weight: 700; color: #0f172a; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+    .prop-row { display: flex; justify-content: space-between; font-size: 12px; padding: 6px 0; border-bottom: 1px solid #f1f5f9; }
+    .prop-label { color: #64748b; }
+    .prop-val { font-weight: 600; color: #0f172a; }
+
+    /* Estilos Especiais para Camadas e Layout */
+    .layer-row { display: flex; align-items: center; justify-content: space-between; padding: 9px 12px; border-bottom: 1px solid #f1f5f9; }
+    .layer-row:hover { background: #f8fafc; }
+    .layer-info { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 500; }
+    .layer-color { width: 14px; height: 14px; border-radius: 3px; }
+    .layer-toggle { background: transparent; border: none; cursor: pointer; color: #64748b; display: flex; align-items: center; }
+    .layer-toggle.active { color: #0284c7; }
+
+    .form-group { margin-bottom: 12px; }
+    .form-group label { display: block; font-size: 11px; font-weight: 700; color: #475569; margin-bottom: 4px; text-transform: uppercase; }
+    .form-control { width: 100%; border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px 12px; font-size: 13px; color: #1e293b; outline: none; }
+    .form-control:focus { border-color: #0284c7; box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.15); }
+
+    /* Segmented View Switcher in Header */
+    .view-tabs { display: flex; background: #f1f5f9; border-radius: 6px; padding: 2px; gap: 2px; margin-left: 8px; }
+    .view-tab { padding: 5px 12px; font-size: 11.5px; font-weight: 600; color: #64748b; background: transparent; border: none; border-radius: 4px; cursor: pointer; transition: all 0.12s; display: flex; align-items: center; gap: 6px; }
+    .view-tab:hover { color: #0f172a; }
+    .view-tab.active { background: #ffffff; color: #0284c7; box-shadow: 0 1px 3px rgba(0,0,0,0.1); font-weight: 700; }
+    .view-tab svg { width: 15px; height: 15px; }
+
+    /* Dynamic Contextual Sub-Toolbar */
+    #context-subtoolbar { min-height: 40px; background: #ffffff; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; padding: 0 16px; gap: 8px; z-index: 14; font-size: 12px; overflow-x: auto; }
+    .context-title { font-weight: 700; color: #475569; text-transform: uppercase; font-size: 11px; letter-spacing: 0.3px; margin-right: 4px; display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+    .context-chip { padding: 4px 10px; border-radius: 4px; border: 1px solid #cbd5e1; background: #f8fafc; color: #334155; font-size: 11.5px; font-weight: 600; cursor: pointer; transition: all 0.12s; white-space: nowrap; }
+    .context-chip:hover { border-color: #0284c7; color: #0284c7; }
+    .context-chip.active { background: #e0f2fe; border-color: #0284c7; color: #0284c7; font-weight: 700; }
+    .context-input { border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px 8px; font-size: 11.5px; width: 110px; outline: none; }
+    .context-input:focus { border-color: #0284c7; }
+    .context-badge-info { background: #f1f5f9; color: #475569; border-radius: 4px; padding: 4px 10px; font-size: 11px; display: flex; align-items: center; gap: 6px; margin-left: auto; white-space: nowrap; }
+
+    /* Botões de Ação de Engenharia Rápida */
+    .btn-eng-action { background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 5px; padding: 5px 10px; font-size: 11.5px; font-weight: 600; color: #334155; display: flex; align-items: center; gap: 5px; cursor: pointer; transition: all 0.12s; }
+    .btn-eng-action:hover { background: #f1f5f9; border-color: #0284c7; color: #0284c7; }
+    .btn-eng-action.primary { background: #0284c7; color: #ffffff; border-color: #0284c7; }
+    .btn-eng-action.primary:hover { background: #0369a1; }
+    .btn-eng-action.warning { background: #ea580c; color: #ffffff; border-color: #ea580c; }
+    .btn-eng-action.warning:hover { background: #c2410c; }
+
+    /* Paper Space / Modo Layout (QGIS / ABNT) */
+    #layout-paper-container { display: none; flex-direction: column; flex: 1; width: 100%; height: calc(100vh - 48px); position: relative; background: #334155; overflow: hidden; padding: 0; margin: 0; }
+    #layout-top-toolbar { width: 100%; height: 46px; flex-shrink: 0; background: #ffffff; border-bottom: 1px solid #cbd5e1; box-shadow: 0 2px 4px rgba(0,0,0,0.06); padding: 0 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; z-index: 30; box-sizing: border-box; }
+    .layout-sheet-wrap { flex: 1; width: 100%; height: calc(100% - 46px); overflow: auto; display: flex; justify-content: center; align-items: center; padding: 40px; box-sizing: border-box; }
+    .paper-sheet { background: #ffffff; box-shadow: 0 20px 40px rgba(0,0,0,0.4); position: relative; overflow: hidden; margin: auto; flex-shrink: 0; }
+    .paper-border-outer { position: absolute; inset: 0; border: 1px solid #000000; pointer-events: none; }
+    .paper-margin-inner { position: absolute; border: 2px solid #000000; pointer-events: none; }
+    
+    /* Selo / Carimbo Técnico ABNT NBR 10068 / NBR 16752 (Alinhamento milimétrico com a margem interna) */
+    .paper-carimbo { position: absolute; bottom: 12px; right: 12px; width: 340px; height: 160px; border-left: 2px solid #000000; border-top: 2px solid #000000; border-right: none; border-bottom: none; background: #ffffff; font-family: Arial, sans-serif; display: flex; flex-direction: column; z-index: 10; }
+    .carimbo-row { display: flex; border-bottom: 1px solid #000000; flex: 1; }
+    .carimbo-row:last-child { border-bottom: none; }
+    .carimbo-cell { padding: 4px 6px; font-size: 8.5px; border-right: 1px solid #000000; display: flex; flex-direction: column; justify-content: center; }
+    .carimbo-cell:last-child { border-right: none; }
+    .carimbo-lbl { font-size: 7.5px; font-weight: 700; color: #475569; text-transform: uppercase; margin-bottom: 1px; }
+    .carimbo-val { font-size: 9.5px; font-weight: 700; color: #000000; }
+
+    /* Itens dentro da Folha de Layout */
+    .layout-item { position: absolute; background: #ffffff; border: 1.5px solid #0284c7; box-shadow: 0 4px 12px rgba(0,0,0,0.08); z-index: 5; }
+    .layout-item.active { border-color: #0284c7; box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.25); }
+    .layout-item-header { height: 24px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; padding: 0 8px; font-size: 10px; font-weight: 700; color: #475569; cursor: move; }
+    .layout-item-content { width: 100%; height: calc(100% - 24px); position: relative; overflow: hidden; }
+
+    /* Alça de Redimensionamento e Guias Magnéticas de Alinhamento (Estilo QGIS) */
+    .layout-resize-handle {
+      position: absolute;
+      right: 0;
+      bottom: 0;
+      width: 14px;
+      height: 14px;
+      cursor: nwse-resize;
+      background: linear-gradient(135deg, transparent 50%, #0284c7 50%);
+      z-index: 15;
+      border-radius: 0 0 2px 0;
+    }
+    .layout-align-guide-x, .layout-align-guide-y {
+      position: absolute;
+      pointer-events: none;
+      z-index: 25;
+      display: none;
+    }
+    .layout-align-guide-x { border-top: 1px dashed #0284c7; width: 100%; left: 0; }
+    .layout-align-guide-y { border-left: 1px dashed #0284c7; height: 100%; top: 0; }
+    .layout-status-pill {
+      font-size: 11px;
+      font-weight: 500;
+      color: #334155;
+      background: #f1f5f9;
+      padding: 4px 10px;
+      border-radius: 4px;
+      border: 1px solid #e2e8f0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Toast Flutuante de Alertas e Notificações */
+    #toast-notification { position: fixed; bottom: 20px; right: 20px; background: #0f172a; color: #ffffff; padding: 12px 18px; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.25); font-size: 12.5px; font-weight: 500; z-index: 100; display: none; align-items: center; gap: 10px; border-left: 4px solid #10b981; max-width: 480px; }
+    #toast-notification.warning { border-left-color: #ea580c; }
+    #toast-notification.info { border-left-color: #0284c7; }
+
+    /* Estilos de Impressão Direta (Vector PDF) */
+    @media print {
+      body { background: white !important; overflow: visible !important; height: auto !important; }
+      #header, #ribbon, #context-subtoolbar, #viewport-container, #inspector-drawer, .floating-bottom-left, .floating-right, .modal-overlay, #layout-top-toolbar { display: none !important; }
+      #layout-paper-container { display: block !important; padding: 0 !important; margin: 0 !important; background: white !important; }
+      .layout-sheet-wrap { padding: 0 !important; margin: 0 !important; min-height: 0 !important; }
+      .paper-sheet { box-shadow: none !important; margin: 0 !important; border: none !important; }
+      .layout-item { border-color: #000000 !important; box-shadow: none !important; }
+      .layout-item-header { display: none !important; }
+      .layout-item-content { height: 100% !important; }
+      @page { size: landscape; margin: 0; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 1. Header Superior Principal -->
+  <header id="header">
+    <div class="header-left">
+      <div class="logo">
+        <div class="logo-badge" title="OpenElétrica — CAD Elétrico Online">
+          <svg viewBox="0 0 100 100" style="width:24px;height:24px;">
+            <path d="M 71.8 79.1 A 38 38 0 1 0 28.2 79.1 L 37.4 66.0 A 22 22 0 1 1 62.6 66.0 Z" fill="#ffffff"/>
+            <polygon points="56,30 38,53 51,53 41,77 64,45 51,45" fill="#fab816"/>
+          </svg>
+        </div>
+        <span>OPENELÉTRICA</span>
+      </div>
+      <input type="text" class="project-input" id="project-title" value="PROJETO ELÉTRICO RESIDENCIAL - UNIDADE 101" spellcheck="false" />
+
+      <!-- Alternador de Espaço de Trabalho: Modelo 2D vs Prancha de Impressão -->
+      <div class="view-tabs">
+        <button class="view-tab active" id="tab-mode-model">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="m3 3 7 18 3-7 7-3L3 3Z"></path></svg>
+          Projeto 2D
+        </button>
+        <button class="view-tab" id="tab-mode-layout">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect width="18" height="14" x="3" y="5" rx="2"></rect><line x1="3" y1="15" x2="21" y2="15"></line></svg>
+          Prancha ABNT
+        </button>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <!-- Salvar -->
+      <button class="icon-btn" title="Salvar Projeto JSON" id="btn-save">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+      </button>
+      <!-- Configurar Prancha ABNT (A4 a A0) -->
+      <button class="icon-btn" title="Configurar Parâmetros da Prancha (A4 a A0)" id="btn-layout">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect width="18" height="14" x="3" y="5" rx="2"></rect><line x1="3" y1="15" x2="21" y2="15"></line><line x1="15" y1="15" x2="15" y2="19"></line></svg>
+      </button>
+      <!-- Gerenciador de Circuitos & Quadros (QGBT / QD) -->
+      <button class="icon-btn" title="Gerenciador de Circuitos & Quadros (QGBT / QD)" id="btn-open-circuits">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"></path></svg>
+      </button>
+      <!-- DXF -->
+      <button class="icon-btn" title="Exportar CAD DXF R12" id="btn-export-dxf">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"></rect><polyline points="3 9 21 9"></polyline><polyline points="9 21 9 9"></polyline></svg>
+      </button>
+      <!-- Quadro de Cargas -->
+      <button class="icon-btn" title="Quadro de Cargas NBR 5410" id="btn-quadro-cargas">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"></rect><path d="M3 9h18M3 15h18M9 3v18M15 3v18"></path></svg>
+      </button>
+      <!-- 3D BIM -->
+      <button class="icon-btn" title="Visualização 3D da Infraestrutura Elétrica (BIM)" id="btn-open-3d">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="m21 16-9 5-9-5V8l9-5 9 5v8Z"></path><path d="m3 8 9 5 9-5"></path><path d="M12 13v8"></path></svg>
+      </button>
+      <!-- Layers -->
+      <button class="icon-btn" title="Gerenciar Camadas / Layers" id="btn-open-layers">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+      </button>
+      <!-- Legenda -->
+      <button class="icon-btn" title="Legenda de Símbolos ABNT" id="btn-open-legenda">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+      </button>
+
+      <div class="divider-v"></div>
+
+      <!-- Undo / Redo -->
+      <button class="icon-btn" title="Desfazer (Ctrl+Z)" id="btn-undo">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 7v6h6"></path><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"></path></svg>
+      </button>
+      <button class="icon-btn" title="Refazer (Ctrl+Y)" id="btn-redo">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M21 7v6h-6"></path><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"></path></svg>
+      </button>
+
+      <div class="divider-v"></div>
+
+      <!-- 3 Botões de Engenharia Rápida NBR 5410 (Visíveis apenas em Modo 2D) -->
+      <div id="header-eng-buttons" style="display:flex; align-items:center; gap:4px;">
+        <button class="btn-eng-action" id="btn-auto-room-points" title="Lançar automaticamente Luz de Teto, Interruptores e TUGs por Cômodo">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px;height:14px;"><circle cx="12" cy="12" r="8"></circle><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line></svg>
+          Lançar Pontos
+        </button>
+        <button class="btn-eng-action" id="btn-auto-conduits" title="Traçar Eletrodutos Automáticos ligando chaves, tomadas e lâmpadas ao QDC">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px;height:14px;"><path d="M3 16 Q 12 4, 21 16"></path></svg>
+          Lançar Eletrodutos
+        </button>
+        <button class="btn-eng-action primary" id="btn-auto-wire-top" title="Calcular Fiação e Dimensionar Circuitos (Dijkstra + NBR 5410)">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px;height:14px;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+          Gerar Fiação
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- 2. Ribbon de Ferramentas CAD -->
+  <nav id="ribbon">
+    <!-- Grupo Navegação & Seleção -->
+    <div class="ribbon-group">
+      <button class="ribbon-btn active" data-tool="select" title="Selecionar / Mover Elemento (Portas e Janelas têm prioridade sobre paredes)">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="m3 3 7 18 3-7 7-3L3 3Z"></path></svg>
+        Selecionar
+      </button>
+      <button class="ribbon-btn" data-tool="pan" title="Mover Visualização da Planta (Pan)">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"></path><path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"></path><path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"></path><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"></path></svg>
+        Pan
+      </button>
+    </div>
+
+    <div class="divider-v"></div>
+
+    <!-- Grupo Arquitetura (Paredes Paralelas, Portas, Janelas, Ambientes) -->
+    <div class="ribbon-group">
+      <button class="ribbon-btn" data-tool="wall" title="Parede Dupla Paralela com Snap Perpendicular Exato (90°)">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><line x1="3" y1="8" x2="21" y2="8"></line><line x1="3" y1="16" x2="21" y2="16"></line><line x1="7" y1="8" x2="7" y2="16"></line><line x1="17" y1="8" x2="17" y2="16"></line></svg>
+        Parede
+      </button>
+      <button class="ribbon-btn" data-tool="door" title="Inserir Porta — Snap a 10cm do Canto (Boneca) e Espaço para Girar">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 20h16"></path><path d="M7 20V4h10v16"></path><path d="M7 4a10 10 0 0 1 10 10"></path></svg>
+        Porta
+      </button>
+      <button class="ribbon-btn" data-tool="window" title="Inserir Janela com Alinhamento Automático">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect width="18" height="14" x="3" y="5" rx="1"></rect><line x1="3" y1="12" x2="21" y2="12"></line><line x1="12" y1="5" x2="12" y2="19"></line></svg>
+        Janela
+      </button>
+      <button class="ribbon-btn" data-tool="room" title="Inserir Cômodo / Ambiente com Prevenção de Sobreposição">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 9.5 12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5Z"></path><polyline points="9 21 9 12 15 12 15 21"></polyline></svg>
+        Ambiente
+      </button>
+      <button class="ribbon-btn" data-tool="room_divider" title="Linha Delimitadora de Ambiente (Virtual / Sem Alvenaria)">
+        <svg fill="none" stroke="currentColor" stroke-dasharray="3 3" viewBox="0 0 24 24"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="12" y1="3" x2="12" y2="21"></line></svg>
+        Delim.
+      </button>
+      <button class="ribbon-btn" data-tool="dimension" title="Cota Linear / Alinhada ABNT NBR 6492">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 6v12M20 6v12M4 12h16M7 9l-3 3 3 3M17 9l3 3-3 3"></path></svg>
+        Cota
+      </button>
+    </div>
+
+    <div class="divider-v"></div>
+
+    <!-- Grupo Lançamento Elétrico ABNT -->
+    <div class="ribbon-group">
+      <button class="ribbon-btn" data-tool="add_node" data-type="distribution_board" title="Quadro de Distribuição (QDC)">
+        <svg fill="currentColor" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2" fill="#0f172a"></rect><rect x="5" y="6" width="6" height="12" fill="#ffffff"></rect><line x1="15" y1="8" x2="17" y2="8" stroke="#ffffff" stroke-width="2"></line><line x1="15" y1="12" x2="17" y2="12" stroke="#ffffff" stroke-width="2"></line></svg>
+        QDC
+      </button>
+      <!-- Símbolo Canônico ABNT: horizontal no meio, vertical apenas na metade inferior -->
+      <button class="ribbon-btn" data-tool="add_node" data-type="light_ceiling" title="Luminária de Teto ABNT (Metade superior: Potência; Metade inferior: Circuito/Comando)">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><line x1="3" y1="12" x2="21" y2="12"></line><line x1="12" y1="12" x2="12" y2="21"></line></svg>
+        Luz Teto <span class="badge-sub">A</span>
+      </button>
+      <button class="ribbon-btn" data-tool="add_node" data-type="outlet_low" title="Tomada Baixa (0,30m)">
+        <svg stroke="currentColor" viewBox="0 0 24 24"><polygon points="12 4 4 19 20 19" fill="none"></polygon></svg>
+        Baixa
+      </button>
+      <button class="ribbon-btn" data-tool="add_node" data-type="outlet_medium" title="Tomada Média (1,20m - 600W)">
+        <svg stroke="currentColor" viewBox="0 0 24 24"><polygon points="12 4 4 19 20 19" fill="none"></polygon><polygon points="12 4 4 19 12 19" fill="currentColor"></polygon></svg>
+        Média
+      </button>
+      <button class="ribbon-btn" data-tool="add_node" data-type="outlet_high" title="Tomada Alta (Chuveiro / TUE 5500W)">
+        <svg fill="currentColor" stroke="currentColor" viewBox="0 0 24 24"><polygon points="12 4 4 19 20 19"></polygon></svg>
+        Alta
+      </button>
+      <button class="ribbon-btn" data-tool="add_node" data-type="switch_simple" title="Interruptor Simples">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"></circle><line x1="12" y1="5" x2="12" y2="1"></line></svg>
+        Simples
+      </button>
+      <button class="ribbon-btn" data-tool="add_node" data-type="switch_three_way" title="Interruptor Paralelo (Three-Way)">
+        <svg stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" fill="none"></circle><path d="M12 5 A 7 7 0 0 1 12 19 Z" fill="currentColor"></path><line x1="12" y1="5" x2="12" y2="1"></line></svg>
+        Paralelo
+      </button>
+    </div>
+
+    <div class="divider-v"></div>
+
+    <!-- Grupo Infraestrutura & Fiação Automática -->
+    <div class="ribbon-group">
+      <button class="ribbon-btn" data-tool="conduit" title="Eletroduto Curvado no Teto (Conectar dois pontos)">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 16 Q 12 4, 21 16"></path></svg>
+        Eletroduto <span class="badge-sub">A</span>
+      </button>
+      <button class="ribbon-btn" id="btn-auto-wire" title="Passar Fiação Automática (Dijkstra NBR 5410)">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><line x1="2" y1="12" x2="22" y2="12"></line><line x1="7" y1="6" x2="7" y2="18"></line><line x1="12" y1="6" x2="12" y2="18"></line><line x1="12" y1="6" x2="15" y2="6"></line><line x1="17" y1="6" x2="17" y2="12"></line></svg>
+        Fiação
+      </button>
+    </div>
+  </nav>
+
+  <!-- 2.1 Sub-Barra de Contexto Dinâmica (Surge com a ferramenta ativa) -->
+  <div id="context-subtoolbar">
+    <!-- Renderizado dinamicamente via JS de acordo com a ferramenta ativa -->
+  </div>
+
+  <!-- 3. Canvas Principal em Tela Cheia (Model Space) -->
+  <main id="viewport-container">
+    <canvas id="canvas"></canvas>
+
+    <!-- Controles Flutuantes no Canto Inferior Esquerdo -->
+    <div class="floating-bottom-left">
+      <button class="zoom-pill-btn" id="btn-zoom-out" title="Afastar">−</button>
+      <button class="zoom-pill-btn" id="btn-zoom-in" title="Aproximar">+</button>
+      
+      <!-- Alternador Planta Travada / Destravada -->
+      <button class="zoom-pill-btn unlocked" id="btn-lock-plan" title="Alternar Edição da Arquitetura (Travar/Destravar)">
+        <svg fill="none" stroke="currentColor" id="lock-icon" viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 9.9-1"></path></svg>
+        <span id="lock-text">Planta destravada</span>
+      </button>
+
+      <!-- Toggle Ortho e Rastreamento 45° -->
+      <button class="zoom-pill-btn secondary active" id="btn-toggle-ortho" title="Alternar Rastreamento Polar (Reto e 45°)">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><line x1="12" y1="2" x2="12" y2="22"></line><line x1="2" y1="12" x2="22" y2="12"></line><line x1="5" y1="5" x2="19" y2="19"></line></svg>
+        <span>Ortho 45°</span>
+      </button>
+    </div>
+
+    <!-- Botões Flutuantes no Lado Direito -->
+    <div class="floating-right">
+      <button class="circle-tool-btn" id="btn-toggle-inspector" title="Propriedades do Elemento">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+        <span>Editar</span>
+      </button>
+      <button class="circle-tool-btn" id="btn-toggle-layers-floating" title="Gerenciar Camadas">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+        <span>Layers</span>
+      </button>
+    </div>
+
+    <!-- Painel Lateral Deslizante (Inspector) -->
+    <div id="inspector-drawer">
+      <div class="drawer-title">
+        <span>PARÂMETROS NBR 5410</span>
+        <button id="btn-close-drawer" style="border:none;background:transparent;cursor:pointer;color:#94a3b8;font-size:16px;">✕</button>
+      </div>
+      <div id="inspector-content">
+        <p style="font-size:12px;color:#94a3b8;">Nenhum elemento selecionado.<br><br>Clique em um ponto elétrico, tomada, parede ou ambiente na planta.</p>
+      </div>
+    </div>
+  </main>
+
+  <!-- 3.1 Espaço de Trabalho do Layout de Prancha (Paper Space ABNT) -->
+  <section id="layout-paper-container">
+    <!-- Barra Superior de Controle de Prancha (Estilo QGIS Print Layout) -->
+    <div id="layout-top-toolbar">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <button class="btn-eng-action" id="btn-back-to-model">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px;height:14px;"><path d="M19 12H5M12 19l-7-7 7-7"></path></svg>
+          Voltar ao Projeto (CAD)
+        </button>
+
+        <div class="divider-v"></div>
+
+        <span class="context-title">Folha:</span>
+        <select class="form-control" id="layout-select-sheet" style="width:140px; padding:4px 8px; font-size:11.5px;">
+          <option value="A4">A4 (297 x 210 mm)</option>
+          <option value="A3">A3 (420 x 297 mm)</option>
+          <option value="A2">A2 (594 x 420 mm)</option>
+          <option value="A1" selected>A1 (841 x 594 mm)</option>
+          <option value="A0">A0 (1189 x 841 mm)</option>
+        </select>
+
+        <span class="context-title">Escala:</span>
+        <select class="form-control" id="layout-select-scale" style="width:110px; padding:4px 8px; font-size:11.5px;">
+          <option value="50" selected>1:50</option>
+          <option value="75">1:75</option>
+          <option value="100">1:100</option>
+          <option value="125">1:125</option>
+          <option value="200">1:200</option>
+        </select>
+      </div>
+
+      <div style="display:flex; align-items:center; gap:6px;">
+        <!-- Indicador de Status do Modo da Prancha -->
+        <div class="layout-status-pill" id="layout-mode-status">
+          <span style="width:7px; height:7px; border-radius:50%; background:#10b981;"></span>
+          Modo: <strong>Mover Quadros</strong>
+        </div>
+
+        <div class="divider-v"></div>
+
+        <!-- Alternadores de Ferramenta da Folha (Estilo QGIS) -->
+        <button class="btn-eng-action active" id="btn-layout-tool-item" title="Mover ou Redimensionar o quadro da Viewport na folha">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px;height:14px;"><path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"></path><path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"></path><path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"></path><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"></path></svg>
+          Mover Quadros
+        </button>
+        <button class="btn-eng-action" id="btn-layout-tool-content" title="Navegar no Conteúdo (Pan e Zoom dentro da planta)">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px;height:14px;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          Mover Conteúdo
+        </button>
+
+        <div class="divider-v"></div>
+
+        <!-- Inserir / Ocultar Elementos na Folha -->
+        <button class="btn-eng-action" id="btn-insert-unifilar" title="Inserir / Ocultar Diagrama Unifilar na Folha">
+          + Unifilar
+        </button>
+        <button class="btn-eng-action" id="btn-insert-cargas" title="Inserir / Ocultar Tabela de Cargas na Folha">
+          + Cargas
+        </button>
+        <button class="btn-eng-action" id="btn-insert-legenda" title="Inserir / Ocultar Legenda ABNT na Folha">
+          + Legenda
+        </button>
+        <button class="btn-eng-action" id="btn-insert-3d" title="Inserir / Ocultar Maquete 3D na Folha">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:13px;height:13px;"><path d="m21 16-9 5-9-5V8l9-5 9 5v8Z"></path><path d="m3 8 9 5 9-5"></path><path d="M12 13v8"></path></svg>
+          + Viewport 3D
+        </button>
+
+        <div class="divider-v"></div>
+
+        <!-- Imprimir / Salvar PDF -->
+        <button class="btn-eng-action primary" id="btn-print-layout" title="Imprimir em alta definição ou Salvar em PDF">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px;height:14px;"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><path d="M6 14h12v8H6z"></path></svg>
+          Exportar PDF / Imprimir
+        </button>
+      </div>
+    </div>
+
+    <!-- Prancha Física com Margens e Carimbo Técnico ABNT -->
+    <div class="layout-sheet-wrap">
+      <div class="paper-sheet" id="paper-sheet" style="width:1050px; height:742px;">
+        <div class="paper-border-outer"></div>
+        <div class="paper-margin-inner" id="paper-margin" style="top:12px; left:28px; right:12px; bottom:12px;"></div>
+
+        <!-- Guias Magnéticas Dinâmicas de Alinhamento entre Quadros -->
+        <div class="layout-align-guide-x" id="align-guide-x"></div>
+        <div class="layout-align-guide-y" id="align-guide-y"></div>
+
+        <!-- Item 1: Viewport da Planta Baixa Elétrica (Redimensionável e Navegável) -->
+        <div class="layout-item" id="item-viewport" style="left:34px; top:18px; width:680px; height:520px;">
+          <div class="layout-item-header" id="viewport-drag-handle">
+            <span>📐 VIEWPORT PLANTA BAIXA ELÉTRICA — ESCALA <span id="label-scale-display">1:50</span></span>
+            <span style="font-size:10px; color:#64748b;" title="Redimensionável pela quina inferior direita">⤡</span>
+          </div>
+          <div class="layout-item-content">
+            <canvas id="canvas-layout-viewport" style="width:100%; height:100%; display:block;"></canvas>
+          </div>
+          <div class="layout-resize-handle" data-target="item-viewport" title="Arrastar para Redimensionar"></div>
+        </div>
+
+        <!-- Item 2: Diagrama Unifilar Interativo na Folha -->
+        <div class="layout-item" id="item-unifilar" style="left:726px; top:18px; width:300px; height:240px;">
+          <div class="layout-item-header" id="unifilar-drag-handle">
+            <span style="display:flex;align-items:center;gap:6px;">
+              <svg width="13" height="13" fill="none" stroke="#0284c7" stroke-width="2" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+              DIAGRAMA UNIFILAR (QD1)
+            </span>
+            <button class="modal-close" style="font-size:12px;" id="btn-close-sheet-unifilar">✕</button>
+          </div>
+          <div class="layout-item-content">
+            <canvas id="canvas-layout-unifilar" style="width:100%; height:100%; display:block;"></canvas>
+          </div>
+          <div class="layout-resize-handle" data-target="item-unifilar" title="Arrastar para Redimensionar"></div>
+        </div>
+
+        <!-- Item 3: Quadro de Cargas Normativo na Folha -->
+        <div class="layout-item" id="item-cargas" style="left:34px; top:548px; width:680px; height:170px;">
+          <div class="layout-item-header" id="cargas-drag-handle">
+            <span style="display:flex;align-items:center;gap:6px;">
+              <svg width="13" height="13" fill="none" stroke="#0284c7" stroke-width="2" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"></rect><path d="M3 9h18M3 15h18M9 3v18M15 3v18"></path></svg>
+              QUADRO DE DISTRIBUIÇÃO E DIMENSIONAMENTO (NBR 5410)
+            </span>
+            <button class="modal-close" style="font-size:12px;" id="btn-close-sheet-cargas">✕</button>
+          </div>
+          <div class="layout-item-content" id="layout-cargas-table-content" style="padding:6px; overflow:auto;">
+            <!-- Renderizado dinamicamente -->
+          </div>
+          <div class="layout-resize-handle" data-target="item-cargas" title="Arrastar para Redimensionar"></div>
+        </div>
+
+        <!-- Item 4: Legenda Técnica de Símbolos ABNT na Folha -->
+        <div class="layout-item" id="item-legenda" style="left:726px; top:270px; width:300px; height:268px;">
+          <div class="layout-item-header" id="legenda-drag-handle">
+            <span style="display:flex;align-items:center;gap:6px;">
+              <svg width="13" height="13" fill="none" stroke="#0284c7" stroke-width="2" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+              LEGENDA DE SÍMBOLOS ABNT
+            </span>
+            <button class="modal-close" style="font-size:12px;" id="btn-close-sheet-legenda">✕</button>
+          </div>
+          <div class="layout-item-content" id="layout-legenda-content" style="padding:6px; overflow:auto;">
+            <!-- Renderizado dinamicamente -->
+          </div>
+          <div class="layout-resize-handle" data-target="item-legenda" title="Arrastar para Redimensionar"></div>
+        </div>
+
+        <!-- Item 5: Viewport Maquete 3D Axonométrica na Folha -->
+        <div class="layout-item" id="item-viewport-3d" style="left:726px; top:548px; width:300px; height:170px; display:none;">
+          <div class="layout-item-header" id="viewport-3d-drag-handle">
+            <span style="display:flex;align-items:center;gap:5px;">
+              <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="m21 16-9 5-9-5V8l9-5 9 5v8Z"></path></svg>
+              MAQUETE 3D AXONOMÉTRICA (BIM)
+            </span>
+            <button class="modal-close" style="font-size:12px;" id="btn-close-sheet-3d">✕</button>
+          </div>
+          <div class="layout-item-content">
+            <canvas id="canvas-layout-3d" style="width:100%; height:100%; display:block;"></canvas>
+          </div>
+          <div class="layout-resize-handle" data-target="item-viewport-3d" title="Arrastar para Redimensionar"></div>
+        </div>
+
+        <!-- Item 5: Selo / Carimbo Técnico Oficial ABNT NBR 10068 / NBR 16752 -->
+        <div class="paper-carimbo" id="paper-carimbo">
+          <div class="carimbo-row" style="flex:1.2;">
+            <div class="carimbo-cell" style="width:80px; align-items:center; text-align:center;">
+              <svg viewBox="0 0 100 100" style="width:30px;height:30px;">
+                <circle cx="50" cy="50" r="48" fill="#000000" />
+                <path d="M 71.8 79.1 A 38 38 0 1 0 28.2 79.1 L 37.4 66.0 A 22 22 0 1 1 62.6 66.0 Z" fill="#ffffff"/>
+                <polygon points="56,30 38,53 51,53 41,77 64,45 51,45" fill="#fab816"/>
+              </svg>
+              <span style="font-size:7.5px; font-weight:800; margin-top:2px;">OPENELÉTRICA</span>
+            </div>
+            <div class="carimbo-cell" style="flex:1;">
+              <span class="carimbo-lbl">Obra / Título do Projeto:</span>
+              <span class="carimbo-val" id="sheet-stamp-title">PROJETO DE INSTALAÇÕES ELÉTRICAS PREDIAIS</span>
+            </div>
+          </div>
+
+          <div class="carimbo-row">
+            <div class="carimbo-cell" style="flex:1.4;">
+              <span class="carimbo-lbl">Proprietário:</span>
+              <span class="carimbo-val" id="sheet-stamp-owner">PROPRIETÁRIO EXEMPLO</span>
+            </div>
+            <div class="carimbo-cell" style="flex:1.6;">
+              <span class="carimbo-lbl">Local / Endereço:</span>
+              <span class="carimbo-val" id="sheet-stamp-address">RUA DAS PALMEIRAS, Nº 100</span>
+            </div>
+          </div>
+
+          <div class="carimbo-row">
+            <div class="carimbo-cell" style="flex:1.4;">
+              <span class="carimbo-lbl">Responsável Técnico:</span>
+              <span class="carimbo-val" id="sheet-stamp-engineer">ENG. ELETRICISTA RESPONSÁVEL</span>
+            </div>
+            <div class="carimbo-cell" style="flex:1.6;">
+              <span class="carimbo-lbl">Registro Profissional:</span>
+              <span class="carimbo-val" id="sheet-stamp-crea">CREA/CAU: 000000000-0</span>
+            </div>
+          </div>
+
+          <div class="carimbo-row" style="flex:0.8;">
+            <div class="carimbo-cell" style="flex:1;">
+              <span class="carimbo-lbl">Escala:</span>
+              <span class="carimbo-val" id="sheet-stamp-scale">1:50</span>
+            </div>
+            <div class="carimbo-cell" style="flex:1;">
+              <span class="carimbo-lbl">Data:</span>
+              <span class="carimbo-val">05/11/2026</span>
+            </div>
+            <div class="carimbo-cell" style="flex:1;">
+              <span class="carimbo-lbl">Folha:</span>
+              <span class="carimbo-val">01 / 01</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Toast Flutuante de Alertas e Notificações -->
+  <div id="toast-notification"></div>
+
+  <!-- 4. Modais do Sistema -->
+  
+  <!-- Modal A: Quadro de Cargas -->
+  <div class="modal-overlay" id="modal-quadro-cargas">
+    <div class="modal-box">
+      <div class="modal-header">
+        <div class="modal-title">
+          <svg width="18" height="18" fill="none" stroke="#0284c7" stroke-width="2" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"></rect><path d="M3 9h18M3 15h18M9 3v18M15 3v18"></path></svg>
+          Quadro de Cargas & Dimensionamento — QD1 (NBR 5410)
+        </div>
+        <button class="modal-close" data-close="modal-quadro-cargas">✕</button>
+      </div>
+      <div class="modal-body">
+        <table class="table-nbr">
+          <thead>
+            <tr>
+              <th>Circ.</th>
+              <th>Descrição / Carga</th>
+              <th>Tensão</th>
+              <th>Pot. (W)</th>
+              <th>Corrente Ib</th>
+              <th>Bitola (Fase/Neutro/Terra)</th>
+              <th>Disjuntor</th>
+              <th>Queda ΔV</th>
+              <th>Eletroduto</th>
+              <th>Fase</th>
+            </tr>
+          </thead>
+          <tbody id="table-quadro-body">
+            <!-- Preenchido dinamicamente -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal B: Gerenciamento de Camadas (Layers) -->
+  <div class="modal-overlay" id="modal-layers">
+    <div class="modal-box" style="max-width: 520px;">
+      <div class="modal-header">
+        <div class="modal-title">
+          <svg width="18" height="18" fill="none" stroke="#0284c7" stroke-width="2" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+          Gerenciador de Camadas (Layers)
+        </div>
+        <button class="modal-close" data-close="modal-layers">✕</button>
+      </div>
+      <div class="modal-body" id="layers-list-container">
+        <!-- Renderizado dinamicamente -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal C: Legenda de Símbolos ABNT -->
+  <div class="modal-overlay" id="modal-legenda">
+    <div class="modal-box" style="max-width: 780px;">
+      <div class="modal-header">
+        <div class="modal-title">
+          <svg width="18" height="18" fill="none" stroke="#0284c7" stroke-width="2" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+          Convenções & Legenda de Símbolos ABNT (NBR 5444 / NBR 5410)
+        </div>
+        <button class="modal-close" data-close="modal-legenda">✕</button>
+      </div>
+      <div class="modal-body">
+        <table class="table-nbr">
+          <thead>
+            <tr>
+              <th style="width: 70px;">Símbolo</th>
+              <th>Significado Normativo</th>
+              <th>Altura Típica</th>
+              <th>Notas Técnicas</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td align="center">
+                <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="#000" stroke-width="1.6"/><line x1="3" y1="12" x2="21" y2="12" stroke="#000" stroke-width="1.6"/><line x1="12" y1="12" x2="12" y2="21" stroke="#000" stroke-width="1.6"/></svg>
+              </td>
+              <td><strong>Ponto de Luz no Teto</strong></td>
+              <td>No teto (2,80m)</td>
+              <td>Círculo dividido: superior = Potência (W); inferior esq = Circuito; inferior dir = Comando.</td>
+            </tr>
+            <tr>
+              <td align="center">
+                <svg width="24" height="24" viewBox="0 0 24 24"><polygon points="12 4 4 19 20 19" fill="none" stroke="#000" stroke-width="1.8"/></svg>
+              </td>
+              <td><strong>Tomada de Uso Geral (TUG) Baixa</strong></td>
+              <td>0,30 m do piso</td>
+              <td>Triângulo vazio para aparelhos portáteis comuns (100W a 600W).</td>
+            </tr>
+            <tr>
+              <td align="center">
+                <svg width="24" height="24" viewBox="0 0 24 24"><polygon points="12 4 4 19 20 19" fill="none" stroke="#000" stroke-width="1.8"/><polygon points="12 4 4 19 12 19" fill="#000"/></svg>
+              </td>
+              <td><strong>Tomada Média (TUG)</strong></td>
+              <td>1,20 m do piso</td>
+              <td>Triângulo meio preenchido para bancadas, pias e áreas molhadas.</td>
+            </tr>
+            <tr>
+              <td align="center">
+                <svg width="24" height="24" viewBox="0 0 24 24"><polygon points="12 4 4 19 20 19" fill="#000" stroke="#000" stroke-width="1.8"/></svg>
+              </td>
+              <td><strong>Tomada Alta / TUE (Específica)</strong></td>
+              <td>2,00 a 2,20 m</td>
+              <td>Triângulo totalmente preenchido para Chuveiro, Ar Condicionado, etc.</td>
+            </tr>
+            <tr>
+              <td align="center">
+                <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" fill="none" stroke="#000" stroke-width="1.6"/><line x1="12" y1="5" x2="12" y2="1" stroke="#000" stroke-width="1.6"/></svg>
+              </td>
+              <td><strong>Interruptor Simples (S1)</strong></td>
+              <td>1,20 m do piso</td>
+              <td>Comando unipolar com letra indicativa.</td>
+            </tr>
+            <tr>
+              <td align="center">
+                <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" fill="none" stroke="#000" stroke-width="1.6"/><path d="M12 5 A 7 7 0 0 1 12 19 Z" fill="#000"/><line x1="12" y1="5" x2="12" y2="1" stroke="#000" stroke-width="1.6"/></svg>
+              </td>
+              <td><strong>Interruptor Paralelo (Three-Way)</strong></td>
+              <td>1,20 m do piso</td>
+              <td>Permite ligar e desligar a mesma lâmpada de 2 pontos distintos.</td>
+            </tr>
+            <tr>
+              <td align="center">
+                <svg width="32" height="18" viewBox="0 0 32 18"><rect x="2" y="2" width="28" height="14" fill="#fff" stroke="#000" stroke-width="1.6"/><polygon points="2 2 30 2 2 16" fill="#000"/></svg>
+              </td>
+              <td><strong>Quadro de Distribuição (QDC)</strong></td>
+              <td>1,40 a 1,60 m</td>
+              <td>Centro de proteção e derivação de todos os circuitos terminais.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal D: Formatação de Folha / Prancha ABNT -->
+  <div class="modal-overlay" id="modal-layout-sheet">
+    <div class="modal-box" style="max-width: 600px;">
+      <div class="modal-header">
+        <div class="modal-title">
+          <svg width="18" height="18" fill="none" stroke="#0284c7" stroke-width="2" viewBox="0 0 24 24"><rect width="18" height="14" x="3" y="5" rx="2"></rect><line x1="3" y1="15" x2="21" y2="15"></line></svg>
+          Formatação de Prancha & Carimbo Técnico ABNT
+        </div>
+        <button class="modal-close" data-close="modal-layout-sheet">✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label>Formato de Folha</label>
+            <select class="form-control" id="sheet-size">
+              <option value="A4">A4 (297 x 210 mm)</option>
+              <option value="A3">A3 (420 x 297 mm)</option>
+              <option value="A2">A2 (594 x 420 mm)</option>
+              <option value="A1" selected>A1 (841 x 594 mm)</option>
+              <option value="A0">A0 (1189 x 841 mm)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Escala Gráfica</label>
+            <select class="form-control" id="sheet-scale">
+              <option value="50" selected>1:50 (Padrão Predial)</option>
+              <option value="75">1:75</option>
+              <option value="100">1:100</option>
+              <option value="200">1:200</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Título da Obra / Projeto</label>
+          <input type="text" class="form-control" id="stamp-title" value="PROJETO DE INSTALAÇÕES ELÉTRICAS PREDIAIS" />
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label>Proprietário</label>
+            <input type="text" class="form-control" id="stamp-owner" value="PROPRIETÁRIO EXEMPLO" />
+          </div>
+          <div class="form-group">
+            <label>Endereço / Local</label>
+            <input type="text" class="form-control" id="stamp-address" value="RUA DAS PALMEIRAS, Nº 100" />
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label>Responsável Técnico</label>
+            <input type="text" class="form-control" id="stamp-engineer" value="ENG. ELETRICISTA RESPONSÁVEL" />
+          </div>
+          <div class="form-group">
+            <label>Registro CREA / CAU</label>
+            <input type="text" class="form-control" id="stamp-crea" value="CREA-SP 5061234567/D" />
+          </div>
+        </div>
+
+        <div style="margin-top: 10px; display: flex; justify-content: flex-end;">
+          <button class="btn-ai-regenerate" style="background:#0284c7;" id="btn-save-stamp">
+            Salvar Parâmetros da Prancha
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal E: Visualizador 3D Isométrico -->
+  <div class="modal-overlay" id="modal-3d">
+    <div class="modal-box" style="max-width: 960px; height: 75vh;">
+      <div class="modal-header">
+        <div class="modal-title">
+          <svg width="18" height="18" fill="none" stroke="#0284c7" stroke-width="2" viewBox="0 0 24 24"><path d="m21 16-9 5-9-5V8l9-5 9 5v8Z"></path><path d="m3 8 9 5 9-5"></path><path d="M12 13v8"></path></svg>
+          Visualizador 3D Axonométrico (Extrusão de Alvenaria e Alturas Normativas)
+        </div>
+        <button class="modal-close" data-close="modal-3d">✕</button>
+      </div>
+      <div class="modal-body" style="padding:0; overflow:hidden; position:relative; background:#0f172a;">
+        <canvas id="canvas-3d" style="width:100%; height:100%; display:block;"></canvas>
+        <div style="position:absolute; bottom:12px; left:16px; color:#94a3b8; font-size:11px; background:rgba(0,0,0,0.6); padding:4px 8px; border-radius:4px;">
+          Arraste com o botão esquerdo para orbitar a maquete 3D.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal F: Gerenciador de Circuitos & Quadros (QGBT / QD) -->
+  <div class="modal-overlay" id="modal-circuits">
+    <div class="modal-box" style="max-width: 980px;">
+      <div class="modal-header">
+        <div class="modal-title">
+          <svg width="18" height="18" fill="none" stroke="#0284c7" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"></path></svg>
+          Gerenciador de Quadros & Circuitos Terminais (QGBT Geral & Quadros Parciais)
+        </div>
+        <button class="modal-close" data-close="modal-circuits">✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:12px; font-weight:700; color:#475569;">Quadro:</span>
+            <select class="form-control" id="select-active-panel-filter" style="width:200px; padding:4px 8px; font-size:12px;">
+              <option value="ALL">Todos os Quadros</option>
+              <option value="QD1" selected>QD1 — Quadro Parcial 1</option>
+              <option value="QGBT">QGBT — Quadro Geral Baixa Tensão</option>
+            </select>
+          </div>
+          <button class="btn-eng-action primary" id="btn-add-new-circuit">
+            + Adicionar Circuito
+          </button>
+        </div>
+
+        <table class="table-nbr" id="table-circuits-manage">
+          <thead>
+            <tr>
+              <th style="width:55px;">Circ.</th>
+              <th>Descrição do Circuito</th>
+              <th style="width:80px;">Quadro</th>
+              <th style="width:75px;">Tensão</th>
+              <th style="width:65px;">Fases</th>
+              <th style="width:85px;">Tipo</th>
+              <th style="width:80px;">Potência (W)</th>
+              <th style="width:100px;">Disjuntor DIN</th>
+              <th style="width:110px;">Proteção DR</th>
+              <th style="width:50px;">Ação</th>
+            </tr>
+          </thead>
+          <tbody id="table-circuits-body">
+            <!-- Preenchido dinamicamente via JS -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. Lógica da Aplicação -->
+  <script type="module">
+    import { CadEngine, sizeCircuit, Vector2D } from './src/cad-engine.js';
+
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const engine = new CadEngine();
+
+    // Notificações Toast
+    const toastEl = document.getElementById('toast-notification');
+    let toastTimeout = null;
+    function showToast(message, type = 'info') {
+      if (!toastEl) return;
+      toastEl.className = type;
+      toastEl.innerHTML = `
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:18px;height:18px;flex-shrink:0;">
+          ${type === 'warning' 
+            ? '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line>'
+            : '<circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline>'}
+        </svg>
+        <span>${message}</span>
+      `;
+      toastEl.style.display = 'flex';
+      clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => { toastEl.style.display = 'none'; }, 4000);
+    }
+
+    function resize() {
+      if (canvas.parentElement && canvas.parentElement.clientWidth) {
+        canvas.width = canvas.parentElement.clientWidth;
+        canvas.height = canvas.parentElement.clientHeight;
+        engine.render(ctx, canvas.width, canvas.height);
+      }
+    }
+    window.addEventListener('resize', resize);
+
+    // ==================== CENÁRIO DEMONSTRATIVO ====================
+    engine.walls = [
+      // Perímetro Externo
+      { id: 'w1', a: { x: 1.0, y: 1.0 }, b: { x: 10.0, y: 1.0 }, thickness: 0.15 },
+      { id: 'w2', a: { x: 10.0, y: 1.0 }, b: { x: 10.0, y: 11.0 }, thickness: 0.15 },
+      { id: 'w3', a: { x: 10.0, y: 11.0 }, b: { x: 1.0, y: 11.0 }, thickness: 0.15 },
+      { id: 'w4', a: { x: 1.0, y: 11.0 }, b: { x: 1.0, y: 1.0 }, thickness: 0.15 },
+      // Divisórias Internas
+      { id: 'w5', a: { x: 1.0, y: 4.5 }, b: { x: 6.5, y: 4.5 }, thickness: 0.15 },
+      { id: 'w6', a: { x: 6.5, y: 1.0 }, b: { x: 6.5, y: 6.5 }, thickness: 0.15 },
+      { id: 'w7', a: { x: 6.5, y: 6.5 }, b: { x: 10.0, y: 6.5 }, thickness: 0.15 }
+    ];
+
+    engine.rooms = [
+      { id: 'r1', name: 'TERRAÇO', pos: { x: 3.5, y: 2.8 }, areaM2: 18.2 },
+      { id: 'r2', name: 'SALA COMERCIAL', pos: { x: 3.5, y: 7.8 }, areaM2: 32.5 },
+      { id: 'r3', name: 'CIRCULAÇÃO / COZINHA', pos: { x: 8.2, y: 3.8 }, areaM2: 16.0 }
+    ];
+
+    engine.doors = [
+      { id: 'd1', pos: { x: 5.2, y: 4.5 }, radius: 0.8, startAngle: 0, endAngle: Math.PI / 2, rotation: 0, orientationIndex: 0 },
+      { id: 'd2', pos: { x: 8.0, y: 6.5 }, radius: 0.8, startAngle: 0, endAngle: Math.PI / 2, rotation: 0, orientationIndex: 0 }
+    ];
+
+    engine.windows = [
+      { id: 'win1', pos: { x: 3.5, y: 1.0 }, width: 1.5, rotation: 0 },
+      { id: 'win2', pos: { x: 10.0, y: 8.5 }, width: 1.2, rotation: Math.PI / 2 }
+    ];
+
+    // Cotas Técnicas Iniciais (NBR 6492)
+    engine.dimensions = [
+      { id: 'dim1', a: { x: 1.0, y: 1.0 }, b: { x: 10.0, y: 1.0 }, dist: 9.0, offset: 0.8 },
+      { id: 'dim2', a: { x: 1.0, y: 1.0 }, b: { x: 1.0, y: 11.0 }, dist: 10.0, offset: -0.8 }
+    ];
+
+    // Pontos Elétricos Lançados
+    const qd = engine.addNode('distribution_board', { x: 1.15, y: 10.2 });
+    const lamp1 = engine.addNode('light_ceiling', { x: 3.5, y: 2.8 }, 1, 'a');
+    const lamp2 = engine.addNode('light_ceiling', { x: 3.5, y: 7.8 }, 1, 'b');
+    const lamp3 = engine.addNode('light_ceiling', { x: 8.2, y: 3.8 }, 5, 'c');
+
+    const sw1 = engine.addNode('switch_simple', { x: 1.15, y: 3.5 }, 1, 'a');
+    const sw2 = engine.addNode('switch_simple', { x: 1.15, y: 6.5 }, 1, 'b');
+    const sw3 = engine.addNode('switch_simple', { x: 6.65, y: 3.5 }, 5, 'c');
+
+    const t1 = engine.addNode('outlet_medium', { x: 1.15, y: 2.0 }, 2);
+    const t2 = engine.addNode('outlet_medium', { x: 5.8, y: 1.15 }, 2);
+    const t3 = engine.addNode('outlet_medium', { x: 3.5, y: 10.85 }, 4);
+    const t4 = engine.addNode('outlet_high', { x: 9.85, y: 2.5 }, 3); // Chuveiro 5500W
+    t4.powerWatts = 5500;
+
+    // Eletrodutos Curvados
+    engine.addConduit(qd.id, lamp2.id, 'ceiling', -1);
+    engine.addConduit(lamp2.id, lamp1.id, 'ceiling', 1);
+    engine.addConduit(lamp1.id, lamp3.id, 'ceiling', -1);
+
+    engine.addConduit(lamp1.id, sw1.id, 'wall', 1);
+    engine.addConduit(lamp2.id, sw2.id, 'wall', 1);
+    engine.addConduit(lamp3.id, sw3.id, 'wall', -1);
+
+    engine.addConduit(lamp1.id, t1.id, 'ceiling', -1);
+    engine.addConduit(lamp1.id, t2.id, 'ceiling', 1);
+    engine.addConduit(lamp2.id, t3.id, 'ceiling', -1);
+    engine.addConduit(lamp3.id, t4.id, 'ceiling', 1);
+
+    // Posição inicial agradável
+    engine.viewport.panX = 70;
+    engine.viewport.panY = 40;
+    engine.viewport.zoom = 52;
+    engine.recalculateWiring();
+    engine.saveSnapshot();
+
+    // ==================== SUB-BARRA DE CONTEXTO DINÂMICA ====================
+    const subtoolbarEl = document.getElementById('context-subtoolbar');
+
+    function updateContextSubtoolbar() {
+      if (!subtoolbarEl) return;
+      const tool = engine.activeTool;
+
+      if (tool === 'wall') {
+        const curTh = engine.currentWallThickness || 0.15;
+        subtoolbarEl.innerHTML = `
+          <span class="context-title">Espessura da Parede:</span>
+          <button class="context-chip ${curTh === 0.10 ? 'active' : ''}" data-wall-th="0.10">0.10 m (Drywall)</button>
+          <button class="context-chip ${curTh === 0.15 ? 'active' : ''}" data-wall-th="0.15">0.15 m (Padrão)</button>
+          <button class="context-chip ${curTh === 0.20 ? 'active' : ''}" data-wall-th="0.20">0.20 m (Estrutural)</button>
+          <span style="color:#94a3b8; font-size:11px; margin-left:4px;">Personalizada:</span>
+          <input type="number" step="0.01" class="context-input" id="input-custom-wall-th" value="${curTh}" /> m
+          <div class="context-badge-info">
+            <span>⟂ Snap Perpendicular (90°) e Ortho 45° ativados para fechamento de cômodos</span>
+          </div>
+        `;
+
+        subtoolbarEl.querySelectorAll('[data-wall-th]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            engine.currentWallThickness = parseFloat(btn.dataset.wallTh);
+            updateContextSubtoolbar();
+          });
+        });
+        const inp = document.getElementById('input-custom-wall-th');
+        if (inp) {
+          inp.addEventListener('change', (e) => {
+            const val = parseFloat(e.target.value);
+            if (val > 0.04 && val < 1.0) {
+              engine.currentWallThickness = val;
+              updateContextSubtoolbar();
+            }
+          });
+        }
+      } else if (tool === 'door') {
+        const curW = engine.currentDoorWidth || 0.80;
+        const curOrient = engine.doorOrientationIndex || 0;
+        const curType = engine.currentDoorType || 'abrir';
+
+        subtoolbarEl.innerHTML = `
+          <!-- 6 Tipologias Arquitetônicas Canônicas de Portas (NBR 6492) -->
+          <span class="context-title">Tipo:</span>
+          <button class="context-chip ${curType === 'abrir' ? 'active' : ''}" data-door-type="abrir" title="Porta de Giro tradicional ABNT (90°)">Abrir</button>
+          <button class="context-chip ${curType === 'pivotante' ? 'active' : ''}" data-door-type="pivotante" title="Porta Pivotante com eixo recuado do marco">Pivotante</button>
+          <button class="context-chip ${curType === 'embutida' ? 'active' : ''}" data-door-type="embutida" title="Porta Embutida na parede (Pocket Door)">Embutida</button>
+          <button class="context-chip ${curType === 'correr' ? 'active' : ''}" data-door-type="correr" title="Porta de Correr com trilho rente à alvenaria">Correr</button>
+          <button class="context-chip ${curType === 'articulada' ? 'active' : ''}" data-door-type="articulada" title="Porta Camarão / Articulada em V">Articulada</button>
+          <button class="context-chip ${curType === 'sanfonada' ? 'active' : ''}" data-door-type="sanfonada" title="Porta Sanfonada em zig-zag">Sanfonada</button>
+
+          <div class="divider-v"></div>
+
+          <span class="context-title">Vão:</span>
+          <button class="context-chip ${curW === 0.60 ? 'active' : ''}" data-door-w="0.60">0.60 m</button>
+          <button class="context-chip ${curW === 0.70 ? 'active' : ''}" data-door-w="0.70">0.70 m</button>
+          <button class="context-chip ${curW === 0.80 ? 'active' : ''}" data-door-w="0.80">0.80 m (Padrão)</button>
+          <button class="context-chip ${curW === 1.00 ? 'active' : ''}" data-door-w="1.00">1.00 m</button>
+          <button class="context-chip ${curW === 1.20 ? 'active' : ''}" data-door-w="1.20">1.20 m</button>
+          <span style="color:#94a3b8; font-size:11px; margin-left:4px;">Personalizada:</span>
+          <input type="number" step="0.05" class="context-input" id="input-custom-door-w" value="${curW}" /> m
+          
+          <div class="divider-v"></div>
+
+          <!-- 4 Miniaturas Visuais dos Sentidos de Abertura (Substitui texto por desenho vetorial canônico) -->
+          <span class="context-title" style="margin-left:4px;">Giro [Espaço]:</span>
+          <div style="display:flex; align-items:center; gap:4px;">
+            <button class="context-chip ${curOrient === 0 ? 'active' : ''}" data-door-orient="0" title="Sentido 1: Dobradiça à Esquerda / Abre para Dentro" style="padding:2px 6px;">
+              <svg width="22" height="22" viewBox="0 0 24 24"><line x1="2" y1="18" x2="22" y2="18" stroke="#475569" stroke-width="2"/><line x1="6" y1="18" x2="6" y2="6" stroke="#0284c7" stroke-width="2.2"/><path d="M 18 18 A 12 12 0 0 0 6 6" fill="none" stroke="#94a3b8" stroke-dasharray="2 2" stroke-width="1.2"/><circle cx="6" cy="18" r="2" fill="#0284c7"/></svg>
+            </button>
+            <button class="context-chip ${curOrient === 1 ? 'active' : ''}" data-door-orient="1" title="Sentido 2: Dobradiça à Direita / Abre para Dentro" style="padding:2px 6px;">
+              <svg width="22" height="22" viewBox="0 0 24 24"><line x1="2" y1="18" x2="22" y2="18" stroke="#475569" stroke-width="2"/><line x1="18" y1="18" x2="18" y2="6" stroke="#0284c7" stroke-width="2.2"/><path d="M 6 18 A 12 12 0 0 1 18 6" fill="none" stroke="#94a3b8" stroke-dasharray="2 2" stroke-width="1.2"/><circle cx="18" cy="18" r="2" fill="#0284c7"/></svg>
+            </button>
+            <button class="context-chip ${curOrient === 2 ? 'active' : ''}" data-door-orient="2" title="Sentido 3: Dobradiça à Direita / Abre para Fora" style="padding:2px 6px;">
+              <svg width="22" height="22" viewBox="0 0 24 24"><line x1="2" y1="6" x2="22" y2="6" stroke="#475569" stroke-width="2"/><line x1="18" y1="6" x2="18" y2="18" stroke="#0284c7" stroke-width="2.2"/><path d="M 6 6 A 12 12 0 0 0 18 18" fill="none" stroke="#94a3b8" stroke-dasharray="2 2" stroke-width="1.2"/><circle cx="18" cy="6" r="2" fill="#0284c7"/></svg>
+            </button>
+            <button class="context-chip ${curOrient === 3 ? 'active' : ''}" data-door-orient="3" title="Sentido 4: Dobradiça à Esquerda / Abre para Fora" style="padding:2px 6px;">
+              <svg width="22" height="22" viewBox="0 0 24 24"><line x1="2" y1="6" x2="22" y2="6" stroke="#475569" stroke-width="2"/><line x1="6" y1="6" x2="6" y2="18" stroke="#0284c7" stroke-width="2.2"/><path d="M 18 6 A 12 12 0 0 1 6 18" fill="none" stroke="#94a3b8" stroke-dasharray="2 2" stroke-width="1.2"/><circle cx="6" cy="6" r="2" fill="#0284c7"/></svg>
+            </button>
+          </div>
+
+          <div class="context-badge-info">
+            <span>📏 Atracamento automático a 10cm da quina (Boneca)</span>
+          </div>
+        `;
+
+        subtoolbarEl.querySelectorAll('[data-door-type]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            engine.currentDoorType = btn.dataset.doorType;
+            if (engine.selectedElement && engine.selectedElement.type === 'door') {
+              const d = engine.doors[engine.selectedElement.index];
+              if (d) {
+                d.type = engine.currentDoorType;
+                engine.saveSnapshot();
+              }
+            }
+            engine.notify();
+            updateContextSubtoolbar();
+          });
+        });
+        subtoolbarEl.querySelectorAll('[data-door-w]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            engine.currentDoorWidth = parseFloat(btn.dataset.doorW);
+            updateContextSubtoolbar();
+          });
+        });
+        subtoolbarEl.querySelectorAll('[data-door-orient]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            engine.doorOrientationIndex = parseInt(btn.dataset.doorOrient);
+            if (engine.selectedElement && engine.selectedElement.type === 'door') {
+              const d = engine.doors[engine.selectedElement.index];
+              if (d) {
+                d.orientationIndex = engine.doorOrientationIndex;
+                engine.saveSnapshot();
+              }
+            }
+            engine.notify();
+            updateContextSubtoolbar();
+          });
+        });
+        const inp = document.getElementById('input-custom-door-w');
+        if (inp) {
+          inp.addEventListener('change', (e) => {
+            const val = parseFloat(e.target.value);
+            if (val > 0.4 && val < 3.0) {
+              engine.currentDoorWidth = val;
+              updateContextSubtoolbar();
+            }
+          });
+        }
+      } else if (tool === 'window') {
+        const curW = engine.currentWindowWidth || 1.20;
+        subtoolbarEl.innerHTML = `
+          <span class="context-title">Largura da Janela:</span>
+          <button class="context-chip ${curW === 1.00 ? 'active' : ''}" data-win-w="1.00">1.00 m</button>
+          <button class="context-chip ${curW === 1.20 ? 'active' : ''}" data-win-w="1.20">1.20 m (Padrão)</button>
+          <button class="context-chip ${curW === 1.50 ? 'active' : ''}" data-win-w="1.50">1.50 m</button>
+          <button class="context-chip ${curW === 2.00 ? 'active' : ''}" data-win-w="2.00">2.00 m</button>
+          <span style="color:#94a3b8; font-size:11px; margin-left:4px;">Peitoril:</span>
+          <input type="number" step="0.1" class="context-input" value="1.00" readonly /> m
+          <div class="context-badge-info">
+            <span>Alinhamento automático magnético com o eixo e ângulo da alvenaria</span>
+          </div>
+        `;
+        subtoolbarEl.querySelectorAll('[data-win-w]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            engine.currentWindowWidth = parseFloat(btn.dataset.winW);
+            updateContextSubtoolbar();
+          });
+        });
+      } else if (tool === 'room') {
+        const curName = engine.currentRoomName || 'SALA DE ESTAR';
+        subtoolbarEl.innerHTML = `
+          <span class="context-title">Identificação do Cômodo:</span>
+          <button class="context-chip ${curName === 'SALA DE ESTAR' ? 'active' : ''}" data-room-name="SALA DE ESTAR">SALA</button>
+          <button class="context-chip ${curName === 'COZINHA' ? 'active' : ''}" data-room-name="COZINHA">COZINHA</button>
+          <button class="context-chip ${curName === 'QUARTO' ? 'active' : ''}" data-room-name="QUARTO">QUARTO</button>
+          <button class="context-chip ${curName === 'SUÍTE' ? 'active' : ''}" data-room-name="SUÍTE">SUÍTE</button>
+          <button class="context-chip ${curName === 'BANHEIRO' ? 'active' : ''}" data-room-name="BANHEIRO">BANHEIRO</button>
+          <button class="context-chip ${curName === 'ÁREA DE SERVIÇO' ? 'active' : ''}" data-room-name="ÁREA DE SERVIÇO">ÁREA DE SERV.</button>
+          <button class="context-chip ${curName === 'VARANDA' ? 'active' : ''}" data-room-name="VARANDA">VARANDA</button>
+          <span style="color:#94a3b8; font-size:11px; margin-left:4px;">Nome:</span>
+          <input type="text" class="context-input" id="input-custom-room-name" style="width:140px;" value="${curName}" />
+          <div class="context-badge-info">
+            <span>Anti-sobreposição ativada: calcula área, iluminação VA e TUGs mínimas</span>
+          </div>
+        `;
+        subtoolbarEl.querySelectorAll('[data-room-name]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            engine.currentRoomName = btn.dataset.roomName;
+            updateContextSubtoolbar();
+          });
+        });
+        const inp = document.getElementById('input-custom-room-name');
+        if (inp) {
+          inp.addEventListener('input', (e) => {
+            engine.currentRoomName = e.target.value.toUpperCase();
+          });
+        }
+      } else if (tool === 'dimension') {
+        subtoolbarEl.innerHTML = `
+          <span class="context-title">Cotas Técnicas (NBR 6492):</span>
+          <span style="color:#475569; font-size:11.5px;">Clique no primeiro ponto (origem) e depois no segundo ponto (destino) da cota. Pressione <kbd style="background:#f1f5f9;padding:2px 5px;border-radius:3px;border:1px solid #cbd5e1;font-weight:700;">Esc</kbd> para cancelar.</span>
+          <div class="context-badge-info">
+            <span>📏 Atracamento magnético em quinas de parede, portas e tomadas</span>
+          </div>
+        `;
+      } else if (tool === 'add_node') {
+        subtoolbarEl.innerHTML = `
+          <span class="context-title">Lançamento Elétrico:</span>
+          <span style="color:#475569; font-size:11.5px;">Elemento: <strong>${engine.pendingNodeType || 'Ponto'}</strong></span>
+          <div class="divider-v"></div>
+          <span style="color:#94a3b8; font-size:11px;">Circuito:</span>
+          <select class="form-control" id="select-active-circ" style="width:100px; padding:3px 6px; font-size:11.5px;">
+            <option value="1" selected>Circuito 1</option>
+            <option value="2">Circuito 2</option>
+            <option value="3">Circuito 3</option>
+            <option value="4">Circuito 4</option>
+            <option value="5">Circuito 5</option>
+          </select>
+          <div class="context-badge-info">
+            <span>Clique no ponto desejado para posicionar. Aderência automática a eletrodutos e paredes.</span>
+          </div>
+        `;
+      } else {
+        // Modo Seleção ou Geral
+        subtoolbarEl.innerHTML = `
+          <span class="context-title">Modo Seleção:</span>
+          <span style="color:#475569; font-size:11.5px;">Pressione <kbd style="background:#f1f5f9;padding:2px 5px;border-radius:3px;border:1px solid #cbd5e1;font-weight:700;">Tab ⇥</kbd> para alternar elementos sob o mouse (estilo Revit) e clique para selecionar. Arraste para mover ou pressione <kbd style="background:#f1f5f9;padding:2px 5px;border-radius:3px;border:1px solid #cbd5e1;font-weight:700;">Del</kbd> para excluir.</span>
+          <div class="context-badge-info">
+            <span>Status da rede: ${engine.conduits.length} eletrodutos, ${engine.wireAllocations.size} trechos alimentados</span>
+          </div>
+        `;
+      }
+    }
+    updateContextSubtoolbar();
+
+    // ==================== SINCRONIZAÇÃO DO INSPETOR ====================
+    window.__showToast = showToast;
+
+    function deleteCurrentSelection() {
+      if (engine.selectedNodeId) {
+        engine.saveSnapshot();
+        engine.nodes = engine.nodes.filter(n => n.id !== engine.selectedNodeId);
+        engine.conduits = engine.conduits.filter(c => c.nodeAId !== engine.selectedNodeId && c.nodeBId !== engine.selectedNodeId);
+        engine.selectedNodeId = null;
+        engine.selectedElement = null;
+        engine.recalculateWiring();
+        engine.render(ctx, canvas.width, canvas.height);
+        document.getElementById('inspector-drawer').classList.remove('open');
+        showToast('Ponto elétrico excluído.');
+        return;
+      }
+
+      if (engine.selectedElements && engine.selectedElements.length > 0) {
+        engine.saveSnapshot();
+        const nodeIdsToDelete = new Set();
+        const wallIndices = [];
+        const doorIndices = [];
+        const winIndices = [];
+        const dimIndices = [];
+
+        for (const item of engine.selectedElements) {
+          if (item.type === 'node') nodeIdsToDelete.add(item.id);
+          else if (item.type === 'wall') wallIndices.push(item.index);
+          else if (item.type === 'door') doorIndices.push(item.index);
+          else if (item.type === 'window') winIndices.push(item.index);
+          else if (item.type === 'dimension') dimIndices.push(item.index);
+        }
+
+        if (nodeIdsToDelete.size > 0) {
+          engine.nodes = engine.nodes.filter(n => !nodeIdsToDelete.has(n.id));
+          engine.conduits = engine.conduits.filter(c => !nodeIdsToDelete.has(c.nodeAId) && !nodeIdsToDelete.has(c.nodeBId));
+          engine.recalculateWiring();
+        }
+        if (wallIndices.length > 0) {
+          wallIndices.sort((a, b) => b - a).forEach(idx => engine.walls.splice(idx, 1));
+        }
+        if (doorIndices.length > 0) {
+          doorIndices.sort((a, b) => b - a).forEach(idx => engine.doors.splice(idx, 1));
+        }
+        if (winIndices.length > 0) {
+          winIndices.sort((a, b) => b - a).forEach(idx => engine.windows.splice(idx, 1));
+        }
+        if (dimIndices.length > 0) {
+          dimIndices.sort((a, b) => b - a).forEach(idx => engine.dimensions.splice(idx, 1));
+        }
+
+        const count = engine.selectedElements.length;
+        engine.selectedElements = [];
+        engine.selectedElement = null;
+        engine.selectedNodeId = null;
+        engine.render(ctx, canvas.width, canvas.height);
+        document.getElementById('inspector-drawer').classList.remove('open');
+        showToast(`${count} elementos excluídos.`);
+        return;
+      }
+
+      if (engine.selectedElement && !engine.isPlanLocked) {
+        engine.saveSnapshot();
+        if (engine.selectedElement.type === 'wall') {
+          engine.walls.splice(engine.selectedElement.index, 1);
+        } else if (engine.selectedElement.type === 'door') {
+          engine.doors.splice(engine.selectedElement.index, 1);
+        } else if (engine.selectedElement.type === 'window') {
+          engine.windows.splice(engine.selectedElement.index, 1);
+        } else if (engine.selectedElement.type === 'room') {
+          engine.rooms.splice(engine.selectedElement.index, 1);
+        } else if (engine.selectedElement.type === 'dimension') {
+          engine.dimensions.splice(engine.selectedElement.index, 1);
+        }
+        engine.selectedElement = null;
+        engine.render(ctx, canvas.width, canvas.height);
+        document.getElementById('inspector-drawer').classList.remove('open');
+        showToast('Elemento excluído.');
+      }
+    }
+
+    function updateInspector() {
+      const drawer = document.getElementById('inspector-drawer');
+      const content = document.getElementById('inspector-content');
+
+      // 1. Ponto Elétrico
+      if (engine.selectedNodeId) {
+        const node = engine.nodes.find(n => n.id === engine.selectedNodeId);
+        if (!node) return;
+
+        drawer.classList.add('open');
+
+        const sizing = sizeCircuit({
+          powerWatts: node.powerWatts || 100,
+          voltage: node.voltage || 127,
+          circuitType: node.type.startsWith('light') ? 'light' : 'outlet',
+          nPhases: node.voltage === 220 ? 2 : 1,
+          lengthMeters: 18
+        });
+
+        let circOptions = '';
+        for (let i = 1; i <= 8; i++) {
+          circOptions += `<option value="${i}" ${node.circuitId === i ? 'selected' : ''}>Circuito ${i}</option>`;
+        }
+
+        content.innerHTML = `
+          <div class="prop-row"><span class="prop-label">Elemento:</span><span class="prop-val">${node.type}</span></div>
+          <div class="prop-row">
+            <span class="prop-label">Circuito:</span>
+            <select class="form-control" id="inspector-node-circ" style="width:110px; padding:2px 6px; font-size:11px;">
+              ${circOptions}
+            </select>
+          </div>
+          ${node.type.startsWith('light') || node.type.startsWith('switch') ? `
+            <div class="prop-row">
+              <span class="prop-label">Comando:</span>
+              <input type="text" class="form-control" id="inspector-node-cmd" value="${node.command || 'a'}" style="width:60px; padding:2px 6px; font-size:11px; text-align:center;" />
+            </div>
+          ` : ''}
+          <div class="prop-row">
+            <span class="prop-label">Potência:</span>
+            <div style="display:flex;align-items:center;gap:4px;">
+              <input type="number" step="10" class="form-control" id="inspector-node-pwr" value="${node.powerWatts || 100}" style="width:75px; padding:2px 6px; font-size:11px;" /> W
+            </div>
+          </div>
+          <div class="prop-row">
+            <span class="prop-label">Tensão:</span>
+            <select class="form-control" id="inspector-node-volt" style="width:85px; padding:2px 6px; font-size:11px;">
+              <option value="127" ${node.voltage === 127 ? 'selected' : ''}>127 V (F+N)</option>
+              <option value="220" ${node.voltage === 220 ? 'selected' : ''}>220 V (F+F)</option>
+            </select>
+          </div>
+          <div style="margin: 8px 0 4px 0; font-size:10.5px; font-weight:700; color:#0284c7;">DIMENSIONAMENTO NBR 5410</div>
+          <div class="prop-row"><span class="prop-label">Corrente Ib:</span><span class="prop-val">${sizing.currentIb} A</span></div>
+          <div class="prop-row"><span class="prop-label">Bitola do Cabo:</span><span class="prop-val">#${sizing.gaugeMm2} mm²</span></div>
+          <div class="prop-row"><span class="prop-label">Disjuntor DIN:</span><span class="prop-val">${sizing.breakerAmperes} A</span></div>
+          <div class="prop-row"><span class="prop-label">Queda ΔV:</span><span class="prop-val">${sizing.voltageDropPercent}%</span></div>
+          <div class="prop-row"><span class="prop-label">Eletroduto:</span><span class="prop-val">DN ${sizing.conduitDiameterMm} (3/4")</span></div>
+
+          <button class="btn-eng-action" id="btn-delete-element" style="margin-top:14px; width:100%; justify-content:center; color:#ef4444; border-color:#fca5a5; background:#fef2f2;">
+            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            Excluir Ponto (Del)
+          </button>
+        `;
+
+        document.getElementById('inspector-node-circ')?.addEventListener('change', (e) => {
+          node.circuitId = parseInt(e.target.value);
+          engine.saveSnapshot();
+          engine.recalculateWiring();
+          updateInspector();
+          engine.render(ctx, canvas.width, canvas.height);
+        });
+
+        document.getElementById('inspector-node-cmd')?.addEventListener('input', (e) => {
+          node.command = e.target.value.toLowerCase();
+          engine.saveSnapshot();
+          engine.render(ctx, canvas.width, canvas.height);
+        });
+
+        document.getElementById('inspector-node-pwr')?.addEventListener('change', (e) => {
+          node.powerWatts = parseFloat(e.target.value) || 100;
+          engine.saveSnapshot();
+          engine.recalculateWiring();
+          updateInspector();
+          engine.render(ctx, canvas.width, canvas.height);
+        });
+
+        document.getElementById('inspector-node-volt')?.addEventListener('change', (e) => {
+          node.voltage = parseInt(e.target.value);
+          engine.saveSnapshot();
+          engine.recalculateWiring();
+          updateInspector();
+          engine.render(ctx, canvas.width, canvas.height);
+        });
+
+        document.getElementById('btn-delete-element')?.addEventListener('click', deleteCurrentSelection);
+        return;
+      }
+
+      // 2. Elemento de Arquitetura (Ambiente, Parede, Porta, Janela)
+      if (engine.selectedElement) {
+        drawer.classList.add('open');
+
+        if (engine.selectedElement.type === 'room') {
+          const room = engine.rooms[engine.selectedElement.index];
+          if (room) {
+            const area = room.areaM2 || 12.0;
+            let ilumVA = 100;
+            if (area > 6) {
+              const extraChunks = Math.floor((area - 6) / 4);
+              ilumVA += extraChunks * 60;
+            }
+            const approxPerimeter = Math.sqrt(area) * 4;
+            const minTugs = area <= 6 ? 1 : Math.ceil(approxPerimeter / 5);
+
+            content.innerHTML = `
+              <div class="prop-row"><span class="prop-label">Ambiente:</span><span class="prop-val">${room.name}</span></div>
+              <div class="prop-row"><span class="prop-label">Área:</span><span class="prop-val">${area.toFixed(2)} m²</span></div>
+              <div class="prop-row"><span class="prop-label">Perímetro Aprox.:</span><span class="prop-val">${approxPerimeter.toFixed(2)} m</span></div>
+              <div style="margin: 10px 0 6px 0; font-size:11px; font-weight:700; color:#0284c7;">CRITÉRIOS NBR 5410</div>
+              <div class="prop-row"><span class="prop-label">Iluminação Mínima:</span><span class="prop-val">${ilumVA} VA</span></div>
+              <div class="prop-row"><span class="prop-label">TUGs Mínimas:</span><span class="prop-val">${minTugs} tomadas</span></div>
+
+              <button class="btn-eng-action" id="btn-delete-element" style="margin-top:14px; width:100%; justify-content:center; color:#ef4444; border-color:#fca5a5; background:#fef2f2;">
+                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                Excluir Ambiente (Del)
+              </button>
+            `;
+            document.getElementById('btn-delete-element')?.addEventListener('click', deleteCurrentSelection);
+            return;
+          }
+        } else if (engine.selectedElement.type === 'wall') {
+          const wall = engine.walls[engine.selectedElement.index];
+          if (wall) {
+            const len = Math.hypot(wall.b.x - wall.a.x, wall.b.y - wall.a.y);
+            content.innerHTML = `
+              <div class="prop-row"><span class="prop-label">Tipo:</span><span class="prop-val">Parede de Alvenaria</span></div>
+              <div class="prop-row"><span class="prop-label">Comprimento:</span><span class="prop-val">${len.toFixed(2)} m</span></div>
+              <div class="prop-row"><span class="prop-label">Espessura:</span><span class="prop-val">${((wall.thickness || 0.15) * 100).toFixed(0)} cm</span></div>
+              <div class="prop-row"><span class="prop-label">Altura:</span><span class="prop-val">2.80 m</span></div>
+
+              <button class="btn-eng-action" id="btn-delete-element" style="margin-top:14px; width:100%; justify-content:center; color:#ef4444; border-color:#fca5a5; background:#fef2f2;">
+                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                Excluir Parede (Del)
+              </button>
+            `;
+            document.getElementById('btn-delete-element')?.addEventListener('click', deleteCurrentSelection);
+            return;
+          }
+        } else if (engine.selectedElement.type === 'door') {
+          const d = engine.doors[engine.selectedElement.index];
+          const curType = d?.type || 'abrir';
+          content.innerHTML = `
+            <div class="prop-row"><span class="prop-label">Elemento:</span><span class="prop-val">Porta Arquitetônica</span></div>
+            <div class="prop-row">
+              <span class="prop-label">Tipologia NBR:</span>
+              <select class="form-control" id="inspector-door-type" style="width:130px; padding:3px 6px; font-size:11px;">
+                <option value="abrir" ${curType === 'abrir' ? 'selected' : ''}>Abrir (Giro 90°)</option>
+                <option value="pivotante" ${curType === 'pivotante' ? 'selected' : ''}>Pivotante</option>
+                <option value="embutida" ${curType === 'embutida' ? 'selected' : ''}>Embutida (Pocket)</option>
+                <option value="correr" ${curType === 'correr' ? 'selected' : ''}>Correr</option>
+                <option value="articulada" ${curType === 'articulada' ? 'selected' : ''}>Articulada (Camarão)</option>
+                <option value="sanfonada" ${curType === 'sanfonada' ? 'selected' : ''}>Sanfonada</option>
+              </select>
+            </div>
+            <div class="prop-row"><span class="prop-label">Largura do Vão:</span><span class="prop-val">${(d?.radius || 0.80).toFixed(2)} m</span></div>
+            <div class="prop-row"><span class="prop-label">Sentido de Giro:</span><span class="prop-val">Posição ${(d?.orientationIndex || 0) + 1} de 4</span></div>
+            <div style="margin-top:10px; font-size:11px; color:#64748b;">Dica: Pressione <strong>Espaço</strong> para alternar as 4 posições de abertura.</div>
+
+            <button class="btn-eng-action" id="btn-delete-element" style="margin-top:14px; width:100%; justify-content:center; color:#ef4444; border-color:#fca5a5; background:#fef2f2;">
+              <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+              Excluir Porta (Del)
+            </button>
+          `;
+          document.getElementById('inspector-door-type')?.addEventListener('change', (e) => {
+            if (d) {
+              d.type = e.target.value;
+              engine.currentDoorType = e.target.value;
+              engine.saveSnapshot();
+              engine.notify();
+              updateContextSubtoolbar();
+            }
+          });
+          document.getElementById('btn-delete-element')?.addEventListener('click', deleteCurrentSelection);
+          return;
+        } else if (engine.selectedElement.type === 'window') {
+          content.innerHTML = `
+            <div class="prop-row"><span class="prop-label">Elemento:</span><span class="prop-val">Janela de Esquadria</span></div>
+            <div class="prop-row"><span class="prop-label">Largura:</span><span class="prop-val">${(engine.windows[engine.selectedElement.index]?.width || 1.20).toFixed(2)} m</span></div>
+            <div class="prop-row"><span class="prop-label">Peitoril:</span><span class="prop-val">1.00 m</span></div>
+
+            <button class="btn-eng-action" id="btn-delete-element" style="margin-top:14px; width:100%; justify-content:center; color:#ef4444; border-color:#fca5a5; background:#fef2f2;">
+              <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+              Excluir Janela (Del)
+            </button>
+          `;
+          document.getElementById('btn-delete-element')?.addEventListener('click', deleteCurrentSelection);
+          return;
+        } else if (engine.selectedElement.type === 'unifilar') {
+          content.innerHTML = `
+            <div class="prop-row"><span class="prop-label">Elemento:</span><span class="prop-val">Diagrama Unifilar Móvel</span></div>
+            <div class="prop-row"><span class="prop-label">Quadro:</span><span class="prop-val">QD1 (Trifásico)</span></div>
+            <div style="margin-top:10px; font-size:11px; color:#64748b;">Arraste para posicionar o diagrama unifilar ao lado da planta.</div>
+          `;
+          return;
+        } else if (engine.selectedElement.type === 'dimension') {
+          const dim = engine.dimensions[engine.selectedElement.index];
+          content.innerHTML = `
+            <div class="prop-row"><span class="prop-label">Elemento:</span><span class="prop-val">Cota Técnica ABNT</span></div>
+            <div class="prop-row"><span class="prop-label">Medida:</span><span class="prop-val">${dim ? dim.dist.toFixed(2) : '0.00'} m</span></div>
+            <div class="prop-row"><span class="prop-label">Norma:</span><span class="prop-val">NBR 6492</span></div>
+
+            <button class="btn-eng-action" id="btn-delete-element" style="margin-top:14px; width:100%; justify-content:center; color:#ef4444; border-color:#fca5a5; background:#fef2f2;">
+              <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+              Excluir Cota (Del)
+            </button>
+          `;
+          document.getElementById('btn-delete-element')?.addEventListener('click', deleteCurrentSelection);
+          return;
+        }
+      }
+
+      // 3. Seleção em Massa por Janela AutoCAD/Revit
+      if (engine.selectedElements && engine.selectedElements.length > 0) {
+        drawer.classList.add('open');
+        content.innerHTML = `
+          <div class="prop-row"><span class="prop-label">Tipo:</span><span class="prop-val">Seleção em Massa</span></div>
+          <div class="prop-row"><span class="prop-label">Quantidade:</span><span class="prop-val">${engine.selectedElements.length} itens</span></div>
+          <div style="margin: 8px 0 4px 0; font-size:11px; color:#64748b;">Itens selecionados por janela de seleção (AutoCAD/Revit).</div>
+
+          <button class="btn-eng-action" id="btn-delete-element" style="margin-top:14px; width:100%; justify-content:center; color:#ef4444; border-color:#fca5a5; background:#fef2f2;">
+            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            Excluir Seleção (${engine.selectedElements.length}) [Del]
+          </button>
+        `;
+        document.getElementById('btn-delete-element')?.addEventListener('click', deleteCurrentSelection);
+        return;
+      }
+
+      content.innerHTML = '<p style="font-size:12px;color:#94a3b8;">Nenhum elemento selecionado.<br><br>Clique em um ponto elétrico, tomada ou parede para ver os parâmetros normativos.</p>';
+    }
+
+    engine.subscribe(() => {
+      updateInspector();
+      if (engine.mode === 'model') {
+        engine.render(ctx, canvas.width, canvas.height);
+      } else {
+        renderPaperSheet();
+      }
+    });
+
+    // ==================== EVENTOS DE MOUSE NO CANVAS MODEL ====================
+    canvas.addEventListener('mousedown', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const pt = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+      engine.onMouseDown(pt, e.button);
+      engine.render(ctx, canvas.width, canvas.height);
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const pt = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+      engine.onMouseMove(pt);
+      engine.render(ctx, canvas.width, canvas.height);
+    });
+
+    window.addEventListener('mouseup', () => {
+      engine.onMouseUp();
+      engine.render(ctx, canvas.width, canvas.height);
+    });
+
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const pt = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+      engine.onWheel(pt, e.deltaY);
+      engine.render(ctx, canvas.width, canvas.height);
+    });
+
+    // Tecla ESPAÇO para inverter porta (Flip nos 4 sentidos), TAB para ciclar seleção, ESC, DELETE e UNDO/REDO
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        engine.toggleFlip();
+        updateContextSubtoolbar();
+        return;
+      }
+
+      if (e.key === 'Tab') {
+        if (engine.activeTool === 'select' && engine.hoverCandidates && engine.hoverCandidates.length > 0) {
+          e.preventDefault();
+          engine.cycleHoverSelection();
+          engine.render(ctx, canvas.width, canvas.height);
+          return;
+        }
+      }
+
+      if (e.key === 'Escape') {
+        engine.wallStartPoint = null;
+        engine.conduitStartNodeId = null;
+        engine.activeTool = 'select';
+        document.querySelectorAll('.ribbon-btn[data-tool]').forEach(b => b.classList.remove('active'));
+        document.querySelector('.ribbon-btn[data-tool="select"]')?.classList.add('active');
+        updateContextSubtoolbar();
+        engine.render(ctx, canvas.width, canvas.height);
+      } else if (e.key === 'Delete' || (e.key === 'Backspace' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'SELECT')) {
+        deleteCurrentSelection();
+      } else if (e.ctrlKey && e.key.toLowerCase() === 'z') {
+        e.preventDefault();
+        engine.undo();
+      } else if (e.ctrlKey && e.key.toLowerCase() === 'y') {
+        e.preventDefault();
+        engine.redo();
+      }
+    });
+
+    // ==================== FERRAMENTAS DA RIBBON ====================
+    document.querySelectorAll('.ribbon-btn[data-tool]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.ribbon-btn[data-tool]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        const tool = btn.dataset.tool;
+        engine.activeTool = tool;
+        if (tool === 'add_node') {
+          engine.pendingNodeType = btn.dataset.type;
+        }
+        updateContextSubtoolbar();
+        engine.render(ctx, canvas.width, canvas.height);
+      });
+    });
+
+    // Zoom Buttons
+    document.getElementById('btn-zoom-in').addEventListener('click', () => {
+      engine.viewport.zoomAt({ x: canvas.width / 2, y: canvas.height / 2 }, 1.25);
+      engine.render(ctx, canvas.width, canvas.height);
+    });
+
+    document.getElementById('btn-zoom-out').addEventListener('click', () => {
+      engine.viewport.zoomAt({ x: canvas.width / 2, y: canvas.height / 2 }, 0.8);
+      engine.render(ctx, canvas.width, canvas.height);
+    });
+
+    // Toggle Planta Travada / Destravada
+    const btnLockPlan = document.getElementById('btn-lock-plan');
+    const lockText = document.getElementById('lock-text');
+    const lockIcon = document.getElementById('lock-icon');
+
+    btnLockPlan.addEventListener('click', () => {
+      engine.isPlanLocked = !engine.isPlanLocked;
+
+      if (engine.isPlanLocked) {
+        btnLockPlan.classList.remove('unlocked');
+        lockText.textContent = 'Planta travada';
+        lockIcon.innerHTML = '<rect width="18" height="11" x="3" y="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path>';
+        showToast('Planta travada para proteção de arquitetura.');
+      } else {
+        btnLockPlan.classList.add('unlocked');
+        lockText.textContent = 'Planta destravada';
+        lockIcon.innerHTML = '<rect width="18" height="11" x="3" y="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 9.9-1"></path>';
+        showToast('Planta destravada: você pode mover paredes, portas e janelas.');
+      }
+
+      engine.render(ctx, canvas.width, canvas.height);
+    });
+
+    // Toggle Ortho / 45°
+    const btnToggleOrtho = document.getElementById('btn-toggle-ortho');
+    btnToggleOrtho.addEventListener('click', () => {
+      engine.snapSettings.ortho45 = !engine.snapSettings.ortho45;
+      btnToggleOrtho.classList.toggle('active', engine.snapSettings.ortho45);
+      showToast(engine.snapSettings.ortho45 ? 'Rastreamento Ortho 45° ativado' : 'Rastreamento livre');
+      engine.render(ctx, canvas.width, canvas.height);
+    });
+
+    // Undo / Redo
+    document.getElementById('btn-undo').addEventListener('click', () => { engine.undo(); showToast('Desfeito'); });
+    document.getElementById('btn-redo').addEventListener('click', () => { engine.redo(); showToast('Refeito'); });
+
+    // ==================== 3 BOTÕES DE ENGENHARIA AUTOMÁTICA ====================
+    // 1. Lançar Pontos por Cômodo (NBR 5410)
+    document.getElementById('btn-auto-room-points').addEventListener('click', () => {
+      engine.autoPlaceRoomPoints();
+      showToast('⚡ Pontos de iluminação, interruptores e TUGs lançados conforme NBR 5410!');
+    });
+
+    // 2. Traçar Eletrodutos Automáticos
+    document.getElementById('btn-auto-conduits').addEventListener('click', () => {
+      engine.autoRouteConduits();
+      showToast('〰️ Eletrodutos traçados conectando interruptores, lâmpadas e tomadas ao QDC!');
+    });
+
+    // 3. Gerar Fiação e Dimensionar
+    function triggerWiringCalc() {
+      engine.saveSnapshot();
+      engine.recalculateWiring();
+      engine.render(ctx, canvas.width, canvas.height);
+
+      if (engine.wiringWarnings && engine.wiringWarnings.length > 0) {
+        showToast(engine.wiringWarnings[0], 'warning');
+      } else {
+        showToast('⚡ Fiação calculada com sucesso! Todos os eletrodutos atendem a NBR 5410 Tabela 48.');
+      }
+    }
+    document.getElementById('btn-auto-wire-top').addEventListener('click', triggerWiringCalc);
+    document.getElementById('btn-auto-wire').addEventListener('click', triggerWiringCalc);
+
+    // Drawer Inspector
+    document.getElementById('btn-toggle-inspector').addEventListener('click', () => {
+      document.getElementById('inspector-drawer').classList.toggle('open');
+    });
+    document.getElementById('btn-close-drawer').addEventListener('click', () => {
+      document.getElementById('inspector-drawer').classList.remove('open');
+    });
+
+    // Modais - Fechamento Genérico
+    document.querySelectorAll('[data-close]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const modalId = btn.dataset.close;
+        document.getElementById(modalId).style.display = 'none';
+      });
+    });
+
+    // ==================== GERENCIADOR DE CIRCUITOS & MULTI-QUADRO (QGBT / QD) ====================
+    let projectCircuits = [
+      { id: 1, desc: 'Iluminação Sala / Terraço', panel: 'QD1', v: 127, w: 200, type: 'light', phase: 'A', breaker: 10, dr: 'Geral 30mA' },
+      { id: 2, desc: 'TUGs Sala Comercial', panel: 'QD1', v: 127, w: 1200, type: 'outlet', phase: 'B', breaker: 20, dr: 'Geral 30mA' },
+      { id: 3, desc: 'TUE - Chuveiro Elétrico', panel: 'QD1', v: 220, w: 5500, type: 'outlet', phase: 'AB', breaker: 25, dr: 'DDR 30mA' },
+      { id: 4, desc: 'TUGs Cozinha / Área', panel: 'QD1', v: 127, w: 1800, type: 'outlet', phase: 'C', breaker: 20, dr: 'Geral 30mA' },
+      { id: 5, desc: 'Iluminação Circulação', panel: 'QD1', v: 127, w: 100, type: 'light', phase: 'B', breaker: 10, dr: 'Geral 30mA' },
+      { id: 6, desc: 'Alimentador QD1', panel: 'QGBT', v: 220, w: 8800, type: 'feed', phase: 'ABC', breaker: 40, dr: 'Geral 300mA' }
+    ];
+
+    function getCircuitsData(panelFilter = 'QD1') {
+      if (panelFilter === 'ALL') return projectCircuits;
+      return projectCircuits.filter(c => c.panel === panelFilter);
+    }
+
+    // Modal Quadro de Cargas NBR 5410
+    const modalQuadro = document.getElementById('modal-quadro-cargas');
+    function openQuadroCargas() {
+      const tbody = document.getElementById('table-quadro-body');
+      tbody.innerHTML = '';
+      const circuits = getCircuitsData('QD1');
+
+      for (const c of circuits) {
+        const sz = sizeCircuit({ powerWatts: c.w, voltage: c.v, circuitType: c.type, nPhases: c.phase.length });
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><strong>${c.id}</strong></td>
+          <td>${c.desc}</td>
+          <td>${c.v}V</td>
+          <td>${c.w}W</td>
+          <td>${sz.currentIb} A</td>
+          <td><strong>#${sz.gaugeMm2} mm²</strong></td>
+          <td><span style="background:#e0f2fe;color:#0284c7;padding:2px 6px;border-radius:4px;font-weight:700;">${c.breaker || sz.breakerAmperes}A</span></td>
+          <td>${sz.voltageDropPercent}%</td>
+          <td>DN ${sz.conduitDiameterMm}</td>
+          <td><strong>${c.phase}</strong></td>
+        `;
+        tbody.appendChild(tr);
+      }
+      modalQuadro.style.display = 'flex';
+    }
+
+    document.getElementById('btn-quadro-cargas').addEventListener('click', openQuadroCargas);
+    document.getElementById('btn-open-legenda').addEventListener('click', () => {
+      document.getElementById('modal-legenda').style.display = 'flex';
+    });
+
+    // Modal Gerenciamento de Camadas (Layers)
+    const modalLayers = document.getElementById('modal-layers');
+    const layersListContainer = document.getElementById('layers-list-container');
+
+    const LAYERS_CONFIG = [
+      { key: 'walls', name: 'Paredes & Alvenaria', color: '#0f172a' },
+      { key: 'openings', name: 'Portas & Janelas', color: '#854d0e' },
+      { key: 'rooms', name: 'Ambientes & Cômodos', color: '#0284c7' },
+      { key: 'electric', name: 'Pontos Elétricos & QDC', color: '#fab816' },
+      { key: 'conduits', name: 'Eletrodutos', color: '#475569' },
+      { key: 'wiring', name: 'Fiação NBR 5410', color: '#0284c7' },
+      { key: 'dimensions', name: 'Cotas Técnicas NBR 6492', color: '#ea580c' },
+      { key: 'grid', name: 'Grid & Eixos CAD', color: '#94a3b8' }
+    ];
+
+    function renderLayersModal() {
+      if (!layersListContainer) return;
+      layersListContainer.innerHTML = '';
+      LAYERS_CONFIG.forEach(layer => {
+        const isActive = engine.layers[layer.key] !== false;
+        const row = document.createElement('div');
+        row.className = 'layer-row';
+        row.innerHTML = `
+          <div class="layer-info">
+            <span class="layer-color" style="background:${layer.color};"></span>
+            <span>${layer.name}</span>
+          </div>
+          <button class="layer-toggle ${isActive ? 'active' : ''}" data-layer="${layer.key}" title="${isActive ? 'Ocultar Camada' : 'Exibir Camada'}">
+            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              ${isActive
+                ? '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>'
+                : '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line>'}
+            </svg>
+          </button>
+        `;
+        row.querySelector('.layer-toggle').addEventListener('click', () => {
+          engine.layers[layer.key] = !isActive;
+          renderLayersModal();
+          engine.render(ctx, canvas.width, canvas.height);
+          if (engine.mode === 'layout') renderPaperSheet();
+        });
+        layersListContainer.appendChild(row);
+      });
+    }
+
+    document.getElementById('btn-open-layers')?.addEventListener('click', () => {
+      renderLayersModal();
+      modalLayers.style.display = 'flex';
+    });
+    document.getElementById('btn-toggle-layers-floating')?.addEventListener('click', () => {
+      renderLayersModal();
+      modalLayers.style.display = 'flex';
+    });
+
+    // Modal Gerenciador Completo de Circuitos & Quadros
+    const modalCircuitsManage = document.getElementById('modal-circuits');
+    const selectPanelFilter = document.getElementById('select-active-panel-filter');
+
+    function renderCircuitsManageModal() {
+      const tbody = document.getElementById('table-circuits-body');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+
+      const filter = selectPanelFilter ? selectPanelFilter.value : 'ALL';
+      const list = getCircuitsData(filter);
+
+      list.forEach((c, index) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><strong>${c.id}</strong></td>
+          <td><input type="text" class="form-control" value="${c.desc}" style="padding:2px 6px; font-size:11px;" data-field="desc" data-idx="${index}" /></td>
+          <td>
+            <select class="form-control" style="padding:2px 4px; font-size:11px;" data-field="panel" data-idx="${index}">
+              <option value="QD1" ${c.panel === 'QD1' ? 'selected' : ''}>QD1</option>
+              <option value="QGBT" ${c.panel === 'QGBT' ? 'selected' : ''}>QGBT</option>
+              <option value="QD2" ${c.panel === 'QD2' ? 'selected' : ''}>QD2</option>
+            </select>
+          </td>
+          <td>
+            <select class="form-control" style="padding:2px 4px; font-size:11px;" data-field="v" data-idx="${index}">
+              <option value="127" ${c.v === 127 ? 'selected' : ''}>127 V</option>
+              <option value="220" ${c.v === 220 ? 'selected' : ''}>220 V</option>
+            </select>
+          </td>
+          <td>
+            <select class="form-control" style="padding:2px 4px; font-size:11px;" data-field="phase" data-idx="${index}">
+              <option value="A" ${c.phase === 'A' ? 'selected' : ''}>A</option>
+              <option value="B" ${c.phase === 'B' ? 'selected' : ''}>B</option>
+              <option value="C" ${c.phase === 'C' ? 'selected' : ''}>C</option>
+              <option value="AB" ${c.phase === 'AB' ? 'selected' : ''}>AB</option>
+              <option value="BC" ${c.phase === 'BC' ? 'selected' : ''}>BC</option>
+              <option value="AC" ${c.phase === 'AC' ? 'selected' : ''}>AC</option>
+              <option value="ABC" ${c.phase === 'ABC' ? 'selected' : ''}>ABC</option>
+            </select>
+          </td>
+          <td>
+            <select class="form-control" style="padding:2px 4px; font-size:11px;" data-field="type" data-idx="${index}">
+              <option value="light" ${c.type === 'light' ? 'selected' : ''}>Iluminação</option>
+              <option value="outlet" ${c.type === 'outlet' ? 'selected' : ''}>TUG</option>
+              <option value="outlet" ${c.type === 'tue' ? 'selected' : ''}>TUE (Específica)</option>
+              <option value="feed" ${c.type === 'feed' ? 'selected' : ''}>Alimentador</option>
+            </select>
+          </td>
+          <td><input type="number" step="50" class="form-control" value="${c.w}" style="padding:2px 6px; font-size:11px; width:70px;" data-field="w" data-idx="${index}" /></td>
+          <td>
+            <select class="form-control" style="padding:2px 4px; font-size:11px;" data-field="breaker" data-idx="${index}">
+              <option value="10" ${c.breaker === 10 ? 'selected' : ''}>10 A</option>
+              <option value="16" ${c.breaker === 16 ? 'selected' : ''}>16 A</option>
+              <option value="20" ${c.breaker === 20 ? 'selected' : ''}>20 A</option>
+              <option value="25" ${c.breaker === 25 ? 'selected' : ''}>25 A</option>
+              <option value="32" ${c.breaker === 32 ? 'selected' : ''}>32 A</option>
+              <option value="40" ${c.breaker === 40 ? 'selected' : ''}>40 A</option>
+              <option value="50" ${c.breaker === 50 ? 'selected' : ''}>50 A</option>
+            </select>
+          </td>
+          <td>
+            <select class="form-control" style="padding:2px 4px; font-size:11px;" data-field="dr" data-idx="${index}">
+              <option value="Geral 30mA" ${c.dr === 'Geral 30mA' ? 'selected' : ''}>Geral 30mA</option>
+              <option value="DDR 30mA" ${c.dr === 'DDR 30mA' ? 'selected' : ''}>DDR Indiv. 30mA</option>
+              <option value="Geral 300mA" ${c.dr === 'Geral 300mA' ? 'selected' : ''}>Geral 300mA</option>
+              <option value="Sem DR" ${c.dr === 'Sem DR' ? 'selected' : ''}>Sem DR</option>
+            </select>
+          </td>
+          <td align="center">
+            <button class="modal-close" style="font-size:13px; color:#ef4444;" data-del-circ="${c.id}" title="Excluir Circuito">✕</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      // Handlers de edição inline
+      tbody.querySelectorAll('input, select').forEach(el => {
+        el.addEventListener('change', (e) => {
+          const idx = parseInt(el.dataset.idx);
+          const field = el.dataset.field;
+          let val = e.target.value;
+          if (field === 'w' || field === 'v' || field === 'breaker') val = parseInt(val) || 0;
+          if (list[idx]) {
+            list[idx][field] = val;
+            renderPaperSheet();
+            showToast('Circuito atualizado');
+          }
+        });
+      });
+
+      tbody.querySelectorAll('[data-del-circ]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const cid = parseInt(btn.dataset.delCirc);
+          projectCircuits = projectCircuits.filter(x => x.id !== cid);
+          renderCircuitsManageModal();
+          renderPaperSheet();
+          showToast(`Circuito ${cid} removido.`);
+        });
+      });
+    }
+
+    document.getElementById('btn-open-circuits')?.addEventListener('click', () => {
+      renderCircuitsManageModal();
+      modalCircuitsManage.style.display = 'flex';
+    });
+    selectPanelFilter?.addEventListener('change', renderCircuitsManageModal);
+
+    document.getElementById('btn-add-new-circuit')?.addEventListener('click', () => {
+      const nextId = projectCircuits.length > 0 ? Math.max(...projectCircuits.map(x => x.id)) + 1 : 1;
+      projectCircuits.push({
+        id: nextId,
+        desc: `Novo Circuito Terminal ${nextId}`,
+        panel: selectPanelFilter && selectPanelFilter.value !== 'ALL' ? selectPanelFilter.value : 'QD1',
+        v: 127,
+        w: 600,
+        type: 'outlet',
+        phase: 'A',
+        breaker: 20,
+        dr: 'Geral 30mA'
+      });
+      renderCircuitsManageModal();
+      renderPaperSheet();
+      showToast(`Circuito ${nextId} adicionado ao projeto!`);
+    });
+
+    // ==================== ALTERNADOR DE MODO: MODELO VS PRANCHA ABNT ====================
+    const tabModel = document.getElementById('tab-mode-model');
+    const tabLayout = document.getElementById('tab-mode-layout');
+    const modelContainer = document.getElementById('viewport-container');
+    const ribbonNav = document.getElementById('ribbon');
+    const layoutContainer = document.getElementById('layout-paper-container');
+    const headerEngButtons = document.getElementById('header-eng-buttons');
+
+    function setAppMode(mode) {
+      engine.mode = mode;
+      if (mode === 'model') {
+        tabModel.classList.add('active');
+        tabLayout.classList.remove('active');
+        modelContainer.style.display = 'block';
+        ribbonNav.style.display = 'flex';
+        subtoolbarEl.style.display = 'flex';
+        if (headerEngButtons) headerEngButtons.style.display = 'flex';
+        layoutContainer.style.display = 'none';
+        resize();
+      } else {
+        tabModel.classList.remove('active');
+        tabLayout.classList.add('active');
+        modelContainer.style.display = 'none';
+        ribbonNav.style.display = 'none';
+        subtoolbarEl.style.display = 'none';
+        if (headerEngButtons) headerEngButtons.style.display = 'none';
+        layoutContainer.style.display = 'flex';
+        renderPaperSheet();
+      }
+    }
+
+    tabModel.addEventListener('click', () => setAppMode('model'));
+    tabLayout.addEventListener('click', () => setAppMode('layout'));
+    document.getElementById('btn-back-to-model').addEventListener('click', () => setAppMode('model'));
+
+    // Configuração de Parâmetros de Folha
+    document.getElementById('btn-layout').addEventListener('click', () => {
+      document.getElementById('modal-layout-sheet').style.display = 'flex';
+    });
+    document.getElementById('btn-save-stamp').addEventListener('click', () => {
+      const sheet = document.getElementById('sheet-size').value;
+      const scale = document.getElementById('sheet-scale').value;
+      const title = document.getElementById('stamp-title').value;
+      const owner = document.getElementById('stamp-owner').value;
+      const addr = document.getElementById('stamp-address').value;
+      const eng = document.getElementById('stamp-engineer').value;
+      const crea = document.getElementById('stamp-crea').value;
+
+      document.getElementById('layout-select-sheet').value = sheet;
+      document.getElementById('layout-select-scale').value = scale;
+      document.getElementById('sheet-stamp-title').textContent = title;
+      document.getElementById('sheet-stamp-owner').textContent = owner;
+      document.getElementById('sheet-stamp-address').textContent = addr;
+      document.getElementById('sheet-stamp-engineer').textContent = eng;
+      document.getElementById('sheet-stamp-crea').textContent = crea;
+      document.getElementById('sheet-stamp-scale').textContent = `1:${scale}`;
+      document.getElementById('label-scale-display').textContent = `1:${scale}`;
+
+      document.getElementById('modal-layout-sheet').style.display = 'none';
+      setAppMode('layout');
+      showToast('Prancha ABNT configurada com sucesso!');
+    });
+
+    // ==================== MOTOR DE PRANCHA DE IMPRESSÃO (PAPER SPACE) ====================
+    const canvasViewport = document.getElementById('canvas-layout-viewport');
+    const ctxViewport = canvasViewport.getContext('2d');
+    const canvasUnifilar = document.getElementById('canvas-layout-unifilar');
+    const ctxUnifilar = canvasUnifilar.getContext('2d');
+    const canvasLayout3D = document.getElementById('canvas-layout-3d');
+    const ctxLayout3D = canvasLayout3D ? canvasLayout3D.getContext('2d') : null;
+
+    const sheetDims = {
+      A4: { w: 840, h: 594 },
+      A3: { w: 960, h: 680 },
+      A2: { w: 1040, h: 735 },
+      A1: { w: 1120, h: 792 },
+      A0: { w: 1240, h: 876 }
+    };
+
+    let layoutTool = 'item'; // 'item' (Mover Item) ou 'content' (Navegar Conteúdo da Viewport)
+    let isMovingViewportContent = false;
+    let contentPanStart = { x: 0, y: 0 };
+
+    const statusPill = document.getElementById('layout-mode-status');
+
+    document.getElementById('btn-layout-tool-item').addEventListener('click', () => {
+      layoutTool = 'item';
+      document.getElementById('btn-layout-tool-item').classList.add('active');
+      document.getElementById('btn-layout-tool-content').classList.remove('active');
+      canvasViewport.style.cursor = 'default';
+      if (statusPill) {
+        statusPill.innerHTML = '<span style="width:7px; height:7px; border-radius:50%; background:#10b981;"></span>Modo: <strong>Mover Quadros</strong>';
+      }
+      showToast('Modo: Mover ou redimensionar quadros na folha.');
+    });
+
+    document.getElementById('btn-layout-tool-content').addEventListener('click', () => {
+      layoutTool = 'content';
+      document.getElementById('btn-layout-tool-content').classList.add('active');
+      document.getElementById('btn-layout-tool-item').classList.remove('active');
+      canvasViewport.style.cursor = 'grab';
+      if (statusPill) {
+        statusPill.innerHTML = '<span style="width:7px; height:7px; border-radius:50%; background:#0284c7;"></span>Modo: <strong>Navegar Conteúdo</strong>';
+      }
+      showToast('Modo: Navegar conteúdo (pan/zoom dentro da planta).');
+    });
+
+    // Seletores de Formato e Escala da Prancha
+    document.getElementById('layout-select-sheet').addEventListener('change', (e) => {
+      const dim = sheetDims[e.target.value] || sheetDims.A1;
+      const sheetEl = document.getElementById('paper-sheet');
+      sheetEl.style.width = `${dim.w}px`;
+      sheetEl.style.height = `${dim.h}px`;
+      renderPaperSheet();
+    });
+
+    document.getElementById('layout-select-scale').addEventListener('change', (e) => {
+      const scale = parseInt(e.target.value) || 50;
+      document.getElementById('sheet-stamp-scale').textContent = `1:${scale}`;
+      document.getElementById('label-scale-display').textContent = `1:${scale}`;
+      layoutZoom = (50 / scale) * 42;
+      renderPaperSheet();
+    });
+
+    // Alternadores dos Blocos na Folha com Rótulos Dinâmicos (+ / -)
+    function updateLayoutButtonsState() {
+      const btnUni = document.getElementById('btn-insert-unifilar');
+      const btnCargas = document.getElementById('btn-insert-cargas');
+      const btnLeg = document.getElementById('btn-insert-legenda');
+      const btn3D = document.getElementById('btn-insert-3d');
+
+      const isUni = document.getElementById('item-unifilar')?.style.display !== 'none';
+      const isCargas = document.getElementById('item-cargas')?.style.display !== 'none';
+      const isLeg = document.getElementById('item-legenda')?.style.display !== 'none';
+      const is3D = document.getElementById('item-viewport-3d')?.style.display !== 'none';
+
+      if (btnUni) btnUni.textContent = isUni ? '- Unifilar' : '+ Unifilar';
+      if (btnCargas) btnCargas.textContent = isCargas ? '- Cargas' : '+ Cargas';
+      if (btnLeg) btnLeg.textContent = isLeg ? '- Legenda' : '+ Legenda';
+      if (btn3D) btn3D.innerHTML = `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:13px;height:13px;"><path d="m21 16-9 5-9-5V8l9-5 9 5v8Z"></path><path d="m3 8 9 5 9-5"></path><path d="M12 13v8"></path></svg> ${is3D ? '- Viewport 3D' : '+ Viewport 3D'}`;
+    }
+
+    document.getElementById('btn-insert-unifilar').addEventListener('click', () => {
+      const el = document.getElementById('item-unifilar');
+      el.style.display = el.style.display === 'none' ? 'block' : 'none';
+      updateLayoutButtonsState();
+      renderPaperSheet();
+    });
+    document.getElementById('btn-insert-cargas').addEventListener('click', () => {
+      const el = document.getElementById('item-cargas');
+      el.style.display = el.style.display === 'none' ? 'block' : 'none';
+      updateLayoutButtonsState();
+      renderPaperSheet();
+    });
+    document.getElementById('btn-insert-legenda').addEventListener('click', () => {
+      const el = document.getElementById('item-legenda');
+      el.style.display = el.style.display === 'none' ? 'block' : 'none';
+      updateLayoutButtonsState();
+      renderPaperSheet();
+    });
+    document.getElementById('btn-insert-3d')?.addEventListener('click', () => {
+      const el = document.getElementById('item-viewport-3d');
+      if (el) {
+        el.style.display = el.style.display === 'none' ? 'block' : 'none';
+        updateLayoutButtonsState();
+        renderPaperSheet();
+      }
+    });
+
+    // Fechamento individual de itens na folha
+    document.getElementById('btn-close-sheet-unifilar')?.addEventListener('click', () => {
+      document.getElementById('item-unifilar').style.display = 'none';
+      updateLayoutButtonsState();
+    });
+    document.getElementById('btn-close-sheet-cargas')?.addEventListener('click', () => {
+      document.getElementById('item-cargas').style.display = 'none';
+      updateLayoutButtonsState();
+    });
+    document.getElementById('btn-close-sheet-legenda')?.addEventListener('click', () => {
+      document.getElementById('item-legenda').style.display = 'none';
+      updateLayoutButtonsState();
+    });
+    document.getElementById('btn-close-sheet-3d')?.addEventListener('click', () => {
+      document.getElementById('item-viewport-3d').style.display = 'none';
+      updateLayoutButtonsState();
+    });
+
+    updateLayoutButtonsState();
+
+    // Mover Conteúdo da Viewport (Pan/Zoom interno como no QGIS)
+    canvasViewport.addEventListener('mousedown', (e) => {
+      if (layoutTool === 'content') {
+        isMovingViewportContent = true;
+        contentPanStart = { x: e.clientX, y: e.clientY };
+        canvasViewport.style.cursor = 'grabbing';
+      }
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (isMovingViewportContent) {
+        const dx = e.clientX - contentPanStart.x;
+        const dy = e.clientY - contentPanStart.y;
+        layoutPanX += dx;
+        layoutPanY += dy;
+        contentPanStart = { x: e.clientX, y: e.clientY };
+        renderLayoutViewport();
+      }
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (isMovingViewportContent) {
+        isMovingViewportContent = false;
+        if (layoutTool === 'content') canvasViewport.style.cursor = 'grab';
+      }
+    });
+
+    // Navegar Conteúdo 3D na Folha (Orbit / Zoom na maquete 3D da folha)
+    let isMoving3DContent = false;
+    let content3DStart = { x: 0, y: 0 };
+
+    if (canvasLayout3D) {
+      canvasLayout3D.addEventListener('mousedown', (e) => {
+        if (layoutTool === 'content') {
+          isMoving3DContent = true;
+          content3DStart = { x: e.clientX, y: e.clientY };
+          canvasLayout3D.style.cursor = 'grabbing';
+          e.stopPropagation();
+        }
+      });
+      window.addEventListener('mousemove', (e) => {
+        if (isMoving3DContent) {
+          const dx = e.clientX - content3DStart.x;
+          const dy = e.clientY - content3DStart.y;
+          rotAngle += dx * 0.01;
+          tiltAngle = Math.max(0.1, Math.min(1.4, tiltAngle - dy * 0.01));
+          content3DStart = { x: e.clientX, y: e.clientY };
+          renderPaperSheet();
+        }
+      });
+      window.addEventListener('mouseup', () => {
+        if (isMoving3DContent) {
+          isMoving3DContent = false;
+          if (layoutTool === 'content') canvasLayout3D.style.cursor = 'grab';
+        }
+      });
+      canvasLayout3D.addEventListener('wheel', (e) => {
+        if (layoutTool === 'content') {
+          e.preventDefault();
+          tiltAngle = Math.max(0.1, Math.min(1.4, tiltAngle + (e.deltaY < 0 ? -0.05 : 0.05)));
+          renderPaperSheet();
+        }
+      });
+    }
+
+    canvasViewport.addEventListener('wheel', (e) => {
+      if (layoutTool === 'content') {
+        e.preventDefault();
+        layoutZoom = Math.max(15, Math.min(180, layoutZoom * (e.deltaY < 0 ? 1.12 : 0.88)));
+        renderLayoutViewport();
+      }
+    });
+
+    // ==================== MAGNETISMO & ARRASTO DE QUADROS NO LAYOUT ====================
+    const guideX = document.getElementById('align-guide-x');
+    const guideY = document.getElementById('align-guide-y');
+
+    function checkAlignmentSnap(itemEl, rawLeft, rawTop) {
+      let snapLeft = rawLeft;
+      let snapTop = rawTop;
+      let snappedX = false;
+      let snappedY = false;
+      const SNAP_TOL = 8;
+      const w = itemEl.offsetWidth;
+      const h = itemEl.offsetHeight;
+
+      const sheet = document.getElementById('paper-sheet');
+      const sheetW = sheet ? sheet.offsetWidth : 1050;
+      const sheetH = sheet ? sheet.offsetHeight : 742;
+
+      // Alvos de snap: margens internas da folha ABNT (28px esq, 12px topo, dir e base)
+      const targetsX = [28, sheetW - 12 - w];
+      const targetsY = [18, sheetH - 12 - h];
+
+      // Alvos dos outros quadros na folha
+      const items = document.querySelectorAll('.layout-item');
+      items.forEach(other => {
+        if (other === itemEl || other.style.display === 'none') return;
+        targetsX.push(other.offsetLeft);
+        targetsX.push(other.offsetLeft + other.offsetWidth);
+        targetsX.push(other.offsetLeft + other.offsetWidth + 8);
+        targetsX.push(other.offsetLeft - w - 8);
+
+        targetsY.push(other.offsetTop);
+        targetsY.push(other.offsetTop + other.offsetHeight);
+        targetsY.push(other.offsetTop + other.offsetHeight + 8);
+        targetsY.push(other.offsetTop - h - 8);
+      });
+
+      for (const tx of targetsX) {
+        if (Math.abs(rawLeft - tx) < SNAP_TOL) {
+          snapLeft = tx;
+          snappedX = true;
+          if (guideY) {
+            guideY.style.left = `${tx}px`;
+            guideY.style.display = 'block';
+          }
+          break;
+        }
+      }
+      if (!snappedX && guideY) guideY.style.display = 'none';
+
+      for (const ty of targetsY) {
+        if (Math.abs(rawTop - ty) < SNAP_TOL) {
+          snapTop = ty;
+          snappedY = true;
+          if (guideX) {
+            guideX.style.top = `${ty}px`;
+            guideX.style.display = 'block';
+          }
+          break;
+        }
+      }
+      if (!snappedY && guideX) guideX.style.display = 'none';
+
+      return { left: Math.max(0, snapLeft), top: Math.max(0, snapTop) };
+    }
+
+    function hideGuides() {
+      if (guideX) guideX.style.display = 'none';
+      if (guideY) guideY.style.display = 'none';
+    }
+
+    function makeItemDraggable(itemEl, handleEl) {
+      if (!itemEl || !handleEl) return;
+      let isDraggingItem = false;
+      let startMouse = { x: 0, y: 0 };
+      let startPos = { x: 0, y: 0 };
+
+      handleEl.addEventListener('mousedown', (e) => {
+        if (layoutTool !== 'item') return;
+        isDraggingItem = true;
+        startMouse = { x: e.clientX, y: e.clientY };
+        startPos = { x: itemEl.offsetLeft, y: itemEl.offsetTop };
+        e.stopPropagation();
+      });
+
+      window.addEventListener('mousemove', (e) => {
+        if (!isDraggingItem) return;
+        const dx = e.clientX - startMouse.x;
+        const dy = e.clientY - startMouse.y;
+        const rawLeft = startPos.x + dx;
+        const rawTop = startPos.y + dy;
+        const snapped = checkAlignmentSnap(itemEl, rawLeft, rawTop);
+
+        itemEl.style.left = `${snapped.left}px`;
+        itemEl.style.top = `${snapped.top}px`;
+      });
+
+      window.addEventListener('mouseup', () => {
+        if (isDraggingItem) {
+          isDraggingItem = false;
+          hideGuides();
+        }
+      });
+    }
+
+    // Redimensionamento Visual com o Mouse (Grips de Quina)
+    function makeItemResizable(itemEl, handleEl, onResizeCallback) {
+      if (!itemEl || !handleEl) return;
+      let isResizing = false;
+      let startMouse = { x: 0, y: 0 };
+      let startDim = { w: 0, h: 0 };
+
+      handleEl.addEventListener('mousedown', (e) => {
+        if (layoutTool !== 'item') return;
+        isResizing = true;
+        startMouse = { x: e.clientX, y: e.clientY };
+        startDim = { w: itemEl.offsetWidth, h: itemEl.offsetHeight };
+        e.stopPropagation();
+      });
+
+      window.addEventListener('mousemove', (e) => {
+        if (!isResizing) return;
+        const dw = e.clientX - startMouse.x;
+        const dh = e.clientY - startMouse.y;
+        const newW = Math.max(180, startDim.w + dw);
+        const newH = Math.max(110, startDim.h + dh);
+        itemEl.style.width = `${newW}px`;
+        itemEl.style.height = `${newH}px`;
+        if (onResizeCallback) onResizeCallback();
+      });
+
+      window.addEventListener('mouseup', () => {
+        if (isResizing) {
+          isResizing = false;
+          renderPaperSheet();
+        }
+      });
+    }
+
+    // Registra Arrastar para todos os 5 itens da folha
+    makeItemDraggable(document.getElementById('item-viewport'), document.getElementById('viewport-drag-handle'));
+    makeItemDraggable(document.getElementById('item-unifilar'), document.getElementById('unifilar-drag-handle'));
+    makeItemDraggable(document.getElementById('item-cargas'), document.getElementById('cargas-drag-handle'));
+    makeItemDraggable(document.getElementById('item-legenda'), document.getElementById('legenda-drag-handle'));
+    makeItemDraggable(document.getElementById('item-viewport-3d'), document.getElementById('viewport-3d-drag-handle'));
+
+    // Registra Redimensionar para os 5 itens da folha
+    makeItemResizable(document.getElementById('item-viewport'), document.querySelector('#item-viewport .layout-resize-handle'), renderLayoutViewport);
+    makeItemResizable(document.getElementById('item-unifilar'), document.querySelector('#item-unifilar .layout-resize-handle'), () => renderPaperSheet());
+    makeItemResizable(document.getElementById('item-cargas'), document.querySelector('#item-cargas .layout-resize-handle'), () => {});
+    makeItemResizable(document.getElementById('item-legenda'), document.querySelector('#item-legenda .layout-resize-handle'), () => {});
+    makeItemResizable(document.getElementById('item-viewport-3d'), document.querySelector('#item-viewport-3d .layout-resize-handle'), () => renderPaperSheet());
+
+    let layoutPanX = 110;
+    let layoutPanY = -10;
+    let layoutZoom = 42;
+
+    function renderLayoutViewport() {
+      const box = document.getElementById('item-viewport');
+      if (!box || box.style.display === 'none') return;
+      canvasViewport.width = box.clientWidth;
+      canvasViewport.height = box.clientHeight - 24;
+
+      const origPanX = engine.viewport.panX;
+      const origPanY = engine.viewport.panY;
+      const origZoom = engine.viewport.zoom;
+      const origUnifilar = engine.layers.unifilar;
+
+      engine.viewport.panX = layoutPanX;
+      engine.viewport.panY = layoutPanY;
+      engine.viewport.zoom = layoutZoom;
+      engine.layers.unifilar = false;
+      engine.isPaperSpace = true; // Suprime grips, halos e linhas de seleção na folha técnica
+
+      engine.render(ctxViewport, canvasViewport.width, canvasViewport.height);
+
+      engine.isPaperSpace = false;
+      engine.viewport.panX = origPanX;
+      engine.viewport.panY = origPanY;
+      engine.viewport.zoom = origZoom;
+      engine.layers.unifilar = origUnifilar;
+    }
+
+    function renderPaperSheet() {
+      renderLayoutViewport();
+
+      // 1. Diagrama Unifilar
+      const uniBox = document.getElementById('item-unifilar');
+      if (uniBox && uniBox.style.display !== 'none') {
+        canvasUnifilar.width = uniBox.clientWidth;
+        canvasUnifilar.height = uniBox.clientHeight - 24;
+        ctxUnifilar.clearRect(0, 0, canvasUnifilar.width, canvasUnifilar.height);
+        ctxUnifilar.save();
+        ctxUnifilar.fillStyle = '#ffffff';
+        ctxUnifilar.fillRect(0, 0, canvasUnifilar.width, canvasUnifilar.height);
+        engine.renderUnifilarDiagram(ctxUnifilar, 15, 32, true);
+        ctxUnifilar.restore();
+      }
+
+      // 2. Tabela de Cargas
+      const cargasBox = document.getElementById('item-cargas');
+      if (cargasBox && cargasBox.style.display !== 'none') {
+        const wrap = document.getElementById('layout-cargas-table-content');
+        const circuits = getCircuitsData('QD1');
+        let rows = '';
+        for (const c of circuits) {
+          const sz = sizeCircuit({ powerWatts: c.w, voltage: c.v, circuitType: c.type, nPhases: c.phase.length });
+          rows += `
+            <tr style="border-bottom:1px solid #e2e8f0; font-size:9px;">
+              <td style="padding:3px;"><strong>C${c.id}</strong></td>
+              <td style="padding:3px;">${c.desc}</td>
+              <td style="padding:3px;">${c.v}V</td>
+              <td style="padding:3px;">${c.w}W</td>
+              <td style="padding:3px;">${sz.currentIb}A</td>
+              <td style="padding:3px;">#${sz.gaugeMm2}mm²</td>
+              <td style="padding:3px;">${c.breaker || sz.breakerAmperes}A</td>
+              <td style="padding:3px;">${sz.voltageDropPercent}%</td>
+              <td style="padding:3px;">DN${sz.conduitDiameterMm}</td>
+            </tr>
+          `;
+        }
+        wrap.innerHTML = `
+          <table style="width:100%; border-collapse:collapse; text-align:left;">
+            <thead>
+              <tr style="background:#f1f5f9; border-bottom:1.5px solid #cbd5e1; font-size:8.5px; color:#475569;">
+                <th style="padding:3px;">Circ.</th><th>Carga</th><th>Tensão</th><th>Potência</th><th>Ib</th><th>Condutor</th><th>Disj.</th><th>ΔV</th><th>Eletroduto</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        `;
+      }
+
+      // 3. Legenda de Símbolos ABNT
+      const legBox = document.getElementById('item-legenda');
+      if (legBox && legBox.style.display !== 'none') {
+        const wrap = document.getElementById('layout-legenda-content');
+        wrap.innerHTML = `
+          <div style="display:flex; flex-direction:column; gap:6px; font-size:8.5px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <svg width="18" height="18" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="#000" stroke-width="1.8"/><line x1="3" y1="12" x2="21" y2="12" stroke="#000" stroke-width="1.8"/><line x1="12" y1="12" x2="12" y2="21" stroke="#000" stroke-width="1.8"/></svg>
+              <span><strong>Ponto de Luz no Teto (2,80m)</strong> — NBR 5444</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <svg width="18" height="18" viewBox="0 0 24 24"><polygon points="12 4 4 19 20 19" fill="none" stroke="#000" stroke-width="2"/></svg>
+              <span><strong>Tomada Baixa TUG (h=0,30m)</strong></span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <svg width="18" height="18" viewBox="0 0 24 24"><polygon points="12 4 4 19 20 19" fill="none" stroke="#000" stroke-width="2"/><polygon points="12 4 4 19 12 19" fill="#000"/></svg>
+              <span><strong>Tomada Média TUG (h=1,20m)</strong></span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <svg width="18" height="18" viewBox="0 0 24 24"><polygon points="12 4 4 19 20 19" fill="#000" stroke="#000" stroke-width="2"/></svg>
+              <span><strong>Tomada Alta TUE (h=2,20m) — Chuveiro</strong></span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <svg width="18" height="18" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" fill="none" stroke="#000" stroke-width="2"/><line x1="12" y1="5" x2="12" y2="1" stroke="#000" stroke-width="2"/></svg>
+              <span><strong>Interruptor Simples (h=1,20m)</strong></span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <svg width="22" height="14" viewBox="0 0 32 18"><rect x="2" y="2" width="28" height="14" fill="#fff" stroke="#000" stroke-width="1.8"/><polygon points="2 2 30 2 2 16" fill="#000"/></svg>
+              <span><strong>Quadro de Distribuição (QDC)</strong></span>
+            </div>
+          </div>
+        `;
+      }
+
+      // 4. Maquete 3D na Folha
+      const box3D = document.getElementById('item-viewport-3d');
+      if (box3D && box3D.style.display !== 'none' && canvasLayout3D && ctxLayout3D) {
+        canvasLayout3D.width = box3D.clientWidth;
+        canvasLayout3D.height = box3D.clientHeight - 24;
+        render3D(canvasLayout3D, ctxLayout3D);
+      }
+    }
+
+    // Exportação em Alta Definição / Impressão de PDF
+    document.getElementById('btn-print-layout').addEventListener('click', () => {
+      window.print();
+    });
+
+    // ==================== VISUALIZADOR 3D BIM DA INFRAESTRUTURA ELÉTRICA ====================
+    const modal3D = document.getElementById('modal-3d');
+    const canvas3D = document.getElementById('canvas-3d');
+    const ctx3D = canvas3D.getContext('2d');
+
+    let rotAngle = Math.PI / 4;
+    let tiltAngle = 0.55;
+    let isDragging3D = false;
+    let startX3D = 0, startY3D = 0;
+
+    function render3D(targetCanvas = canvas3D, targetCtx = ctx3D) {
+      if (!targetCanvas || !targetCtx) return;
+      if (targetCanvas === canvas3D && targetCanvas.parentElement) {
+        targetCanvas.width = targetCanvas.parentElement.clientWidth;
+        targetCanvas.height = targetCanvas.parentElement.clientHeight;
+      }
+      const w = targetCanvas.width;
+      const h = targetCanvas.height;
+
+      targetCtx.clearRect(0, 0, w, h);
+
+      const centerX = w / 2;
+      const centerY = h / 2 + (targetCanvas === canvas3D ? 50 : 25);
+      const scale3D = targetCanvas === canvas3D ? 36 : Math.min(w, h) / 16;
+      const wallHeight = 2.8;
+
+      const isSheet3D = targetCanvas !== canvas3D;
+      if (isSheet3D) {
+        targetCtx.fillStyle = '#ffffff';
+        targetCtx.fillRect(0, 0, w, h);
+      }
+
+      function project3D(x, y, z) {
+        const cx = x - 5.5;
+        const cy = y - 5.5;
+        const rx = cx * Math.cos(rotAngle) - cy * Math.sin(rotAngle);
+        const ry = cx * Math.sin(rotAngle) + cy * Math.cos(rotAngle);
+        const px = centerX + rx * scale3D;
+        const py = centerY + (ry * Math.cos(tiltAngle) - z * Math.sin(tiltAngle)) * scale3D;
+        return { x: px, y: py };
+      }
+
+      // 1. Piso / Laje translúcida (Cinza claro arquitetônico na folha de impressão)
+      targetCtx.fillStyle = isSheet3D ? '#f1f5f9' : '#0f172a';
+      targetCtx.strokeStyle = isSheet3D ? '#cbd5e1' : '#1e293b';
+      targetCtx.lineWidth = 1;
+      const floorA = project3D(0.5, 0.5, 0);
+      const floorB = project3D(10.5, 0.5, 0);
+      const floorC = project3D(10.5, 11.5, 0);
+      const floorD = project3D(0.5, 11.5, 0);
+
+      targetCtx.beginPath();
+      targetCtx.moveTo(floorA.x, floorA.y);
+      targetCtx.lineTo(floorB.x, floorB.y);
+      targetCtx.lineTo(floorC.x, floorC.y);
+      targetCtx.lineTo(floorD.x, floorD.y);
+      targetCtx.closePath();
+      targetCtx.fill(); targetCtx.stroke();
+
+      // 2. Alvenaria em Wireframe Sutil
+      targetCtx.strokeStyle = isSheet3D ? 'rgba(100, 116, 139, 0.45)' : 'rgba(148, 163, 184, 0.22)';
+      targetCtx.lineWidth = 1.0;
+
+      for (const wall of engine.walls) {
+        const p1 = project3D(wall.a.x, wall.a.y, 0);
+        const p2 = project3D(wall.b.x, wall.b.y, 0);
+        const p3 = project3D(wall.b.x, wall.b.y, wallHeight);
+        const p4 = project3D(wall.a.x, wall.a.y, wallHeight);
+
+        targetCtx.fillStyle = isSheet3D ? 'rgba(241, 245, 249, 0.5)' : 'rgba(255, 255, 255, 0.04)';
+        targetCtx.beginPath();
+        targetCtx.moveTo(p1.x, p1.y);
+        targetCtx.lineTo(p2.x, p2.y);
+        targetCtx.lineTo(p3.x, p3.y);
+        targetCtx.lineTo(p4.x, p4.y);
+        targetCtx.closePath();
+        targetCtx.fill();
+        targetCtx.stroke();
+      }
+
+      // 3. ELETRODUTOS 3D
+      const nodeMap = new Map(engine.nodes.map(n => [n.id, n]));
+
+      for (const c of engine.conduits) {
+        const nA = nodeMap.get(c.nodeAId);
+        const nB = nodeMap.get(c.nodeBId);
+        if (!nA || !nB) continue;
+
+        let zA = 1.2;
+        if (nA.type.startsWith('light')) zA = wallHeight;
+        else if (nA.type === 'outlet_low') zA = 0.3;
+        else if (nA.type === 'outlet_high') zA = 2.2;
+        else if (nA.type === 'distribution_board') zA = 1.5;
+
+        let zB = 1.2;
+        if (nB.type.startsWith('light')) zB = wallHeight;
+        else if (nB.type === 'outlet_low') zB = 0.3;
+        else if (nB.type === 'outlet_high') zB = 2.2;
+        else if (nB.type === 'distribution_board') zB = 1.5;
+
+        const ptA_device = project3D(nA.position.x, nA.position.y, zA);
+        const ptA_ceiling = project3D(nA.position.x, nA.position.y, wallHeight);
+        const ptB_ceiling = project3D(nB.position.x, nB.position.y, wallHeight);
+        const ptB_device = project3D(nB.position.x, nB.position.y, zB);
+
+        const midX = (nA.position.x + nB.position.x) / 2;
+        const midY = (nA.position.y + nB.position.y) / 2;
+        const ptMid_ceiling = project3D(midX, midY, wallHeight + 0.1);
+
+        targetCtx.strokeStyle = '#f59e0b';
+        targetCtx.lineWidth = targetCanvas === canvas3D ? 3.0 : 2.0;
+        targetCtx.lineCap = 'round';
+        targetCtx.lineJoin = 'round';
+
+        targetCtx.beginPath();
+        targetCtx.moveTo(ptA_device.x, ptA_device.y);
+        targetCtx.lineTo(ptA_ceiling.x, ptA_ceiling.y);
+        targetCtx.quadraticCurveTo(ptMid_ceiling.x, ptMid_ceiling.y, ptB_ceiling.x, ptB_ceiling.y);
+        targetCtx.lineTo(ptB_device.x, ptB_device.y);
+        targetCtx.stroke();
+      }
+
+      // 4. CAIXAS ELÉTRICAS BIM EM 3D
+      for (const node of engine.nodes) {
+        let z = 1.2;
+        let isCeiling = false;
+        let isPanel = false;
+
+        if (node.type.startsWith('light')) { z = wallHeight; isCeiling = true; }
+        else if (node.type === 'outlet_low') { z = 0.3; }
+        else if (node.type === 'outlet_high') { z = 2.2; }
+        else if (node.type === 'distribution_board') { z = 1.5; isPanel = true; }
+
+        const pt = project3D(node.position.x, node.position.y, z);
+
+        if (isCeiling) {
+          targetCtx.fillStyle = '#f59e0b';
+          targetCtx.strokeStyle = '#ffffff';
+          targetCtx.lineWidth = 1.2;
+          targetCtx.beginPath();
+          targetCtx.arc(pt.x, pt.y, targetCanvas === canvas3D ? 7 : 4, 0, Math.PI * 2);
+          targetCtx.fill(); targetCtx.stroke();
+          targetCtx.fillStyle = '#0f172a';
+          targetCtx.beginPath();
+          targetCtx.arc(pt.x, pt.y, 2, 0, Math.PI * 2);
+          targetCtx.fill();
+        } else if (isPanel) {
+          targetCtx.fillStyle = '#0f172a';
+          targetCtx.strokeStyle = '#0284c7';
+          targetCtx.lineWidth = 2.0;
+          const pw = targetCanvas === canvas3D ? 16 : 10;
+          const ph = targetCanvas === canvas3D ? 24 : 15;
+          targetCtx.fillRect(pt.x - pw / 2, pt.y - ph / 2, pw, ph);
+          targetCtx.strokeRect(pt.x - pw / 2, pt.y - ph / 2, pw, ph);
+        } else {
+          targetCtx.fillStyle = '#f59e0b';
+          targetCtx.fillRect(pt.x - 4, pt.y - 6, 8, 12);
+          targetCtx.fillStyle = '#ffffff';
+          targetCtx.fillRect(pt.x - 2, pt.y - 4, 4, 8);
+        }
+      }
+    }
+
+    document.getElementById('btn-open-3d').addEventListener('click', () => {
+      modal3D.style.display = 'flex';
+      setTimeout(() => render3D(), 50);
+    });
+
+    canvas3D.addEventListener('mousedown', (e) => {
+      isDragging3D = true;
+      startX3D = e.clientX;
+      startY3D = e.clientY;
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isDragging3D) return;
+      const dx = e.clientX - startX3D;
+      const dy = e.clientY - startY3D;
+      rotAngle += dx * 0.008;
+      tiltAngle = Math.max(0.1, Math.min(1.2, tiltAngle + dy * 0.005));
+      startX3D = e.clientX;
+      startY3D = e.clientY;
+      render3D();
+      if (engine.mode === 'layout') renderPaperSheet();
+    });
+
+    window.addEventListener('mouseup', () => { isDragging3D = false; });
+
+    // Inicialização da Aplicação
+    resize();
+    window.addEventListener('load', resize);
+    requestAnimationFrame(resize);
+  </script>
+</body>
+</html>
