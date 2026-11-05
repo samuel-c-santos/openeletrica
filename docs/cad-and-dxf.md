@@ -38,7 +38,7 @@ Para assegurar a precisão no desenho e a conectividade entre elementos, o siste
 
 ## 3. Conversão e Exportação para Formato DXF
 
-A exportação de desenhos vetoriais ocorre inteiramente no navegador, gerando documentos DXF no padrão AutoCAD R12 ASCII:
+A exportação de desenhos vetoriais ocorre inteiramente no navegador, gerando documentos DXF no padrão aberto R12 ASCII:
 
 ```mermaid
 flowchart LR

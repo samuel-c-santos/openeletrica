@@ -579,7 +579,8 @@ export class CadEngine {
     this.dimEndPoint = null;   // 2º ponto de inserção de cota (Destino)
     this.dimPendingOffset = 0.40; // Offset perpendicular dinâmico da cota
     this.dimStage = 0;         // 0: aguardando P1, 1: aguardando P2, 2: posicionando offset dinâmico
-    this.typedLength = '';     // Buffer de entrada direta de distância (AutoCAD Direct Distance Entry)
+    this.dimensionSnapMode = 'faces'; // 'faces' | 'axes' | 'all' (Atracamento preferencial em faces que delimitam os ambientes)
+    this.typedLength = '';     // Buffer de entrada direta de comprimento de parede
     this.draggedWallVertices = []; // Vértices coincidentes arrastados em grupo para manter quinas fechadas
     this.roomDividers = [];
     this.wireAllocations = new Map();
@@ -588,7 +589,7 @@ export class CadEngine {
     this.pendingNodeType = 'outlet_medium';
     this.selectedNodeId = null;
     this.selectedElement = null; // { type: 'node' | 'wall' | 'door' | 'window' | 'room' | 'unifilar' | 'dimension' | 'multi', ... }
-    this.selectedElements = []; // Itens selecionados em massa via Caixa AutoCAD / Revit
+    this.selectedElements = []; // Itens selecionados em massa via janela retangular
     this.conduitStartNodeId = null;
 
     this.isPlanLocked = false; // Inicia destravada para edição imediata de paredes, portas e pontos
@@ -660,7 +661,7 @@ export class CadEngine {
     this.attachedWall = null; // Parede sob o mouse para portas/janelas
     this.listeners = [];
 
-    // Sistema de Seleção Avançado estilo Revit com Tab Cycling
+    // Sistema de Seleção Avançado com Alternância de Candidatos via Tecla Tab
     this.hoverCandidates = [];
     this.hoverCandidateIndex = 0;
 
@@ -738,7 +739,7 @@ export class CadEngine {
     }
   }
 
-  // AutoCAD Direct Distance Entry: insere parede contínua com comprimento exato digitado via teclado
+  // Entrada Rápida de Comprimento: insere parede contínua com dimensão numérica exata
   applyTypedLength(valStr) {
     if (!this.wallStartPoint) return false;
     const val = typeof valStr === 'number' ? valStr : parseFloat(String(valStr).replace(',', '.'));
@@ -776,7 +777,7 @@ export class CadEngine {
     };
     this.walls.push(newWall);
 
-    // Encadeia desenho contínuo no novo ponto final exatamente como no AutoCAD
+    // Encadeia desenho contínuo no novo ponto final
     this.wallStartPoint = { x: endPoint.x, y: endPoint.y };
     this.typedLength = '';
     this.notify();
@@ -787,7 +788,7 @@ export class CadEngine {
     return true;
   }
 
-  // Identifica cotas vinculadas à parede selecionada (NBR 6492 / Paramétricas Revit)
+  // Identifica cotas vinculadas à parede selecionada (NBR 6492 / Cotas Vinculadas)
   getDrivingDimensionsForWall(wallIndex) {
     const wall = this.walls[wallIndex];
     if (!wall) return [];
@@ -847,7 +848,7 @@ export class CadEngine {
     return results;
   }
 
-  // Aplica valor paramétrico à cota, deslocando a parede e mantendo cantos fechados (Revit-Style)
+  // Aplica valor paramétrico à cota, deslocando a parede e mantendo cantos fechados
   applyDrivingDimension(dimIndex, newDist, wallIndex) {
     const dim = this.dimensions[dimIndex];
     const wall = this.walls[wallIndex];
@@ -1237,8 +1238,65 @@ export class CadEngine {
       }
     }
 
-    // 4. Snap a Vértices de Parede (Endpoint)
-    if (this.snapSettings.endpoint && this.layers.walls) {
+    // 4. Snap às Faces e Quinas da Alvenaria (Faces Internas e Externas que delimitam ambientes)
+    if (this.layers.walls && this.walls.length > 0) {
+      const geoms = this.computeWallGeometries();
+      const faceTol = (this.activeTool === 'dimension' && this.dimensionSnapMode === 'faces') ? 25 : 18;
+
+      // 4.1 Quinas das faces internas e externas (a1, a2, b1, b2)
+      if (this.snapSettings.endpoint && this.dimensionSnapMode !== 'axes') {
+        for (const g of geoms) {
+          const corners = [
+            { pt: g.a1, label: 'Quina da Parede (Face)' },
+            { pt: g.a2, label: 'Quina da Parede (Face)' },
+            { pt: g.b1, label: 'Quina da Parede (Face)' },
+            { pt: g.b2, label: 'Quina da Parede (Face)' }
+          ];
+          for (const c of corners) {
+            const sPt = this.viewport.worldToScreen(c.pt);
+            const d = sPt.distanceTo(screenPt);
+            if (d < closestDist && d < faceTol) {
+              closestDist = d;
+              best = {
+                snapped: true,
+                point: new Vector2D(c.pt.x, c.pt.y),
+                wall: g.wall,
+                type: 'wall_face_corner',
+                label: c.label
+              };
+            }
+          }
+        }
+      }
+
+      // 4.2 Arestas lineares das Faces Internas e Externas (linhas a1-b1 e a2-b2)
+      if (this.snapSettings.nearest && this.dimensionSnapMode !== 'axes') {
+        for (const g of geoms) {
+          const faces = [
+            { a: g.a1, b: g.b1, label: 'Face da Parede' },
+            { a: g.a2, b: g.b2, label: 'Face da Parede' }
+          ];
+          for (const f of faces) {
+            const proj = Vector2D.projectOnSegment(rawWorld, f.a, f.b);
+            const sProj = this.viewport.worldToScreen(proj.point);
+            const d = sProj.distanceTo(screenPt);
+            if (d < closestDist && d < faceTol) {
+              closestDist = d;
+              best = {
+                snapped: true,
+                point: proj.point,
+                wall: g.wall,
+                type: 'wall_face',
+                label: f.label
+              };
+            }
+          }
+        }
+      }
+    }
+
+    // 5. Snap a Vértices do Eixo Central da Parede (Endpoint)
+    if (this.snapSettings.endpoint && this.layers.walls && this.dimensionSnapMode !== 'faces' && (this.activeTool !== 'dimension' || this.dimensionSnapMode === 'axes' || !best.snapped)) {
       for (const wall of this.walls) {
         const sA = this.viewport.worldToScreen(wall.a);
         const sB = this.viewport.worldToScreen(wall.b);
@@ -1247,16 +1305,16 @@ export class CadEngine {
 
         if (dA < closestDist) {
           closestDist = dA;
-          best = { snapped: true, point: new Vector2D(wall.a.x, wall.a.y), wall, handle: 'a', type: 'endpoint' };
+          best = { snapped: true, point: new Vector2D(wall.a.x, wall.a.y), wall, handle: 'a', type: 'endpoint', label: 'Eixo da Parede' };
         }
         if (dB < closestDist) {
           closestDist = dB;
-          best = { snapped: true, point: new Vector2D(wall.b.x, wall.b.y), wall, handle: 'b', type: 'endpoint' };
+          best = { snapped: true, point: new Vector2D(wall.b.x, wall.b.y), wall, handle: 'b', type: 'endpoint', label: 'Eixo da Parede' };
         }
       }
     }
 
-    // 5. Snap a Ponto Médio de Parede (Midpoint)
+    // 6. Snap a Ponto Médio de Parede (Midpoint)
     if (this.snapSettings.midpoint && this.layers.walls && !best.snapped) {
       for (const wall of this.walls) {
         const midWorld = new Vector2D((wall.a.x + wall.b.x) / 2, (wall.a.y + wall.b.y) / 2);
@@ -1264,12 +1322,12 @@ export class CadEngine {
         const dMid = sMid.distanceTo(screenPt);
         if (dMid < closestDist) {
           closestDist = dMid;
-          best = { snapped: true, point: midWorld, wall, type: 'midpoint' };
+          best = { snapped: true, point: midWorld, wall, type: 'midpoint', label: 'Ponto Médio' };
         }
       }
     }
 
-    // 6. Rastreamento Polar / Ortho (0°, 45°, 90°, etc.)
+    // 7. Rastreamento Polar / Ortho (0°, 45°, 90°, etc.)
     if (this.snapSettings.ortho45 && (this.activeTool === 'wall' || this.activeTool === 'room_divider') && this.wallStartPoint && !best.snapped) {
       const curWorld = this.viewport.screenToWorld(screenPt);
       const dx = curWorld.x - this.wallStartPoint.x;
@@ -1297,13 +1355,13 @@ export class CadEngine {
       }
     }
 
-    // 7. Snap a Segmento de Parede (Nearest on segment)
-    if (this.snapSettings.nearest && this.layers.walls && !best.snapped) {
+    // 8. Snap a Segmento do Eixo da Parede (Nearest on segment)
+    if (this.snapSettings.nearest && this.layers.walls && !best.snapped && this.dimensionSnapMode !== 'faces') {
       const near = this.findNearestWall(rawWorld, 0.45);
       if (near) {
         const sNear = this.viewport.worldToScreen(near.point);
         if (sNear.distanceTo(screenPt) < closestDist) {
-          best = { snapped: true, point: near.point, wall: near.wall, angle: near.angle, type: 'nearest' };
+          best = { snapped: true, point: near.point, wall: near.wall, angle: near.angle, type: 'nearest', label: 'Eixo da Parede' };
         }
       }
     }
@@ -1528,9 +1586,9 @@ export class CadEngine {
       return;
     }
 
-    // 8. Ferramenta Selecionar (Com suporte ao Revit-Style Tab Candidate Cycling)
+    // 8. Ferramenta Selecionar (Com suporte à Alternância de Seleção por Tab)
     if (this.activeTool === 'select') {
-      // 8.1 Se temos um candidato ativo pelo Tab Cycling sob o cursor, seleciona-o diretamente!
+      // 8.1 Se temos um candidato ativo pela tecla Tab sob o cursor, seleciona-o diretamente!
       if (this.hoverCandidates && this.hoverCandidates.length > 0) {
         const cand = this.hoverCandidates[this.hoverCandidateIndex] || this.hoverCandidates[0];
         if (cand.type === 'door') {
@@ -1712,7 +1770,7 @@ export class CadEngine {
         }
       }
 
-      // 8.7 Iniciar Seleção em Massa por Retângulo (AutoCAD / Revit Window & Crossing Selection)
+      // 8.7 Iniciar Seleção em Massa por Retângulo (Janela e Cruzamento)
       this.selectedNodeId = null;
       this.selectedElement = null;
       this.selectedElements = [];
@@ -2106,7 +2164,7 @@ export class CadEngine {
     this.isPanning = false;
     this.isDragging = false;
 
-    // Conclusão de Seleção em Massa por Retângulo (AutoCAD / Revit Window & Crossing)
+    // Conclusão de Seleção em Massa por Retângulo (Janela e Cruzamento)
     if (this.isSelectingBox && this.selectionBoxStart && this.selectionBoxCurrent) {
       const p1 = this.selectionBoxStart;
       const p2 = this.selectionBoxCurrent;
@@ -2287,7 +2345,7 @@ export class CadEngine {
     let mainColor = '#047857'; // Verde técnico padrão ABNT NBR 6492
     if (isSelected) mainColor = '#0284c7'; // Azul seleção
     else if (isPreview) mainColor = '#0284c7'; // Azul prévia
-    else if (isDriving) mainColor = '#2563eb'; // Azul realçado Cota Paramétrica Revit
+    else if (isDriving) mainColor = '#2563eb'; // Azul realçado Cota Vinculada
 
     ctx.strokeStyle = mainColor;
     ctx.fillStyle = mainColor;
@@ -2322,14 +2380,14 @@ export class CadEngine {
       ctx.lineWidth = isSelected || isDriving ? 2.2 : 1.8;
       ctx.beginPath();
       ctx.moveTo(pt.x - Math.cos(ang + Math.PI / 4) * tickLen, pt.y - Math.sin(ang + Math.PI / 4) * tickLen);
-      ctx.lineTo(pt.x + Math.cos(ang + Math.PI / 4) * tickLen, pt.y + Math.sin(ang + Math.PI / 4) * tickLen);
+      ctx.lineTo(pt.x + Math.cos(ang + Math.PI / 4) * tickLen, pt.y - Math.sin(ang + Math.PI / 4) * tickLen);
       ctx.stroke();
     });
 
-    // 4. Texto centralizado com máscara de fundo branco
+    // 4. Texto centralizado com máscara de fundo
     const midX = (sDimA.x + sDimB.x) / 2;
     const midY = (sDimA.y + sDimB.y) / 2;
-    const txt = isDriving ? `✏️ ${L.toFixed(2)} m` : `${L.toFixed(2)} m`;
+    const txt = `${L.toFixed(2)} m`;
 
     ctx.save();
     ctx.translate(midX, midY);
@@ -2698,40 +2756,33 @@ export class CadEngine {
             const p2L = pair.end2 === 'a' ? g2.a1 : g2.b1;
             const p2R = pair.end2 === 'a' ? g2.a2 : g2.b2;
 
-            const candidates = [
-              lineIntersect(p1L, g1.u, p2L, g2.u),
-              lineIntersect(p1L, g1.u, p2R, g2.u),
-              lineIntersect(p1R, g1.u, p2L, g2.u),
-              lineIntersect(p1R, g1.u, p2R, g2.u)
-            ].filter(p => p !== null && Math.hypot(p.x - pair.pt1.x, p.y - pair.pt1.y) < 0.45);
+            // Vetores direcionais saindo do vértice de encontro
+            const v1 = pair.end1 === 'a' ? g1.u : { x: -g1.u.x, y: -g1.u.y };
+            const v2 = pair.end2 === 'a' ? g2.u : { x: -g2.u.x, y: -g2.u.y };
+            const bisect = { x: v1.x + v2.x, y: v1.y + v2.y };
+            const bisectLen = Math.hypot(bisect.x, bisect.y);
 
-            if (candidates.length >= 2) {
-              candidates.sort((pA, pB) => Math.hypot(pA.x - pair.pt1.x, pA.y - pair.pt1.y) - Math.hypot(pB.x - pair.pt1.x, pB.y - pair.pt1.y));
-              const cInner = candidates[0];
-              const cOuter = candidates[candidates.length - 1];
+            // Se paredes não forem estritamente colineares opostas (formam canto)
+            if (bisectLen > 0.05) {
+              const P11 = lineIntersect(p1L, g1.u, p2L, g2.u);
+              const P12 = lineIntersect(p1L, g1.u, p2R, g2.u);
+              const P21 = lineIntersect(p1R, g1.u, p2L, g2.u);
+              const P22 = lineIntersect(p1R, g1.u, p2R, g2.u);
 
-              const dL = Math.hypot(p1L.x - cInner.x, p1L.y - cInner.y);
-              const dR = Math.hypot(p1R.x - cInner.x, p1R.y - cInner.y);
-              const g1_inner_is_1 = dL < dR;
+              if (P11 && P22 && P12 && P21) {
+                // Alinhamento exato da linha miter com o vetor bissetriz do canto
+                const deltaA = { x: P11.x - P22.x, y: P11.y - P22.y };
+                const deltaB = { x: P12.x - P21.x, y: P12.y - P21.y };
+                const scoreA = Math.abs(deltaA.x * bisect.x + deltaA.y * bisect.y);
+                const scoreB = Math.abs(deltaB.x * bisect.x + deltaB.y * bisect.y);
 
-              if (pair.end1 === 'a') {
-                g1.a1 = g1_inner_is_1 ? cInner : cOuter;
-                g1.a2 = g1_inner_is_1 ? cOuter : cInner;
-              } else {
-                g1.b1 = g1_inner_is_1 ? cInner : cOuter;
-                g1.b2 = g1_inner_is_1 ? cOuter : cInner;
-              }
-
-              const d2L = Math.hypot(p2L.x - cInner.x, p2L.y - cInner.y);
-              const d2R = Math.hypot(p2R.x - cInner.x, p2R.y - cInner.y);
-              const g2_inner_is_1 = d2L < d2R;
-
-              if (pair.end2 === 'a') {
-                g2.a1 = g2_inner_is_1 ? cInner : cOuter;
-                g2.a2 = g2_inner_is_1 ? cOuter : cInner;
-              } else {
-                g2.b1 = g2_inner_is_1 ? cInner : cOuter;
-                g2.b2 = g2_inner_is_1 ? cOuter : cInner;
+                if (scoreA >= scoreB) {
+                  if (pair.end1 === 'a') { g1.a1 = P11; g1.a2 = P22; } else { g1.b1 = P11; g1.b2 = P22; }
+                  if (pair.end2 === 'a') { g2.a1 = P11; g2.a2 = P22; } else { g2.b1 = P11; g2.b2 = P22; }
+                } else {
+                  if (pair.end1 === 'a') { g1.a1 = P12; g1.a2 = P21; } else { g1.b1 = P12; g1.b2 = P21; }
+                  if (pair.end2 === 'a') { g2.a1 = P21; g2.a2 = P12; } else { g2.b1 = P21; g2.b2 = P12; }
+                }
               }
             }
           }
@@ -2759,7 +2810,7 @@ export class CadEngine {
           if (t > 0.02 && t < 0.98) {
             const projX = oA.x + t * oDx;
             const projY = oA.y + t * oDy;
-            if (Math.hypot(pt.x - projX, pt.y - projY) < 0.1) {
+            if (Math.hypot(pt.x - projX, pt.y - projY) < 0.20) {
               if (end === 'a') g.connectsA = true; else g.connectsB = true;
               const trimDist = other.h;
               const u = g.u;
@@ -3270,11 +3321,40 @@ export class CadEngine {
         ctx.fill();
 
         ctx.font = 'bold 10px Arial, sans-serif';
-        ctx.fillText('📏 Boneca 10 cm', s.x + 10, s.y - 8);
+        ctx.fillText('Boneca 10 cm', s.x + 10, s.y - 8);
+      } else if (this.currentSnap.type === 'wall_face_corner') {
+        // Losango verde esmeralda (Quina da face da parede: interna ou externa)
+        ctx.strokeStyle = '#059669';
+        ctx.lineWidth = 2.0;
+        ctx.beginPath();
+        ctx.moveTo(s.x, s.y - 6);
+        ctx.lineTo(s.x + 6, s.y);
+        ctx.lineTo(s.x, s.y + 6);
+        ctx.lineTo(s.x - 6, s.y);
+        ctx.closePath();
+        ctx.stroke();
+
+        ctx.fillStyle = '#059669';
+        ctx.font = 'bold 10px Arial, sans-serif';
+        ctx.fillText('Quina da Parede (Face)', s.x + 10, s.y - 8);
+      } else if (this.currentSnap.type === 'wall_face') {
+        // Marcador circular nítido com mira (Face da parede: interna ou externa)
+        ctx.strokeStyle = '#059669';
+        ctx.lineWidth = 1.8;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, 5, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.fillStyle = '#059669';
+        ctx.font = 'bold 10px Arial, sans-serif';
+        ctx.fillText('Face da Parede', s.x + 10, s.y - 8);
       } else if (this.currentSnap.type === 'endpoint') {
-        // Quadrado verde (Endpoint de parede)
+        // Quadrado verde (Eixo da parede ou nó)
         ctx.strokeStyle = '#10b981';
         ctx.strokeRect(s.x - 5, s.y - 5, 10, 10);
+        ctx.fillStyle = '#10b981';
+        ctx.font = 'bold 10px Arial, sans-serif';
+        ctx.fillText('Eixo da Parede', s.x + 10, s.y - 8);
       } else if (this.currentSnap.type === 'midpoint') {
         // Triângulo ciano (Ponto Médio)
         ctx.strokeStyle = '#06b6d4';
@@ -3285,7 +3365,7 @@ export class CadEngine {
         ctx.closePath();
         ctx.stroke();
       } else if (this.currentSnap.type === 'nearest') {
-        // Ampulheta amarela (Sobre o segmento)
+        // Ampulheta amarela (Sobre o segmento central)
         ctx.strokeStyle = '#f59e0b';
         ctx.beginPath();
         ctx.moveTo(s.x - 5, s.y - 5);
@@ -3413,7 +3493,7 @@ export class CadEngine {
       }
     }
 
-    // 10. Caixa de Seleção Dinâmica em Massa (AutoCAD / Revit Window & Crossing Selection)
+    // 10. Caixa de Seleção Dinâmica em Massa (Janela e Cruzamento Retangular)
     if (!this.isPaperSpace && this.isSelectingBox && this.selectionBoxStart && this.selectionBoxCurrent) {
       const p1 = this.selectionBoxStart;
       const p2 = this.selectionBoxCurrent;

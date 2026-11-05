@@ -1211,13 +1211,22 @@
           });
         }
       } else if (tool === 'dimension') {
+        const snapRef = engine.dimensionSnapMode || 'all';
         subtoolbarEl.innerHTML = `
           <span class="context-title">Cotas Técnicas (NBR 6492):</span>
-          <span style="color:#475569; font-size:11.5px;">Clique no primeiro ponto (origem) e depois no segundo ponto (destino) da cota. Pressione <kbd style="background:#f1f5f9;padding:2px 5px;border-radius:3px;border:1px solid #cbd5e1;font-weight:700;">Esc</kbd> para cancelar.</span>
-          <div class="context-badge-info">
-            <span>📏 Atracamento magnético em quinas de parede, portas e tomadas</span>
-          </div>
+          <span style="color:#475569; font-size:11.5px;">1º Clique: Origem | 2º Clique: Destino | 3º Mova o mouse e clique para fixar o afastamento.</span>
+          <div class="divider-v"></div>
+          <span class="context-title" style="font-size:11px;">Atracamento:</span>
+          <button class="context-chip ${snapRef === 'faces' ? 'active' : ''}" data-dim-snap="faces">Faces da Parede (Interna / Externa)</button>
+          <button class="context-chip ${snapRef === 'axes' ? 'active' : ''}" data-dim-snap="axes">Eixo da Parede (Centro)</button>
+          <button class="context-chip ${snapRef === 'all' ? 'active' : ''}" data-dim-snap="all">Todas as Referências</button>
         `;
+        subtoolbarEl.querySelectorAll('[data-dim-snap]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            engine.dimensionSnapMode = btn.dataset.dimSnap;
+            updateContextSubtoolbar();
+          });
+        });
       } else if (tool === 'add_node') {
         subtoolbarEl.innerHTML = `
           <span class="context-title">Lançamento Elétrico:</span>
@@ -1239,7 +1248,7 @@
         // Modo Seleção ou Geral
         subtoolbarEl.innerHTML = `
           <span class="context-title">Modo Seleção:</span>
-          <span style="color:#475569; font-size:11.5px;">Pressione <kbd style="background:#f1f5f9;padding:2px 5px;border-radius:3px;border:1px solid #cbd5e1;font-weight:700;">Tab ⇥</kbd> para alternar elementos sob o mouse (estilo Revit) e clique para selecionar. Arraste para mover ou pressione <kbd style="background:#f1f5f9;padding:2px 5px;border-radius:3px;border:1px solid #cbd5e1;font-weight:700;">Del</kbd> para excluir.</span>
+          <span style="color:#475569; font-size:11.5px;">Pressione <kbd style="background:#f1f5f9;padding:2px 5px;border-radius:3px;border:1px solid #cbd5e1;font-weight:700;">Tab ⇥</kbd> para alternar entre elementos sob o cursor e clique para selecionar. Arraste para mover ou pressione <kbd style="background:#f1f5f9;padding:2px 5px;border-radius:3px;border:1px solid #cbd5e1;font-weight:700;">Del</kbd> para excluir.</span>
           <div class="context-badge-info">
             <span>Status da rede: ${engine.conduits.length} eletrodutos, ${engine.wireAllocations.size} trechos alimentados</span>
           </div>
@@ -1474,9 +1483,9 @@
               ${drivingDims.length > 0 ? `
                 <div style="margin: 14px 0 6px 0; font-size:11px; font-weight:700; color:#2563eb; display:flex; align-items:center; gap:5px;">
                   <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M21.3 15.3l-1.4-1.4L18 16l-2-2 1.4-1.4-4-4L6 16l2 2 1.4-1.4 2 2-1.4 1.4 1.4 1.4c.8.8 2 .8 2.8 0l7.1-7.1c.8-.8.8-2 0-2.8z"></path></svg>
-                  COTAS PARAMÉTRICAS (REVIT)
+                  COTAS VINCULADAS
                 </div>
-                <div style="font-size:10.5px; color:#64748b; margin-bottom:8px;">Edite a medida para ajustar o vão mantendo as quinas fechadas:</div>
+                <div style="font-size:10.5px; color:#64748b; margin-bottom:8px;">Altere o valor para redefinir o vão da alvenaria (faces ou eixos):</div>
                 ${drivingDims.map(d => `
                   <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:6px; padding:6px 8px; margin-bottom:6px;">
                     <div style="font-size:10.5px; font-weight:600; color:#334155; margin-bottom:4px;">${d.label}</div>
@@ -1495,7 +1504,7 @@
               </button>
             `;
 
-            // Anexar listeners de Cotas Paramétricas (Estilo Revit)
+            // Anexar listeners de Cotas Vinculadas
             content.querySelectorAll('.btn-apply-driving').forEach(btn => {
               btn.addEventListener('click', () => {
                 const dimIdx = parseInt(btn.dataset.dimIdx);
@@ -1601,7 +1610,7 @@
 
             <button class="btn-eng-action" id="btn-flip-dim" style="margin-top:10px; width:100%; justify-content:center; color:#0284c7; border-color:#bae6fd; background:#f0f9ff;">
               <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"></path></svg>
-              Inverter Lado (Dentro / Fora)
+              Inverter Afastamento da Cota
             </button>
 
             <button class="btn-eng-action" id="btn-delete-element" style="margin-top:10px; width:100%; justify-content:center; color:#ef4444; border-color:#fca5a5; background:#fef2f2;">
@@ -1631,13 +1640,13 @@
         }
       }
 
-      // 3. Seleção em Massa por Janela AutoCAD/Revit
+      // 3. Seleção em Massa por Janela Retangular
       if (engine.selectedElements && engine.selectedElements.length > 0) {
         drawer.classList.add('open');
         content.innerHTML = `
           <div class="prop-row"><span class="prop-label">Tipo:</span><span class="prop-val">Seleção em Massa</span></div>
           <div class="prop-row"><span class="prop-label">Quantidade:</span><span class="prop-val">${engine.selectedElements.length} itens</span></div>
-          <div style="margin: 8px 0 4px 0; font-size:11px; color:#64748b;">Itens selecionados por janela de seleção (AutoCAD/Revit).</div>
+          <div style="margin: 8px 0 4px 0; font-size:11px; color:#64748b;">Itens selecionados por janela de seleção retangular.</div>
 
           <button class="btn-eng-action" id="btn-delete-element" style="margin-top:14px; width:100%; justify-content:center; color:#ef4444; border-color:#fca5a5; background:#fef2f2;">
             <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
@@ -1688,11 +1697,11 @@
       engine.render(ctx, canvas.width, canvas.height);
     });
 
-    // Tecla ESPAÇO para inverter porta (Flip nos 4 sentidos), TAB para ciclar seleção, ESC, DELETE, UNDO/REDO e AutoCAD Direct Distance Entry
+    // Tecla ESPAÇO para alternar sentido da porta, TAB para ciclar seleção, ESC, DELETE, UNDO/REDO e Entrada Rápida de Comprimento
     window.addEventListener('keydown', (e) => {
       const isInputFocused = document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'SELECT');
 
-      // 1. AutoCAD Direct Distance Entry (Digitar distância ao desenhar parede contínua)
+      // 1. Entrada Rápida de Comprimento (Digitar distância ao desenhar parede contínua)
       if (!isInputFocused && engine.activeTool === 'wall' && engine.wallStartPoint) {
         if ((e.key >= '0' && e.key <= '9') || e.key === '.' || e.key === ',') {
           e.preventDefault();
