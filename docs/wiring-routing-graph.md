@@ -1,70 +1,66 @@
-# Algoritmo de Roteamento de Fiação & Anti-Colisão
+# Roteamento de Fiação e Otimização Espacial: Algoritmos e Topologia
 
-Este documento detalha o funcionamento do **grafo elétrico**, a determinação dos caminhos de condutores e o algoritmo geométrico anti-colisão utilizado para posicionar as marcações de condutores na prancha.
-
----
-
-## 1. O Grafo Topológico da Instalação
-
-A rede de distribuição é modelada como um **Grafo Conexo Ponderado Não-Direcionado** $G = (V, E)$:
-
-* **Vértices ($V$):**
-  * `PanelNode`: Quadro Geral (QGBT) ou Quadro de Distribuição (QD);
-  * `LoadNode`: Pontos de Luz no Teto, Arandelas, Tomadas (TUG/TUE);
-  * `SwitchNode`: Interruptores simples, paralelos (*Three-Way*), intermediários (*Four-Way*);
-  * `JunctionNode`: Caixas de passagem octogonais ou 4x4.
-* **Arestas ($E$):**
-  * Trechos de eletrodutos entre dois nós.
-  * O peso da aresta $w(e)$ é a distância euclidiana tridimensional real:
-    $$w(e) = \sqrt{(x_B - x_A)^2 + (y_B - y_A)^2 + (z_B - z_A)^2}$$
-    Isso garante que a subida/descida vertical da tubulação seja contabilizada na metragem física de cabos e no cálculo de queda de tensão.
+Este documento descreve a formalização do grafo da rede elétrica, as rotinas de roteamento de condutores e o algoritmo geométrico empregado na resolução de posições de fiação sem sobreposição visual.
 
 ---
 
-## 2. Determinação de Condutores em Cada Eletroduto
+## 1. Topologia da Rede em Grafo Ponderado
 
-### 2.1 Roteamento do QDC até as Cargas
-Para cada circuito $C$:
-1. Executa-se o algoritmo de menor caminho (**Dijkstra**) partindo do nó do Quadro ($Q$) até cada ponto de carga $L \in C$.
-2. Para cada aresta $e$ percorrida pelo caminho:
-   * Aloca-se condutor de **Fase** e **Neutro** correspondentes ao circuito $C$.
-   * Aloca-se condutor de **Proteção (Terra)** (obrigatório em todos os trechos de circuito terminal).
+A malha de tubulações e caixas é representada formalmente como um grafo conexo não-direcionado $G = (V, E)$:
 
-### 2.2 Roteamento de Comandos e Interruptores
-Para lâmpadas acionadas por interruptor:
-* **Interruptor Simples:**
-  * O eletroduto entre a caixa de teto e o interruptor recebe a **Fase** do circuito até o interruptor, e o condutor de **Retorno** volta do interruptor até a lâmpada.
-* **Interruptor Paralelo (Three-Way):**
-  * Entre os dois interruptores paralelos trafegam **dois condutores de retorno** em paralelo. A fase entra no primeiro interruptor e o retorno da lâmpada sai do segundo.
-* **Interruptor Intermediário (Four-Way):**
-  * Inserido no trajeto intermediário entre dois paralelos, conduzindo quatro retornos (dois de entrada e dois de saída).
+### 1.1 Conjunto de Vértices ($V$)
+* Vértices de Distribuição: Quadro Geral de Baixa Tensão (QGBT) e Quadros de Distribuição (QD);
+* Vértices de Consumo: Luminárias de teto, arandelas de parede e tomadas (TUG e TUE);
+* Vértices de Manobra: Interruptores simples, paralelos (three-way) e intermediários (four-way);
+* Vértices de Passagem: Caixas octogonais de laje ou caixas de derivação em alvenaria.
+
+### 1.2 Conjunto de Arestas ($E$)
+Cada trecho físico de eletroduto conectando dois vértices constitui uma aresta ponderada. O peso $w(e)$ corresponde à distância euclidiana tridimensional real entre os nós:
+
+$$w(e) = \sqrt{(x_B - x_A)^2 + (y_B - y_A)^2 + (z_B - z_A)^2}$$
+
+Essa formulação assegura a contabilização correta das subidas e descidas de tubulação em paredes para a determinação quantitativa de condutores e avaliação de queda de tensão.
 
 ---
 
-## 3. Algoritmo Geométrico Anti-Colisão (`organize_wires_layout`)
+## 2. Determinação e Alocação de Condutores
 
-Especificação da lógica de otimização espacial:
+### 2.1 Trajeto do Quadro de Distribuição às Cargas
+Para cada circuito cadastrado:
+1. Aplica-se o algoritmo de caminhos mínimos de Dijkstra entre o vértice do quadro de distribuição e cada carga associada ao circuito.
+2. Em cada aresta pertencente à rota calculada:
+   * Aloca-se condutor de fase e condutor neutro do circuito em questão;
+   * Aloca-se condutor de proteção (terra), exigido em todas as ramificações de circuitos terminais.
+
+### 2.2 Condutores de Comando
+Para pontos de iluminação controlados por interruptores:
+* Comando Simples:
+  O eletroduto interligando a caixa de teto à caixa de parede recebe um condutor de fase e um condutor de retorno com a identificação alfabética do comando.
+* Comando Paralelo (Three-Way):
+  Entre os dois interruptores paralelos são alocados dois condutores de retorno em paralelo. A fase alimenta o primeiro dispositivo e o retorno da lâmpada parte do segundo.
+* Comando Intermediário (Four-Way):
+  O trecho intermediário entre dois paralelos conduz quatro condutores de retorno (dois condutores de entrada e dois condutores de saída).
+
+---
+
+## 3. Algoritmo de Otimização e Anti-Colisão de Rótulos
+
+A rotina de posicionamento das marcas gráficas de condutores nos eletrodutos opera conforme o seguinte fluxo determinístico:
 
 ```mermaid
 flowchart TD
-    Start["Identificar trechos de eletroduto com fiação"] --> BBoxCalc["Calcular Bounding Boxes (AABB) de paredes, caixas e textos"]
-    BBoxCalc --> Sampling["Amostrar 5 posições ao longo da polilinha do eletroduto"]
-    Sampling --> Offsets["Para cada ponto, projetar vetores ortogonais (Esquerda e Direita em offsets de 25px a 90px)"]
-    Offsets --> PenaltyEval["Avaliar Função de Custo para cada candidato:
-- Distância ao centro do eletroduto
-- Sobreposição com paredes (rect_overlap_area)
-- Sobreposição com outros blocos de cabos
-- Cruzamento com linhas de alvenaria"]
-    PenaltyEval --> BestPos["Selecionar a posição de Custo Mínimo"]
-    BestPos --> Draw["Desenhar cluster de condutores e rótulos"]
+    Inicio["Identificar trechos de eletroduto com condutores alocados"] --> CaixasOcupadas["Calcular caixas envolventes (AABB) de alvenarias, textos e símbolos vizinhos"]
+    CaixasOcupadas --> Amostragem["Gerar amostras espaciais ao longo do eixo da tubulação"]
+    Amostragem --> Projecao["Projetar posições ortogonais à esquerda e à direita do eixo"]
+    Projecao --> FuncaoCusto["Avaliar função de penalidade para cada candidato considerando sobreposições"]
+    FuncaoCusto --> MenorCusto["Selecionar o candidato de custo mínimo"]
+    MenorCusto --> Renderizacao["Desenhar marcas gráficas e textos normatizados"]
 ```
 
-### 3.1 Desenho Gráfico dos Condutores (Proporções ABNT)
-O desenho de cada condutor é perpendicular ao eixo da tubulação:
-* **Fase:** Segmento vertical total de $20\,\text{px} \times \text{scale}$ cortando a tubulação centralmente.
-* **Neutro:** Segmento vertical com bandeira horizontal de $4\,\text{px}$ à direita no topo superior.
-* **Retorno:** Meio segmento de $10\,\text{px}$ projetado para cima a partir da tubulação. Letra do comando impressa acima dele.
-* **Terra:** Segmento vertical com travessão em "T" simétrico no topo (de $-4\,\text{px}$ a $+4\,\text{px}$).
-* **Rótulos Numéricos:**
-  * Número do circuito centralizado acima dos condutores de fase/neutro.
-  * Bitola do cabo indicada abaixo do condutor apenas quando diferir da bitola padrão residencial ($2,5\,\text{mm}^2$).
+### 3.1 Proporções Gráficas da Simbologia de Fiação
+O traçado dos condutores é executado ortogonalmente ao eixo da tubulação:
+* Fase: Segmento contínuo centrado cortando o eixo da tubulação;
+* Neutro: Segmento vertical com terminação em ângulo reto apontando à direita;
+* Retorno: Segmento superior perpendicular ao eixo da tubulação com indicação da letra de comando;
+* Terra: Segmento vertical com terminação em barra horizontal formando um T simétrico;
+* Identificadores: O número do circuito é posicionado no campo superior dos condutores e a seção nominal é indicada no campo inferior caso divirja do padrão geral da instalação.

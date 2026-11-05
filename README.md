@@ -1,76 +1,101 @@
-# ⚡ OpenElétrica — CAD Elétrico Predial Open Source (NBR 5410)
+# OpenElétrica: Sistema CAD para Projetos de Instalações Elétricas Prediais (ABNT NBR 5410)
 
-O **OpenElétrica** é uma plataforma aberta, moderna e 100% web para elaboração automatizada de projetos de instalações elétricas prediais e residenciais em conformidade com a norma **ABNT NBR 5410**.
+O OpenElétrica é uma plataforma em software livre e de código aberto para elaboração, cálculo e documentação de projetos de instalações elétricas prediais em baixa tensão, em conformidade com as normas ABNT NBR 5410 e ABNT NBR 6492.
 
-Focado na agilidade das ferramentas web modernas e na precisão técnica de softwares profissionais de engenharia, o projeto roda **direto no navegador (offline-first)**, sem necessidade de instalação, plugins proprietários ou assinaturas pagas.
-
----
-
-## ✨ Principais Funcionalidades
-
-* 📐 **Importação de Planta Baixa:** Suporte a arquivos DXF da arquitetura e imagens de planta baixa com ferramenta de calibração métrica rápida.
-* 🔌 **Lançamento de Pontos com Snapping:** Inserção ágil de tomadas (baixas, médias, altas, TUG e TUE), lâmpadas de teto, arandelas, interruptores (simples, paralelos/three-way e intermediários/four-way) com atracamento magnético às paredes.
-* 🌐 **Conexão Topológica de Eletrodutos:** Tubulações desenhadas entre caixas que calculam automaticamente a distância 2D e as subidas/descidas verticais em 3D.
-* ⚡ **Fiação Automática Inteligente:** O sistema calcula a menor rota entre o Quadro de Distribuição (QDC) e as cargas, determinando a quantidade de condutores (fase, neutro, terra, retornos) e aplicando algoritmo anti-colisão de layout.
-* 📊 **Dimensionamento Conforme NBR 5410:**
-  * Capacidade de condução de corrente (critério de ampacidade com fatores de agrupamento $FCA$ e temperatura $FCT$);
-  * Verificação rigorosa de queda de tensão admissível ($\le 4\%$);
-  * Dimensionamento automático de bitolas de cabos e disjuntores DIN;
-  * Taxa de ocupação máxima em eletrodutos (53%, 31%, 40%);
-  * Balanceamento automático de cargas entre fases no QDC.
-* 📑 **Entregáveis Imediatos:**
-  * Diagrama Unifilar procedural gerado em tempo real;
-  * Tabela / Quadro de Cargas completo para aprovação em concessionárias (Enel, Cemig, CPFL, Equatorial, Neoenergia, etc.);
-  * Relação e lista de materiais quantitativa (metragem de condutores por cor, tubulações e caixas);
-  * Exportação vetorial direta para arquivo `.dxf` (compatível com AutoCAD, QGIS e LibreCAD).
+A aplicação opera inteiramente no cliente via navegador web (arquitetura offline-first), sem necessidade de instalação local, plugins proprietários ou dependência de infraestrutura externa de servidores.
 
 ---
 
-## 🛠️ Stack Tecnológica
+## 1. Escopo Funcional
 
-* **Linguagem:** TypeScript (ESM, tipagem estrita).
-* **Interface:** React 18+ com Tailwind CSS e Lucide Icons.
-* **Motor Gráfico:** HTML5 Canvas / SVG de alta performance com índice espacial R-Tree (`rbush`).
-* **Grafo e Roteamento:** Implementação customizada de grafos com algoritmo de Dijkstra para cálculo de menor caminho de fiação.
-* **Build Tool:** Vite + Vitest para suíte de testes unitários.
+### 1.1 Modelagem Arquitetônica e Espacial
+* Importação de arquivos DXF e imagens raster de planta baixa com calibração métrica;
+* Desenho de paredes com espessura configurável (padrão de 0,15 m) e resolução automática de quinas em L e junções em T por concordância geométrica;
+* Entrada direta de distâncias no teclado ao desenhar alvenarias (método direct distance entry);
+* Inserção e edição das seis tipologias de portas padronizadas pela NBR 6492 (abrir, pivotante, embutida, correr, articulada e sanfonada);
+* Delimitação de ambientes com cálculo de área, perímetro e determinação automática da carga mínima de iluminação e quantidade de pontos de tomada (TUGs).
+
+### 1.2 Cotagem Técnica e Parametria
+* Inserção de cotas em três etapas: ponto de origem, ponto de destino e ajuste dinâmico da linha de cota;
+* Alinhamento magnético com cotas paralelas existentes e controle de afastamento;
+* Seleção e reposicionamento de cotas diretamente no espaço do modelo;
+* Cotas paramétricas vinculadas: a edição do valor de uma cota interna desloca as alvenarias associadas mantendo as quinas fechadas.
+
+### 1.3 Lançamento Elétrico e Roteamento
+* Posicionamento de pontos elétricos: quadros de distribuição, caixas de iluminação no teto e arandelas, interruptores (simples, paralelos e intermediários) e tomadas de uso geral ou específico;
+* Conexão por eletrodutos em teto, parede e piso com determinação de comprimentos tridimensionais;
+* Roteamento automático de condutores com identificação de fase, neutro, proteção e retornos;
+* Disposição geométrica anti-colisão dos condutores ao longo da tubulação.
+
+### 1.4 Dimensionamento Normativo (NBR 5410)
+* Determinação da corrente de projeto conforme número de fases e fator de potência;
+* Dimensionamento por capacidade de condução de corrente (ampacidade) com aplicação de fatores de correção de temperatura (FCT) e agrupamento (FCA);
+* Verificação da queda de tensão admissível em regime permanente;
+* Dimensionamento de diâmetros nominais de eletrodutos por taxa de ocupação máxima (53%, 31% e 40%);
+* Balanceamento de fases no quadro geral de distribuição.
+
+### 1.5 Documentação Técnica e Saídas
+* Geração procedural de Diagrama Unifilar;
+* Quadro de Cargas com memorial descritivo dos circuitos;
+* Lista quantitativa de materiais;
+* Módulo de prancha de desenho (espaço do papel) nos formatos A0, A1, A2, A3 e A4 com carimbo técnico em conformidade com as normas ABNT NBR 10068 e NBR 16752;
+* Exportação vetorial em formato DXF para intercâmbio com sistemas CAD e SIG.
 
 ---
 
-## 📂 Estrutura do Repositório
+## 2. Arquitetura Técnica
 
-* `AGENTS.md`: Diretrizes mestras para desenvolvimento e colaboração de agentes de IA.
-* `docs/`: Especificações técnicas e normas:
-  * [`architecture.md`](docs/architecture.md): Arquitetura do sistema e fluxo de dados.
-  * [`nbr5410-engine.md`](docs/nbr5410-engine.md): Fórmulas e tabelas normativas da NBR 5410.
-  * [`wiring-routing-graph.md`](docs/wiring-routing-graph.md): Algoritmo de roteamento e fiação anti-colisão.
-  * [`cad-and-dxf.md`](docs/cad-and-dxf.md): Motor CAD 2D, coordenadas e exportação DXF.
-* `src/`: Código-fonte da aplicação moderna.
-* `.reference-legacy/`: Benchmarks e referências de engenharia (isolado e ignorado pelo Git).
+* Linguagem: TypeScript (configuração estrita, padrão ESM).
+* Interface de Usuário: HTML5 Canvas com interface de controle em Tailwind CSS e biblioteca Lucide.
+* Indexação Espacial: R-Tree em memória para detecção e atracamento de entidades.
+* Grafos e Topologia: Grafo direcionado ponderado com algoritmo de Dijkstra para resolução de caminhos mínimos de fiação.
+* Ambiente de Execução: Navegador web padrão com suporte a ECMAScript 2022.
 
 ---
 
-## 🚀 Como Executar Localmente
+## 3. Estrutura do Repositório
+
+```text
+.
+├── AGENTS.md                  Diretrizes operacionais e padrões de engenharia
+├── README.md                  Visão geral e documentação de entrada
+├── package.json               Metadados do pacote e dependências
+├── tsconfig.json              Configuração de compilação TypeScript
+├── vite.config.ts             Configuração do empacotador Vite
+├── docs/                      Documentação técnica complementar
+│   ├── architecture.md        Arquitetura de software e fluxo de dados
+│   ├── nbr5410-engine.md      Critérios e equacionamento normativo da NBR 5410
+│   ├── wiring-routing-graph.md Algoritmos de roteamento e resolução topológica
+│   ├── cad-and-dxf.md         Motor de renderização 2D e especificação DXF
+│   └── backlog-and-roadmap.md Registro de etapas concluídas e planejamento técnico
+└── src/                       Código-fonte do sistema
+```
+
+---
+
+## 4. Procedimento de Instalação e Execução
 
 ### Pré-requisitos
-* Node.js 18+ instalado.
+* Node.js versão 18 ou superior.
+* Gerenciador de pacotes npm.
 
-### Instalação e Execução
+### Comandos de Operação
 ```bash
-# Instalar as dependências
+# Instalação das dependências do projeto
 npm install
 
-# Iniciar o servidor de desenvolvimento
+# Inicialização do servidor local de desenvolvimento
 npm run dev
 
-# Executar a suíte de testes de engenharia
+# Execução da suíte de testes unitários
 npm test
 
-# Gerar o build de produção
+# Compilação e empacotamento para produção
 npm run build
 ```
 
 ---
 
-## 📜 Licença
+## 5. Licença
 
-Distribuído sob a licença **MIT**. Veja `LICENSE` para mais detalhes.
+O projeto está disponível sob a licença MIT. Maiores detalhes constam no arquivo LICENSE na raiz do repositório.

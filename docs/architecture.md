@@ -1,78 +1,79 @@
-# Arquitetura do Sistema — OpenElétrica
+# Arquitetura do Sistema: OpenElétrica
 
-Este documento descreve a arquitetura geral do **OpenElétrica**, os princípios de design, o fluxo de dados unidirecional e o pipeline de renderização gráfica e dimensionamento.
+Este documento descreve a organização estrutural do sistema OpenElétrica, seus princípios de projeto, o fluxo de dados e a integração entre o motor gráfico e as rotinas de cálculo normativo.
 
 ---
 
-## 1. Visão Geral em Alto Nível
+## 1. Visão Geral da Arquitetura
 
-O sistema foi concebido como uma aplicação **Offline-First**, executada no navegador sem dependência obrigatória de serviços em nuvem ou processamento remoto. 
+O sistema é construído segundo o paradigma de execução local no cliente (offline-first), executando integralmente no navegador do usuário. A arquitetura divide-se em três camadas principais: Apresentação, Renderização Gráfica e Núcleo de Engenharia.
 
 ```mermaid
 flowchart TD
-    subgraph UI ["Camada de Apresentação (React + Tailwind)"]
-        Toolbar["Barra de Ferramentas (Lançamento de Pontos/Eletrodutos)"]
-        Inspector["Inspetor de Propriedades (Circuito, Carga, Comando, Altura)"]
-        Modals["Modais (Quadro de Cargas, Unifilar, Exportação DXF)"]
+    subgraph CamadaApresentacao ["Camada de Apresentação (Interface de Usuário)"]
+        BarraFerramentas["Barra de Ferramentas (Modelagem e Lançamento)"]
+        PainelInspetor["Inspetor de Propriedades e Parâmetros"]
+        JanelasModais["Tabelas de Carga, Unifilar e Exportação"]
     end
 
-    subgraph CanvasViewport ["Motor Gráfico 2D (Canvas / WebGL / SVG)"]
-        FloorPlanLayer["Camada de Fundo (Planta Baixa / DXF / Imagem)"]
-        ConduitLayer["Camada de Condutos (Eletrodutos no Teto, Parede e Piso)"]
-        SymbolsLayer["Camada de Símbolos ABNT (Tomadas, Lâmpadas, Interruptores)"]
-        WiresLayer["Camada de Fiação (Fase, Neutro, Terra, Retornos)"]
-        SnappingEngine["Motor de Atracamento Magnético (R-Tree / Pontos Notáveis)"]
+    subgraph CamadaGrafica ["Motor de Desenho Bidimensional (Canvas e SVG)"]
+        CamadaAlvenaria["Camada de Arquitetura e Alvenarias"]
+        CamadaEletrodutos["Camada de Eletrodutos e Conexões"]
+        CamadaSimbologia["Camada de Símbolos Técnicos NBR 5410"]
+        CamadaCotas["Camada de Cotagem Técnica NBR 6492"]
+        MotorSnapping["Mecanismo de Atracamento Magnético"]
     end
 
-    subgraph CoreEngine ["Núcleo de Engenharia & Grafos (TypeScript Puro)"]
-        DataModel["Modelo de Dados do Projeto (ProjectState)"]
-        TopologyGraph["Grafo Topológico (Nós e Eletrodutos)"]
-        Router["Roteador de Fiação (Dijkstra / Menor Caminho QDC -> Cargas)"]
-        NBR5410Engine["Motor de Dimensionamento NBR 5410 (Ampacidade, Queda de Tensão)"]
-        SLDGenerator["Gerador do Diagrama Unifilar Procedural"]
-        DXFExporter["Exportador DXF Nativo (Geração R12 / R2000)"]
+    subgraph NucleoEngenharia ["Núcleo de Engenharia e Topologia"]
+        EstadoProjeto["Estado Geral do Projeto (ProjectState)"]
+        GrafoRede["Grafo Topológico da Instalação"]
+        AlgoritmoRoteamento["Roteador de Condutores (Menor Caminho)"]
+        MotorNBR5410["Motor de Dimensionamento NBR 5410"]
+        GeradorUnifilar["Gerador Procedural do Diagrama Unifilar"]
+        SerializadorDXF["Exportador Vetorial DXF"]
     end
 
-    UI -->|Ações do Usuário| DataModel
-    DataModel -->|Atualiza Grafo| TopologyGraph
-    TopologyGraph -->|Calcula Caminhos| Router
-    Router -->|Determina Condutores| NBR5410Engine
-    NBR5410Engine -->|Gera Tabela de Cargas| Modals
-    NBR5410Engine -->|Alimenta Fiação| WiresLayer
-    DataModel -->|Renderiza| CanvasViewport
-    CanvasViewport -->|Eventos de Mouse/Snap| SnappingEngine
-    NBR5410Engine -->|Estrutura Unifilar| SLDGenerator
-    CanvasViewport -->|Serializa Vetores| DXFExporter
+    CamadaApresentacao -->|Comandos do Usuário| EstadoProjeto
+    EstadoProjeto -->|Atualiza Topologia| GrafoRede
+    GrafoRede -->|Determina Trajetórias| AlgoritmoRoteamento
+    AlgoritmoRoteamento -->|Aloca Condutores| MotorNBR5410
+    MotorNBR5410 -->|Emite Dados de Carga| JanelasModais
+    EstadoProjeto -->|Renderiza Entidades| CamadaGrafica
+    CamadaGrafica -->|Detecção Geométrica| MotorSnapping
+    MotorNBR5410 -->|Estrutura Esquemática| GeradorUnifilar
+    CamadaGrafica -->|Gera Vetores| SerializadorDXF
 ```
 
 ---
 
 ## 2. Princípios de Separação de Responsabilidades
 
-1. **Desacoplamento do DOM:** A pasta `src/core/` não importa nenhuma biblioteca visual (React, DOM ou Canvas). Toda a lógica matemática, cálculos da norma ABNT e algoritmos em grafos são funções puras e classes TypeScript que podem ser executadas no Node.js ou em Web Workers.
-2. **Modelo de Grafo Topológico:** Uma instalação elétrica não é apenas um desenho estático, mas sim uma rede conectada:
-   * **Nós ($V$):** Quadros de Distribuição (QDC), Pontos de Iluminação, Tomadas (TUG/TUE), Interruptores, Caixas de Passagem.
-   * **Arestas ($E$):** Eletrodutos com propriedades físicas (tipo de instalação, comprimento bidimensional, subida/descida vertical conforme a cota $Z$ dos pontos conectados).
-3. **Imutabilidade e Reatividade:** O estado global da aplicação é gerenciado com padrões como Zustand ou Redux Toolkit, disparando recálculos eficientes apenas quando a conectividade do grafo ou as cargas são alteradas.
+### 2.1 Isolamento do Núcleo de Domínio
+O código contido na camada de domínio não possui referências à árvore DOM, contextos gráficos específicos de renderização ou bibliotecas visuais. As regras normativas da ABNT NBR 5410 e os algoritmos espaciais são implementados como módulos puros em TypeScript, viabilizando execução em diferentes ambientes (navegador, Web Workers ou Node.js).
+
+### 2.2 Modelagem em Grafo Topológico
+A instalação elétrica é formalizada como uma rede topológica conexa:
+* Vértices: Quadros de distribuição, caixas de passagem, pontos de luz, interruptores e tomadas;
+* Arestas: Trechos de eletrodutos dotados de propriedades físicas (tipo de instalação, comprimento bidimensional e deslocamentos verticais conforme cotas de altura).
+
+### 2.3 Unidirecionalidade do Fluxo de Informação
+As mutações de estado ocorrem de forma determinística por meio de métodos de aplicação. Toda alteração na conectividade física ou na potência das cargas provoca a atualização do grafo, o recálculo dos condutores e a subsequente atualização das representações gráficas.
 
 ---
 
-## 3. O Ciclo de Vida de um Projeto
+## 3. Fluxo de Trabalho do Projeto
 
-1. **Importação da Arquitetura:**
-   * O usuário faz upload de um arquivo `.dxf` ou de uma imagem de planta baixa (`.png`, `.jpg`).
-   * Define-se a escala gráfica (ex: medir uma porta padrão de 0,80m para calcular a relação pixels por metro).
-2. **Lançamento de Pontos:**
-   * Posicionamento do Quadro de Distribuição de Circuitos (QDC).
-   * Inserção de pontos de luz no teto, tomadas baixas/médias/altas e interruptores com atracamento magnético às paredes.
-3. **Conexão por Eletrodutos:**
-   * Desenho de tubulações ligando o QDC aos pontos de consumo. O motor magnético conecta as extremidades às caixas automaticamente.
-4. **Atribuição de Circuitos e Comandos:**
-   * Associação de cada carga a um circuito elétrico (tensão, potência, disjuntor) e de cada interruptor à sua lâmpada respectiva (letra de comando).
-5. **Roteamento Automático de Cabos:**
-   * O sistema encontra o menor caminho entre o QDC e cada carga através dos eletrodutos.
-   * Determina a quantidade de condutores em cada trecho (Fase, Neutro, Terra e Retornos).
-   * O algoritmo anti-colisão posiciona as marcas de fiação sem sobrepor paredes ou cotas.
-6. **Dimensionamento e Entregáveis:**
-   * O motor da NBR 5410 calcula as correntes corrigidas, quedas de tensão, bitolas de cabos e diâmetros de eletrodutos.
-   * Geração imediata do Diagrama Unifilar, Quadro de Cargas e exportação para DXF.
+1. Importação da Arquitetura:
+   Carregamento de arquivo vetorial DXF ou imagem raster da planta baixa, seguido da definição do fator de escala métrica.
+2. Definição Espacial:
+   Desenho de alvenarias com espessuras padronizadas, inserção de esquadrias e delimitação de ambientes com determinação automática de área e perímetro.
+3. Posicionamento de Componentes:
+   Locação do quadro de distribuição, luminárias, pontos de tomada e interruptores com atracamento às alvenarias e caixas.
+4. Lançamento da Tubulação:
+   Traçado de eletrodutos interligando os pontos da instalação.
+5. Associação Elétrica:
+   Vinculação dos pontos aos respectivos circuitos e comandos de controle.
+6. Roteamento de Fiação:
+   Cálculo do caminho ótimo de cabos entre o quadro e os pontos de utilização com posicionamento geométrico dos condutores.
+7. Dimensionamento e Saídas Técnicas:
+   Avaliação dos critérios de corrente, queda de tensão e taxa de ocupação, permitindo a visualização da prancha em espaço do papel e a exportação em formato DXF.

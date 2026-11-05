@@ -1,54 +1,59 @@
-# Motor de CAD & Conversão DXF — OpenElétrica
+# Motor Gráfico CAD e Conversão DXF: OpenElétrica
 
-Este documento descreve o funcionamento do motor de desenho 2D no navegador, o sistema de coordenadas e escalas, a mecânica de atracamento magnético (*snapping*) e a conversão vetorial direta para arquivos DXF (AutoCAD).
-
----
-
-## 1. Espaços de Coordenadas e Escalas
-
-O sistema opera com dois sistemas de coordenadas fundamentais:
-
-1. **Coordenadas do Mundo (*World Space* - Metros):**
-   * Posições reais físicas na planta baixa.
-   * Tomadas e caixas têm coordenadas $(X, Y, Z)$ em metros (ex: tomada baixa em $Z = 0,30\,\text{m}$, arandela em $Z = 1,20\,\text{m}$, teto em $Z = 2,80\,\text{m}$).
-   * Eletrodutos calculam seu comprimento tridimensional real a partir do espaço do mundo.
-2. **Coordenadas da Tela (*Screen/Canvas Space* - Pixels):**
-   * Transformação afim com matriz de visualização:
-     $$\begin{pmatrix} X_{\text{tela}} \\ Y_{\text{tela}} \end{pmatrix} = \begin{pmatrix} \text{scale} \cdot \cos\theta & -\text{scale} \cdot \operatorname{sen}\theta \\ \text{scale} \cdot \operatorname{sen}\theta & \text{scale} \cdot \cos\theta \end{pmatrix} \begin{pmatrix} X_{\text{mundo}} \\ Y_{\text{mundo}} \end{pmatrix} + \begin{pmatrix} \text{pan}_X \\ \text{pan}_Y \end{pmatrix}$$
-   * Permite *Pan* infinito e *Zoom* contínuo de 10% a 1000% mantendo 60 quadros por segundo.
+Este documento descreve as especificações técnicas do motor de renderização bidimensional, os sistemas de coordenadas, as rotinas de atracamento magnético e o processo de exportação vetorial em formato DXF.
 
 ---
 
-## 2. Sistema de Snapping Magnético (Atracamento)
+## 1. Espaços de Coordenadas e Transformações Geométricas
 
-Para que o lançamento de pontos seja rápido e não deixe tubulações desconectadas, o sistema mantém um **Índice Espacial R-Tree** em memória (`rbush`):
+O sistema trabalha com dois espaços de referência coordenados:
 
-* **Tipos de Atracamento:**
-  * **Center Snap:** Centro geométrico de caixas octogonais de teto e caixas de embutir 4x2/4x4.
-  * **Wall Snap:** Projeção perpendicular mais próxima na face de uma parede de alvenaria.
-  * **Endpoint Snap:** Extremidades livres de eletrodutos já lançados.
-  * **Midpoint Snap:** Ponto médio de segmentos de parede.
-* **Raio de Atracamento (*Snap Tolerance*):** 12 pixels na tela, recalculados inversamente pelo fator de zoom para que a sensibilidade tátil do cursor seja constante em qualquer escala de visualização.
+### 1.1 Espaço do Modelo (Coordenadas Reais do Mundo em Metros)
+* Todas as entidades geométricas (alvenarias, caixas, tubulações e cotas) possuem coordenadas expressas em metros na escala real da edificação (1 unidade gráfica equivale a 1 metro).
+* Componentes possuem coordenadas tridimensionais (X, Y, Z), onde a coordenada Z define a cota de instalação (exemplo: tomada baixa em Z = 0,30 m; interruptores em Z = 1,20 m; pontos de teto em Z = 2,80 m).
+
+### 1.2 Espaço da Tela (Coordenadas de Exibição em Pixels)
+A projeção das entidades no elemento Canvas é governada por uma matriz afim de transformação de visualização:
+
+$$\begin{pmatrix} X_{\text{tela}} \\ Y_{\text{tela}} \end{pmatrix} = \begin{pmatrix} \text{escala} \cdot \cos\theta & -\text{escala} \cdot \operatorname{sen}\theta \\ \text{escala} \cdot \operatorname{sen}\theta & \text{escala} \cdot \cos\theta \end{pmatrix} \begin{pmatrix} X_{\text{mundo}} \\ Y_{\text{mundo}} \end{pmatrix} + \begin{pmatrix} \text{transl}_X \\ \text{transl}_Y \end{pmatrix}$$
+
+O mecanismo suporta translação livre e ampliação de visualização na faixa contínua de 10% a 1000%, preservando a estabilidade da taxa de quadros.
 
 ---
 
-## 3. Pipeline de Exportação DXF Direta no Cliente
+## 2. Mecanismo de Atracamento Magnético (Snapping)
 
-Ao contrário dos softwares tradicionais que dependem de bibliotecas C++ pesadas no servidor, o exportador serializa a cena vetorial diretamente no navegador em formato **AutoCAD DXF R12 / ASCII**:
+Para assegurar a precisão no desenho e a conectividade entre elementos, o sistema emprega uma árvore de índices espaciais em memória (R-Tree):
+
+* Modos de Atracamento:
+  * Vértice de Parede (Endpoint): Conexão direta às quinas e terminais de alvenaria;
+  * Ponto Médio (Midpoint): Detecção do centro geométrico de segmentos lineares;
+  * Centro de Caixa: Ponto focal de caixas embutidas ou luminárias;
+  * Projeção Perpendicular: Atracamento em ângulo reto sobre faces de parede;
+  * Alinhamento Polar e Ortogonal: Travamento angular nas direções de 0, 45, 90, 135, 180, 225, 270 e 315 graus;
+  * Boneca Arquitetônica: Ponto de afastamento padronizado de 10 cm em relação às quinas internas para inserção de portas.
+* Tolerância de Detecção: Raio padrão de 15 a 25 pixels na tela, recalculado proporcionalmente ao fator de zoom da visualização.
+
+---
+
+## 3. Conversão e Exportação para Formato DXF
+
+A exportação de desenhos vetoriais ocorre inteiramente no navegador, gerando documentos DXF no padrão AutoCAD R12 ASCII:
 
 ```mermaid
 flowchart LR
-    Scene["Cena Elétrica (Nós, Fiação, Eletrodutos)"] --> SVGTree["Árvore Vetorial Normalizada"]
-    SVGTree --> DXFService["SvgDxfService (Parser de Primitivas)"]
-    DXFService --> DXFText["Arquivo DXF Puro (Seções HEADER, TABLES, ENTITIES)"]
-    DXFText --> Download["Download Imediato (.dxf)"]
+    Entidades["Entidades do Modelo (Paredes, Símbolos, Fiação)"] --> Processamento["Processador de Primitivas Geométricas"]
+    Processamento --> EstruturaDXF["Serializador de Seções DXF (HEADER, TABLES, BLOCKS, ENTITIES)"]
+    EstruturaDXF --> ArquivoFinal["Download Direto do Documento (.dxf)"]
 ```
 
-### 3.1 Mapeamento de Camadas (Layers DXF)
-Os elementos exportados são organizados em camadas padrão com cores e espessuras convencionadas:
-* `ELETRICA_ELETRODUTO_TETO`: Tubulação de laje/teto (Linha contínua, cor ciano);
-* `ELETRICA_ELETRODUTO_PISO`: Tubulação enterrada/embutida em piso (Linha tracejada, cor amarela);
-* `ELETRICA_SIMBOLOS`: Blocos de tomadas, interruptores e luminárias;
-* `ELETRICA_FIACAO`: Riscos normatizados de condutores e letras de comando;
-* `ELETRICA_TEXTOS`: Identificadores de circuitos, potências e bitolas;
-* `ELETRICA_QUADRO_CARGAS`: Tabela de dimensionamento e diagramas unifilares.
+### 3.1 Camadas de Desenho Padronizadas
+As entidades exportadas são distribuídas nas seguintes camadas (layers):
+* ARQUITETURA_PAREDES: Linhas de alvenaria e divisórias;
+* ARQUITETURA_ESQUADRIAS: Folhas, batentes e arcos de abertura de portas e janelas;
+* ARQUITETURA_COTAS: Linhas de chamada, linhas de cota e valores métricos (NBR 6492);
+* ELETRICA_ELETRODUTOS_TETO: Tubulações embutidas em laje ou instaladas em entreforro;
+* ELETRICA_ELETRODUTOS_PISO: Tubulações embutidas em piso ou envelopadas;
+* ELETRICA_PONTOS: Blocos e simbologias de caixas, tomadas e luminárias;
+* ELETRICA_CONDUTORES: Representação gráfica dos condutores de circuito;
+* ELETRICA_TEXTOS: Identificadores de circuitos, comandos, potências e bitolas.
