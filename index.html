@@ -375,6 +375,10 @@
           <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px;height:14px;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
           Gerar Fiação
         </button>
+        <button class="btn-eng-action" id="btn-materials" title="Lista Quantitativa de Materiais de Instalação (NBR 5410)">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px;height:14px;"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2m-6 9 2 2 4-4"></path></svg>
+          Materiais
+        </button>
       </div>
     </div>
   </header>
@@ -553,101 +557,112 @@
   <section id="layout-paper-container">
     <!-- Barra Superior de Controle de Prancha (Estilo QGIS Print Layout) -->
     <div id="layout-top-toolbar">
-      <div style="display:flex; align-items:center; gap:8px;">
-        <button class="btn-eng-action" id="btn-back-to-model">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px;height:14px;"><path d="M19 12H5M12 19l-7-7 7-7"></path></svg>
-          Voltar ao Projeto (CAD)
-        </button>
+      <button class="btn-eng-action" id="btn-back-to-model" style="padding:3px 8px; font-size:11px; white-space:nowrap;">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:13px;height:13px;"><path d="M19 12H5M12 19l-7-7 7-7"></path></svg>
+        Voltar (CAD)
+      </button>
 
-        <div class="divider-v"></div>
+      <div class="divider-v"></div>
 
-        <span class="context-title">Folha:</span>
-        <select class="form-control" id="layout-select-sheet" style="width:140px; padding:4px 8px; font-size:11.5px;">
-          <option value="A4">A4 (297 x 210 mm)</option>
-          <option value="A3">A3 (420 x 297 mm)</option>
-          <option value="A2">A2 (594 x 420 mm)</option>
-          <option value="A1" selected>A1 (841 x 594 mm)</option>
-          <option value="A0">A0 (1189 x 841 mm)</option>
-        </select>
+      <span class="context-title" style="font-size:10.5px;">Folha:</span>
+      <select class="form-control" id="layout-select-sheet" style="width:115px; padding:3px 6px; font-size:11px;">
+        <option value="A4">A4 (297x210)</option>
+        <option value="A3">A3 (420x297)</option>
+        <option value="A2">A2 (594x420)</option>
+        <option value="A1" selected>A1 (841x594)</option>
+        <option value="A0">A0 (1189x841)</option>
+      </select>
 
-        <span class="context-title">Escala:</span>
-        <select class="form-control" id="layout-select-scale" style="width:95px; padding:4px 8px; font-size:11.5px;">
-          <option value="20">1:20</option>
-          <option value="25">1:25</option>
-          <option value="50" selected>1:50</option>
-          <option value="75">1:75</option>
-          <option value="100">1:100</option>
-          <option value="125">1:125</option>
-          <option value="200">1:200</option>
-        </select>
+      <span class="context-title" style="font-size:10.5px;">Escala:</span>
+      <select class="form-control" id="layout-select-scale" style="width:78px; padding:3px 4px; font-size:11px;">
+        <option value="20">1:20</option>
+        <option value="25">1:25</option>
+        <option value="50" selected>1:50</option>
+        <option value="75">1:75</option>
+        <option value="100">1:100</option>
+        <option value="125">1:125</option>
+        <option value="200">1:200</option>
+      </select>
 
-        <div class="divider-v"></div>
+      <div class="divider-v"></div>
 
-        <span class="context-title">Zoom:</span>
-        <button class="btn-micro" id="btn-sheet-zoom-out" title="Diminuir Zoom da Prancha" style="padding:2px 8px; font-weight:700;">-</button>
-        <select class="form-control" id="layout-sheet-zoom-select" style="width:115px; padding:4px 6px; font-size:11.5px;">
-          <option value="fit" selected>Ajustar à Tela</option>
-          <option value="0.20">20%</option>
-          <option value="0.25">25%</option>
-          <option value="0.33">33%</option>
-          <option value="0.50">50%</option>
-          <option value="0.75">75%</option>
-          <option value="1.00">100%</option>
-        </select>
-        <button class="btn-micro" id="btn-sheet-zoom-in" title="Aumentar Zoom da Prancha" style="padding:2px 8px; font-weight:700;">+</button>
-        <button class="btn-micro" id="btn-sheet-fit" title="Ajustar Prancha à Tela" style="padding:2px 8px;">⛶ Ajustar</button>
-        <button class="btn-micro" id="btn-recenter-viewport" title="Centralizar Planta na Viewport" style="padding:2px 8px;">⌖ Centralizar</button>
-      </div>
+      <span class="context-title" style="font-size:10.5px;">Zoom:</span>
+      <button class="btn-micro" id="btn-sheet-zoom-out" title="Diminuir Zoom da Prancha" style="padding:2px 7px; font-weight:700;">-</button>
+      <select class="form-control" id="layout-sheet-zoom-select" style="width:96px; padding:3px 4px; font-size:11px;">
+        <option value="fit" selected>Ajustar</option>
+        <option value="0.20">20%</option>
+        <option value="0.25">25%</option>
+        <option value="0.33">33%</option>
+        <option value="0.50">50%</option>
+        <option value="0.75">75%</option>
+        <option value="1.00">100%</option>
+      </select>
+      <button class="btn-micro" id="btn-sheet-zoom-in" title="Aumentar Zoom da Prancha" style="padding:2px 7px; font-weight:700;">+</button>
+      <button class="btn-micro" id="btn-sheet-1to1" title="Zoom Real 100% (1:1)" style="padding:2px 6px; font-size:10.5px; font-weight:700;">1:1</button>
+      <button class="btn-micro" id="btn-sheet-fit" title="Ajustar Prancha à Tela" style="padding:2px 6px; font-size:10.5px;">⛶ Ajustar</button>
+      <button class="btn-micro" id="btn-recenter-viewport" title="Centralizar Planta na Viewport" style="padding:2px 6px; font-size:10.5px;">⌖ Centralizar</button>
+      <button class="btn-micro" id="btn-toggle-layout-grid" title="Exibir ou ocultar a grade do CAD na prancha" style="padding:2px 6px; font-size:10.5px;">Grade: Off</button>
 
-      <div style="display:flex; align-items:center; gap:6px;">
-        <!-- Indicador de Status do Modo da Prancha -->
-        <div class="layout-status-pill" id="layout-mode-status">
-          <span style="width:7px; height:7px; border-radius:50%; background:#10b981;"></span>
-          Modo: <strong>Mover Quadros</strong>
-        </div>
+      <div class="divider-v"></div>
 
-        <div class="divider-v"></div>
+      <!-- Alternadores de Ferramenta da Folha -->
+      <button class="btn-eng-action active" id="btn-layout-tool-item" title="Mover ou Redimensionar o quadro na folha" style="padding:3px 7px; font-size:11px; white-space:nowrap;">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:13px;height:13px;"><path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"></path><path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"></path><path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"></path><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"></path></svg>
+        Mover Quadros
+      </button>
+      <button class="btn-eng-action" id="btn-layout-tool-content" title="Navegar no Conteúdo (Pan e Zoom dentro da planta)" style="padding:3px 7px; font-size:11px; white-space:nowrap;">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:13px;height:13px;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        Mover Conteúdo
+      </button>
 
-        <!-- Alternadores de Ferramenta da Folha (Estilo QGIS) -->
-        <button class="btn-eng-action active" id="btn-layout-tool-item" title="Mover ou Redimensionar o quadro da Viewport na folha">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px;height:14px;"><path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"></path><path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"></path><path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"></path><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"></path></svg>
-          Mover Quadros
-        </button>
-        <button class="btn-eng-action" id="btn-layout-tool-content" title="Navegar no Conteúdo (Pan e Zoom dentro da planta)">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px;height:14px;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-          Mover Conteúdo
-        </button>
+      <div class="divider-v"></div>
 
-        <div class="divider-v"></div>
+      <!-- Inserir / Ocultar Elementos na Folha -->
+      <button class="btn-eng-action" id="btn-insert-unifilar" title="Inserir / Ocultar Diagrama Unifilar na Folha" style="padding:3px 6px; font-size:10.5px; white-space:nowrap;">
+        + Unifilar
+      </button>
+      <button class="btn-eng-action" id="btn-insert-cargas" title="Inserir / Ocultar Tabela de Cargas na Folha" style="padding:3px 6px; font-size:10.5px; white-space:nowrap;">
+        + Cargas
+      </button>
+      <button class="btn-eng-action" id="btn-insert-legenda" title="Inserir / Ocultar Legenda ABNT na Folha" style="padding:3px 6px; font-size:10.5px; white-space:nowrap;">
+        + Legenda
+      </button>
+      <button class="btn-eng-action" id="btn-insert-3d" title="Inserir / Ocultar Maquete 3D na Folha" style="padding:3px 6px; font-size:10.5px; white-space:nowrap;">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:12px;height:12px;"><path d="m21 16-9 5-9-5V8l9-5 9 5v8Z"></path></svg>
+        + 3D
+      </button>
 
-        <!-- Inserir / Ocultar Elementos na Folha -->
-        <button class="btn-eng-action" id="btn-insert-unifilar" title="Inserir / Ocultar Diagrama Unifilar na Folha">
-          + Unifilar
-        </button>
-        <button class="btn-eng-action" id="btn-insert-cargas" title="Inserir / Ocultar Tabela de Cargas na Folha">
-          + Cargas
-        </button>
-        <button class="btn-eng-action" id="btn-insert-legenda" title="Inserir / Ocultar Legenda ABNT na Folha">
-          + Legenda
-        </button>
-        <button class="btn-eng-action" id="btn-insert-3d" title="Inserir / Ocultar Maquete 3D na Folha">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:13px;height:13px;"><path d="m21 16-9 5-9-5V8l9-5 9 5v8Z"></path><path d="m3 8 9 5 9-5"></path><path d="M12 13v8"></path></svg>
-          + Viewport 3D
-        </button>
+      <div class="divider-v"></div>
 
-        <div class="divider-v"></div>
+      <!-- Lista de Materiais -->
+      <button class="btn-eng-action" id="btn-open-materials-from-layout" title="Lista Quantitativa de Materiais NBR 5410" style="padding:3px 8px; font-size:11px; white-space:nowrap;">
+        <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2m-6 9 2 2 4-4"></path></svg>
+        Materiais
+      </button>
 
-        <!-- Imprimir / Salvar PDF -->
-        <button class="btn-eng-action primary" id="btn-print-layout" title="Imprimir em alta definição ou Salvar em PDF">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px;height:14px;"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><path d="M6 14h12v8H6z"></path></svg>
-          Exportar PDF / Imprimir
-        </button>
-      </div>
+      <!-- Imprimir / Salvar PDF -->
+      <button class="btn-eng-action primary" id="btn-print-layout" title="Imprimir em alta definição ou Salvar em PDF" style="margin-left:auto; white-space:nowrap; padding:4px 10px; font-size:11.5px; font-weight:700;">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:13px;height:13px;"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><path d="M6 14h12v8H6z"></path></svg>
+        Exportar PDF / Imprimir
+      </button>
     </div>
 
-    <!-- Prancha Física com Margens e Carimbo Técnico ABNT -->
-    <div class="layout-sheet-wrap">
-      <div class="paper-sheet" id="paper-sheet" style="width:1050px; height:742px;">
+    <!-- Workspace com Réguas Superior e Lateral (QGIS Print Layout) -->
+    <div id="layout-workspace">
+      <!-- Régua Superior -->
+      <div id="layout-ruler-top-bar">
+        <div id="layout-ruler-corner">mm</div>
+        <canvas id="canvas-ruler-h" style="flex:1; height:20px; display:block;"></canvas>
+      </div>
+
+      <!-- Área de Prancha com Régua Esquerda -->
+      <div style="display:flex; flex:1; width:100%; height:calc(100% - 20px); overflow:hidden; position:relative;">
+        <div id="layout-ruler-left-bar">
+          <canvas id="canvas-ruler-v" style="width:20px; height:100%; display:block;"></canvas>
+        </div>
+
+        <div class="layout-sheet-wrap" id="layout-sheet-wrap">
+          <div class="paper-sheet" id="paper-sheet" style="width:1050px; height:742px;">
         <div class="paper-border-outer"></div>
         <div class="paper-margin-inner" id="paper-margin" style="top:12px; left:28px; right:12px; bottom:12px;"></div>
 
@@ -790,6 +805,8 @@
             </div>
           </div>
         </div>
+      </div>
+    </div>
       </div>
     </div>
   </section>
@@ -1108,6 +1125,31 @@
             <!-- Preenchido dinamicamente via JS -->
           </tbody>
         </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal G: Lista Quantitativa de Materiais (BOM NBR 5410) -->
+  <div class="modal-overlay" id="modal-materials">
+    <div class="modal-box" style="max-width: 900px; max-height: 85vh; display: flex; flex-direction: column;">
+      <div class="modal-header">
+        <div class="modal-title">
+          <svg width="18" height="18" fill="none" stroke="#0284c7" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2m-6 9 2 2 4-4"></path></svg>
+          Lista Quantitativa de Materiais de Instalação (ABNT NBR 5410)
+        </div>
+        <button class="modal-close" data-close="modal-materials">✕</button>
+      </div>
+      <div class="modal-body" style="overflow-y: auto; flex: 1; padding: 16px;">
+        <div style="margin-bottom: 12px; font-size: 11.5px; color: #475569; line-height: 1.5; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 12px;">
+          Metragem linear computada a partir da topologia 2D somada às descidas e subidas de alvenaria até as cotas normativas de instalação (0,30 m, 1,20 m, 2,20 m e 2,80 m), prumadas verticais entre pavimentos e acréscimo regulamentar de 10% para perdas, curvas e pontas de conexão nos quadros e caixas.
+        </div>
+        <div id="materials-table-container">
+          <!-- Gerado dinamicamente via engine.generateBillOfMaterials() -->
+        </div>
+      </div>
+      <div class="modal-footer" style="padding: 10px 16px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 8px;">
+        <button class="btn-eng-action" id="btn-export-materials-csv">Exportar CSV</button>
+        <button class="btn-eng-action primary" data-close="modal-materials">Fechar</button>
       </div>
     </div>
   </div>
@@ -1730,6 +1772,39 @@
             <span>Clique no ponto desejado para posicionar. Aderência automática a eletrodutos e paredes.</span>
           </div>
         `;
+      } else if (tool === 'conduit') {
+        const curType = engine.currentConduitType || 'ceiling';
+        const curDiam = engine.currentConduitDiameter || 20;
+        subtoolbarEl.innerHTML = `
+          <span class="context-title">Eletrodutos (NBR 5444):</span>
+          <span style="color:#475569; font-size:11.5px;">Traçado:</span>
+          <button class="context-chip ${curType === 'ceiling' ? 'active' : ''}" data-conduit-type="ceiling" title="Embutido na Laje / Teto (Linha Contínua)">Teto / Laje ───</button>
+          <button class="context-chip ${curType === 'wall' ? 'active' : ''}" data-conduit-type="wall" title="Embutido em Alvenaria (Linha Traço-Ponto)">Parede ─ · ─</button>
+          <button class="context-chip ${curType === 'floor' ? 'active' : ''}" data-conduit-type="floor" title="Embutido no Piso / Solo (Linha Tracejada)">Piso / Solo ─ ─</button>
+          <div class="divider-v"></div>
+          <span style="color:#475569; font-size:11.5px;">Bitola:</span>
+          <select class="form-control" id="select-conduit-diam-tool" style="width:88px; padding:3px 4px; font-size:11.5px;">
+            <option value="20" ${curDiam === 20 ? 'selected' : ''}>DN 20 (1/2")</option>
+            <option value="25" ${curDiam === 25 ? 'selected' : ''}>DN 25 (3/4")</option>
+            <option value="32" ${curDiam === 32 ? 'selected' : ''}>DN 32 (1")</option>
+            <option value="40" ${curDiam === 40 ? 'selected' : ''}>DN 40 (1 1/4")</option>
+          </select>
+          <div class="context-badge-info">
+            <span>Clique no 1º ponto e depois no 2º ponto para interligar com arco elétrico automático.</span>
+          </div>
+        `;
+        subtoolbarEl.querySelectorAll('[data-conduit-type]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            engine.currentConduitType = btn.dataset.conduitType;
+            updateContextSubtoolbar();
+          });
+        });
+        const diamSel = document.getElementById('select-conduit-diam-tool');
+        if (diamSel) {
+          diamSel.addEventListener('change', (e) => {
+            engine.currentConduitDiameter = parseInt(e.target.value) || 20;
+          });
+        }
       } else {
         // Modo Seleção ou Geral
         subtoolbarEl.innerHTML = `
@@ -3244,6 +3319,13 @@
     const ctxUnifilar = canvasUnifilar.getContext('2d');
     const canvasLayout3D = document.getElementById('canvas-layout-3d');
     const ctxLayout3D = canvasLayout3D ? canvasLayout3D.getContext('2d') : null;
+    const canvasRulerH = document.getElementById('canvas-ruler-h');
+    const ctxRulerH = canvasRulerH ? canvasRulerH.getContext('2d') : null;
+    const canvasRulerV = document.getElementById('canvas-ruler-v');
+    const ctxRulerV = canvasRulerV ? canvasRulerV.getContext('2d') : null;
+    let rulerMousePos = { x: -100, y: -100 };
+    let layoutShowGrid = false;
+    let activeLayoutItem = null;
 
     // Fator de conversão milímetro -> pixel CSS (96 DPI / 25.4 mm = 3.779528 px/mm)
     const MM_TO_PX = 96 / 25.4;
@@ -3394,6 +3476,135 @@
     let currentSheetZoom = 1.0;
     let sheetZoomMode = 'fit';
 
+    // ==================== RÉGUAS MILIMETRADAS (ESTILO QGIS PRINT LAYOUT) ====================
+    function renderRulers() {
+      if (!canvasRulerH || !canvasRulerV || !ctxRulerH || !ctxRulerV) return;
+      const wrap = document.getElementById('layout-sheet-wrap');
+      const sheetEl = document.getElementById('paper-sheet');
+      if (!wrap || !sheetEl || !layoutContainer || layoutContainer.style.display === 'none') return;
+
+      const wH = canvasRulerH.parentElement ? (canvasRulerH.parentElement.clientWidth - 20) : wrap.clientWidth;
+      const hH = 20;
+      if (canvasRulerH.width !== wH || canvasRulerH.height !== hH) {
+        canvasRulerH.width = Math.max(10, wH);
+        canvasRulerH.height = hH;
+      }
+
+      const wV = 20;
+      const hV = canvasRulerV.parentElement ? canvasRulerV.parentElement.clientHeight : wrap.clientHeight;
+      if (canvasRulerV.width !== wV || canvasRulerV.height !== hV) {
+        canvasRulerV.width = wV;
+        canvasRulerV.height = Math.max(10, hV);
+      }
+
+      const sheetRect = sheetEl.getBoundingClientRect();
+      const rulerHRect = canvasRulerH.getBoundingClientRect();
+      const rulerVRect = canvasRulerV.getBoundingClientRect();
+
+      // 1. Régua Superior Horizontal
+      ctxRulerH.fillStyle = '#1e293b';
+      ctxRulerH.fillRect(0, 0, canvasRulerH.width, canvasRulerH.height);
+      ctxRulerH.strokeStyle = '#475569';
+      ctxRulerH.lineWidth = 1;
+      ctxRulerH.beginPath();
+      ctxRulerH.moveTo(0, hH - 0.5);
+      ctxRulerH.lineTo(canvasRulerH.width, hH - 0.5);
+      ctxRulerH.stroke();
+
+      const originX = sheetRect.left - rulerHRect.left;
+      const pxPerMm = MM_TO_PX * currentSheetZoom;
+      const stepMm = currentSheetZoom > 0.6 ? 10 : (currentSheetZoom > 0.3 ? 20 : 50);
+
+      const minMmX = Math.floor(-originX / pxPerMm);
+      const maxMmX = Math.ceil((canvasRulerH.width - originX) / pxPerMm);
+
+      ctxRulerH.fillStyle = '#94a3b8';
+      ctxRulerH.font = '8.5px Inter, sans-serif';
+      ctxRulerH.textAlign = 'center';
+      ctxRulerH.textBaseline = 'top';
+
+      for (let mm = Math.floor(minMmX / stepMm) * stepMm; mm <= maxMmX; mm += stepMm) {
+        const x = originX + mm * pxPerMm;
+        if (x < -10 || x > canvasRulerH.width + 10) continue;
+
+        const is100 = (mm % 100 === 0);
+        const is50 = (mm % 50 === 0);
+        const tickH = is100 ? 10 : (is50 ? 6 : 4);
+
+        ctxRulerH.strokeStyle = is100 ? '#cbd5e1' : '#64748b';
+        ctxRulerH.beginPath();
+        ctxRulerH.moveTo(x + 0.5, hH - tickH);
+        ctxRulerH.lineTo(x + 0.5, hH);
+        ctxRulerH.stroke();
+
+        if (is100 || (currentSheetZoom > 0.6 && is50)) {
+          ctxRulerH.fillText(mm.toString(), x, 2);
+        }
+      }
+
+      // Marcador de posição do cursor do mouse na régua horizontal
+      if (rulerMousePos.x >= 0 && rulerMousePos.x <= canvasRulerH.width) {
+        ctxRulerH.strokeStyle = '#06b6d4';
+        ctxRulerH.lineWidth = 1.5;
+        ctxRulerH.beginPath();
+        ctxRulerH.moveTo(rulerMousePos.x + 0.5, 0);
+        ctxRulerH.lineTo(rulerMousePos.x + 0.5, hH);
+        ctxRulerH.stroke();
+      }
+
+      // 2. Régua Lateral Vertical
+      ctxRulerV.fillStyle = '#1e293b';
+      ctxRulerV.fillRect(0, 0, canvasRulerV.width, canvasRulerV.height);
+      ctxRulerV.strokeStyle = '#475569';
+      ctxRulerV.lineWidth = 1;
+      ctxRulerV.beginPath();
+      ctxRulerV.moveTo(wV - 0.5, 0);
+      ctxRulerV.lineTo(wV - 0.5, canvasRulerV.height);
+      ctxRulerV.stroke();
+
+      const originY = sheetRect.top - rulerVRect.top;
+      const minMmY = Math.floor(-originY / pxPerMm);
+      const maxMmY = Math.ceil((canvasRulerV.height - originY) / pxPerMm);
+
+      ctxRulerV.fillStyle = '#94a3b8';
+      ctxRulerV.font = '8px Inter, sans-serif';
+
+      for (let mm = Math.floor(minMmY / stepMm) * stepMm; mm <= maxMmY; mm += stepMm) {
+        const y = originY + mm * pxPerMm;
+        if (y < -10 || y > canvasRulerV.height + 10) continue;
+
+        const is100 = (mm % 100 === 0);
+        const is50 = (mm % 50 === 0);
+        const tickW = is100 ? 10 : (is50 ? 6 : 4);
+
+        ctxRulerV.strokeStyle = is100 ? '#cbd5e1' : '#64748b';
+        ctxRulerV.beginPath();
+        ctxRulerV.moveTo(wV - tickW, y + 0.5);
+        ctxRulerV.lineTo(wV, y + 0.5);
+        ctxRulerV.stroke();
+
+        if (is100 || (currentSheetZoom > 0.6 && is50)) {
+          ctxRulerV.save();
+          ctxRulerV.translate(wV - 11, y);
+          ctxRulerV.rotate(-Math.PI / 2);
+          ctxRulerV.textAlign = 'center';
+          ctxRulerV.textBaseline = 'bottom';
+          ctxRulerV.fillText(mm.toString(), 0, 0);
+          ctxRulerV.restore();
+        }
+      }
+
+      // Marcador de posição do cursor do mouse na régua vertical
+      if (rulerMousePos.y >= 0 && rulerMousePos.y <= canvasRulerV.height) {
+        ctxRulerV.strokeStyle = '#06b6d4';
+        ctxRulerV.lineWidth = 1.5;
+        ctxRulerV.beginPath();
+        ctxRulerV.moveTo(0, rulerMousePos.y + 0.5);
+        ctxRulerV.lineTo(wV, rulerMousePos.y + 0.5);
+        ctxRulerV.stroke();
+      }
+    }
+
     function applySheetZoom(zoomVal) {
       const wrap = document.querySelector('.layout-sheet-wrap');
       const sheetEl = document.getElementById('paper-sheet');
@@ -3418,6 +3629,7 @@
         if (sheetZoomMode === 'fit') sel.value = 'fit';
         else sel.value = currentSheetZoom.toFixed(2);
       }
+      renderRulers();
     }
 
     function fitSheetToScreen() {
@@ -3425,10 +3637,99 @@
     }
 
     window.addEventListener('resize', () => {
-      if (sheetZoomMode === 'fit' && layoutContainer && layoutContainer.style.display !== 'none') {
-        fitSheetToScreen();
+      if (layoutContainer && layoutContainer.style.display !== 'none') {
+        if (sheetZoomMode === 'fit') fitSheetToScreen();
+        else renderRulers();
       }
     });
+
+    // ==================== PAN & ZOOM DINÂMICO NO ESPAÇO DA PRANCHA ====================
+    const layoutSheetWrap = document.getElementById('layout-sheet-wrap');
+    let isPanningSheet = false;
+    let sheetPanStart = { x: 0, y: 0 };
+    let sheetScrollStart = { left: 0, top: 0 };
+    let isSpacePressedInLayout = false;
+
+    window.addEventListener('keydown', (e) => {
+      if (engine.mode === 'layout' && (e.code === 'Space' || e.key === ' ') && !isSpacePressedInLayout) {
+        if (document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'SELECT') {
+          isSpacePressedInLayout = true;
+          if (layoutSheetWrap) layoutSheetWrap.style.cursor = 'grab';
+        }
+      }
+    });
+
+    window.addEventListener('keyup', (e) => {
+      if (e.code === 'Space' || e.key === ' ') {
+        isSpacePressedInLayout = false;
+        if (layoutSheetWrap && !isPanningSheet) layoutSheetWrap.style.cursor = 'default';
+      }
+    });
+
+    if (layoutSheetWrap) {
+      layoutSheetWrap.addEventListener('mousemove', (e) => {
+        if (!canvasRulerH || !canvasRulerV) return;
+        const rH = canvasRulerH.getBoundingClientRect();
+        const rV = canvasRulerV.getBoundingClientRect();
+        rulerMousePos.x = e.clientX - rH.left;
+        rulerMousePos.y = e.clientY - rV.top;
+        renderRulers();
+      });
+
+      layoutSheetWrap.addEventListener('mouseleave', () => {
+        rulerMousePos.x = -100;
+        rulerMousePos.y = -100;
+        renderRulers();
+      });
+
+      layoutSheetWrap.addEventListener('scroll', () => {
+        renderRulers();
+      });
+
+      layoutSheetWrap.addEventListener('mousedown', (e) => {
+        if (e.button === 1 || (e.button === 0 && isSpacePressedInLayout)) {
+          isPanningSheet = true;
+          sheetPanStart = { x: e.clientX, y: e.clientY };
+          sheetScrollStart = { left: layoutSheetWrap.scrollLeft, top: layoutSheetWrap.scrollTop };
+          layoutSheetWrap.style.cursor = 'grabbing';
+          e.preventDefault();
+        }
+      });
+
+      window.addEventListener('mousemove', (e) => {
+        if (isPanningSheet && layoutSheetWrap) {
+          const dx = e.clientX - sheetPanStart.x;
+          const dy = e.clientY - sheetPanStart.y;
+          layoutSheetWrap.scrollLeft = sheetScrollStart.left - dx;
+          layoutSheetWrap.scrollTop = sheetScrollStart.top - dy;
+          renderRulers();
+        }
+      });
+
+      window.addEventListener('mouseup', () => {
+        if (isPanningSheet) {
+          isPanningSheet = false;
+          if (layoutSheetWrap) {
+            layoutSheetWrap.style.cursor = isSpacePressedInLayout ? 'grab' : 'default';
+          }
+        }
+      });
+
+      // Wheel Zoom da Prancha (Aproxima e afasta a folha técnica suavemente)
+      layoutSheetWrap.addEventListener('wheel', (e) => {
+        if (layoutTool === 'content' && (e.target === canvasViewport || canvasViewport.contains(e.target))) {
+          return;
+        }
+        if (layoutTool === 'content' && canvasLayout3D && (e.target === canvasLayout3D || canvasLayout3D.contains(e.target))) {
+          return;
+        }
+
+        e.preventDefault();
+        const factor = e.deltaY < 0 ? 1.08 : 0.92;
+        const newZoom = Math.max(0.12, Math.min(2.5, currentSheetZoom * factor));
+        applySheetZoom(newZoom);
+      }, { passive: false });
+    }
 
     let layoutTool = 'item'; // 'item' (Mover Item) ou 'content' (Navegar Conteúdo da Viewport)
     let isMovingViewportContent = false;
@@ -3542,6 +3843,24 @@
       centerProjectInViewport();
       showToast('Planta centralizada na viewport.');
     });
+
+    document.getElementById('btn-sheet-1to1')?.addEventListener('click', () => {
+      applySheetZoom(1.0);
+      showToast('Zoom da prancha: escala real 1:1 (100%).');
+    });
+
+    const btnToggleLayoutGrid = document.getElementById('btn-toggle-layout-grid');
+    if (btnToggleLayoutGrid) {
+      btnToggleLayoutGrid.addEventListener('click', () => {
+        layoutShowGrid = !layoutShowGrid;
+        btnToggleLayoutGrid.textContent = layoutShowGrid ? 'Grade: On' : 'Grade: Off';
+        btnToggleLayoutGrid.style.background = layoutShowGrid ? '#0284c7' : '';
+        btnToggleLayoutGrid.style.borderColor = layoutShowGrid ? '#0284c7' : '';
+        btnToggleLayoutGrid.style.color = layoutShowGrid ? '#ffffff' : '';
+        renderLayoutViewport();
+        showToast(layoutShowGrid ? 'Grade de fundo exibida na prancha.' : 'Grade de fundo ocultada da prancha.');
+      });
+    }
 
     // Alternadores dos Blocos na Folha com Rótulos Dinâmicos (+ / -)
     function updateLayoutButtonsState() {
@@ -3677,6 +3996,19 @@
       if (layoutTool === 'content') {
         e.preventDefault();
         layoutZoom = Math.max(15, Math.min(300, layoutZoom * (e.deltaY < 0 ? 1.12 : 0.88)));
+
+        // Recalcular escala dinâmica precisa (1:X) para evitar engano do usuário
+        const dynamicScale = Math.round((1000 * MM_TO_PX) / layoutZoom);
+        const lblScale = document.getElementById('label-scale-display');
+        const stampScale = document.getElementById('sheet-stamp-scale');
+        const selScale = document.getElementById('layout-select-scale');
+        if (lblScale) lblScale.textContent = `1:${dynamicScale}`;
+        if (stampScale) stampScale.textContent = `1:${dynamicScale}`;
+        if (selScale) {
+          const hasOpt = Array.from(selScale.options).some(o => parseInt(o.value) === dynamicScale);
+          if (hasOpt) selScale.value = dynamicScale;
+        }
+
         renderLayoutViewport();
       }
     });
@@ -3834,6 +4166,43 @@
     makeItemResizable(document.getElementById('item-legenda'), document.querySelector('#item-legenda .layout-resize-handle'), () => {});
     makeItemResizable(document.getElementById('item-viewport-3d'), document.querySelector('#item-viewport-3d .layout-resize-handle'), () => renderPaperSheet());
 
+    // Seleção de quadro ativo e Nudge milimétrico com as setas direcionais do teclado
+    function setActiveLayoutItem(itemEl) {
+      document.querySelectorAll('.layout-item').forEach(el => el.classList.remove('active'));
+      activeLayoutItem = itemEl;
+      if (itemEl) {
+        itemEl.classList.add('active');
+      }
+    }
+
+    document.querySelectorAll('.layout-item').forEach(item => {
+      item.addEventListener('mousedown', () => {
+        setActiveLayoutItem(item);
+      });
+    });
+
+    window.addEventListener('keydown', (e) => {
+      if (engine.mode === 'layout' && activeLayoutItem) {
+        if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
+          if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'SELECT')) {
+            return;
+          }
+          e.preventDefault();
+          const step = e.shiftKey ? 10 : 1;
+          let left = parseFloat(activeLayoutItem.style.left) || 0;
+          let top = parseFloat(activeLayoutItem.style.top) || 0;
+          if (e.key === 'ArrowLeft') left -= step;
+          if (e.key === 'ArrowRight') left += step;
+          if (e.key === 'ArrowUp') top -= step;
+          if (e.key === 'ArrowDown') top += step;
+          activeLayoutItem.style.left = `${left}px`;
+          activeLayoutItem.style.top = `${top}px`;
+          if (activeLayoutItem.id === 'item-viewport') renderLayoutViewport();
+          else if (activeLayoutItem.id === 'item-unifilar' || activeLayoutItem.id === 'item-viewport-3d') renderPaperSheet();
+        }
+      }
+    });
+
     let layoutPanX = 110;
     let layoutPanY = -10;
     let layoutZoom = 75.59; // 1:50 normativo
@@ -3865,11 +4234,13 @@
       const origPanY = engine.viewport.panY;
       const origZoom = engine.viewport.zoom;
       const origUnifilar = engine.layers.unifilar;
+      const origGrid = engine.layers.grid;
 
       engine.viewport.panX = layoutPanX;
       engine.viewport.panY = layoutPanY;
       engine.viewport.zoom = layoutZoom;
       engine.layers.unifilar = false;
+      engine.layers.grid = layoutShowGrid;
       engine.isPaperSpace = true; // Suprime grips, halos e linhas de seleção na folha técnica
 
       engine.render(ctxViewport, canvasViewport.width, canvasViewport.height);
@@ -3879,6 +4250,7 @@
       engine.viewport.panY = origPanY;
       engine.viewport.zoom = origZoom;
       engine.layers.unifilar = origUnifilar;
+      engine.layers.grid = origGrid;
     }
 
     function renderPaperSheet() {
@@ -3972,7 +4344,156 @@
         canvasLayout3D.height = box3D.clientHeight - 26;
         render3D(canvasLayout3D, ctxLayout3D);
       }
+
+      // 5. Atualização das Réguas Milimetradas
+      renderRulers();
     }
+
+    // ==================== LISTA QUANTITATIVA DE MATERIAIS NBR 5410 ====================
+    function openMaterialsModal() {
+      const modal = document.getElementById('modal-materials');
+      const container = document.getElementById('materials-table-container');
+      if (!modal || !container) return;
+
+      const bom = engine.generateBillOfMaterials();
+
+      let conduitRows = '';
+      for (const [key, c] of Object.entries(bom.conduits)) {
+        conduitRows += `
+          <tr style="border-bottom:1px solid #e2e8f0; font-size:11.5px;">
+            <td style="padding:6px 8px; font-weight:600;">Eletroduto Corrugado Flexível DN ${c.diameterMm}mm (${c.inches})</td>
+            <td style="padding:6px 8px;">${c.length2DMeters.toFixed(2)} m</td>
+            <td style="padding:6px 8px;">${c.verticalDropsMeters.toFixed(2)} m</td>
+            <td style="padding:6px 8px;">${c.allowanceMeters.toFixed(2)} m</td>
+            <td style="padding:6px 8px; font-weight:700; color:#0284c7;">${c.totalMeters.toFixed(2)} m</td>
+          </tr>
+        `;
+      }
+
+      let wireRows = '';
+      for (const [key, w] of Object.entries(bom.wires)) {
+        wireRows += `
+          <tr style="border-bottom:1px solid #e2e8f0; font-size:11.5px;">
+            <td style="padding:6px 8px; font-weight:600;">Cabo de Cobre PVC 70°C 450/750V #${w.gaugeMm2}mm² — ${w.functionLabel} (${w.color})</td>
+            <td style="padding:6px 8px;">${w.netLengthMeters.toFixed(2)} m</td>
+            <td style="padding:6px 8px;">${w.allowanceMeters.toFixed(2)} m</td>
+            <td style="padding:6px 8px; font-weight:700; color:#0284c7;">${w.totalMeters.toFixed(2)} m</td>
+          </tr>
+        `;
+      }
+
+      const boxLabels = {
+        octagonal4x4: 'Caixa de Embutir Octogonal 4x4" (Teto / Laje)',
+        rect4x2: 'Caixa de Embutir Retangular 4x2" (Parede / Alvenaria)'
+      };
+      let boxRows = '';
+      for (const [key, qty] of Object.entries(bom.boxes)) {
+        if (qty <= 0) continue;
+        boxRows += `
+          <tr style="border-bottom:1px solid #e2e8f0; font-size:11.5px;">
+            <td style="padding:6px 8px; font-weight:600;">${boxLabels[key] || key}</td>
+            <td style="padding:6px 8px; font-weight:700; color:#0284c7;">${qty} un</td>
+          </tr>
+        `;
+      }
+
+      const deviceLabels = {
+        switchSimple: 'Interruptor Simples 10A 250V (1 Tecla)',
+        switchParallel: 'Interruptor Paralelo Three-Way 10A 250V',
+        switchIntermediate: 'Interruptor Intermediário Four-Way 10A 250V',
+        outletLow: 'Tomada Baixa 2P+T 10A (h=0,30m)',
+        outletMiddle: 'Tomada Média 2P+T 10A (h=1,20m)',
+        outletHigh: 'Tomada Alta 2P+T 20A TUE (h=2,20m)',
+        lightCeiling: 'Ponto de Iluminação de Teto (Luminária / Plafonier)',
+        panelQDC: 'Quadro de Distribuição de Circuitos (QDC)'
+      };
+      let deviceRows = '';
+      for (const [key, qty] of Object.entries(bom.devices)) {
+        if (qty <= 0) continue;
+        deviceRows += `
+          <tr style="border-bottom:1px solid #e2e8f0; font-size:11.5px;">
+            <td style="padding:6px 8px; font-weight:600;">${deviceLabels[key] || key}</td>
+            <td style="padding:6px 8px; font-weight:700; color:#0284c7;">${qty} un</td>
+          </tr>
+        `;
+      }
+
+      container.innerHTML = `
+        <div style="display:flex; flex-direction:column; gap:16px;">
+          <div>
+            <div style="font-size:12px; font-weight:700; color:#0284c7; margin-bottom:6px; text-transform:uppercase;">1. Eletrodutos e Tubulações (NBR 5410 / NBR 5444)</div>
+            <table class="table-nbr" style="width:100%;">
+              <thead>
+                <tr><th>Especificação do Material</th><th>Traçado 2D</th><th>Descidas / Subidas</th><th>Sobras / Curvas (+10%)</th><th>Total Final</th></tr>
+              </thead>
+              <tbody>${conduitRows || '<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:8px;">Nenhum eletroduto lançado.</td></tr>'}</tbody>
+            </table>
+          </div>
+
+          <div>
+            <div style="font-size:12px; font-weight:700; color:#0284c7; margin-bottom:6px; text-transform:uppercase;">2. Condutores Elétricos por Bitola e Função (NBR 5410)</div>
+            <table class="table-nbr" style="width:100%;">
+              <thead>
+                <tr><th>Especificação do Condutor</th><th>Comprimento Líquido</th><th>Margem Conexões (+10%)</th><th>Metragem Total</th></tr>
+              </thead>
+              <tbody>${wireRows || '<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:8px;">Nenhuma fiação gerada. Execute "Gerar Fiação".</td></tr>'}</tbody>
+            </table>
+          </div>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+            <div>
+              <div style="font-size:12px; font-weight:700; color:#0284c7; margin-bottom:6px; text-transform:uppercase;">3. Caixas de Derivação e Passagem</div>
+              <table class="table-nbr" style="width:100%;">
+                <thead>
+                  <tr><th>Tipo de Caixa</th><th>Quantidade</th></tr>
+                </thead>
+                <tbody>${boxRows}</tbody>
+              </table>
+            </div>
+
+            <div>
+              <div style="font-size:12px; font-weight:700; color:#0284c7; margin-bottom:6px; text-transform:uppercase;">4. Aparelhos e Mecanismos Terminais</div>
+              <table class="table-nbr" style="width:100%;">
+                <thead>
+                  <tr><th>Mecanismo / Ponto</th><th>Quantidade</th></tr>
+                </thead>
+                <tbody>${deviceRows}</tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      `;
+
+      modal.style.display = 'flex';
+    }
+
+    document.getElementById('btn-materials')?.addEventListener('click', openMaterialsModal);
+    document.getElementById('btn-open-materials-from-layout')?.addEventListener('click', openMaterialsModal);
+
+    document.getElementById('btn-export-materials-csv')?.addEventListener('click', () => {
+      const bom = engine.generateBillOfMaterials();
+      let csv = 'Categoria;Item;Especificacao;Quantidade;Unidade\r\n';
+      for (const [k, c] of Object.entries(bom.conduits)) {
+        csv += `Eletrodutos;Eletroduto Flexivel;DN ${c.diameterMm}mm (${c.inches});${c.totalMeters.toFixed(2)};m\r\n`;
+      }
+      for (const [k, w] of Object.entries(bom.wires)) {
+        csv += `Condutores;Cabo PVC 70C #${w.gaugeMm2}mm2;${w.functionLabel} (${w.color});${w.totalMeters.toFixed(2)};m\r\n`;
+      }
+      for (const [k, qty] of Object.entries(bom.boxes)) {
+        csv += `Caixas;${k};Padrao ABNT;${qty};un\r\n`;
+      }
+      for (const [k, qty] of Object.entries(bom.devices)) {
+        csv += `Dispositivos;${k};Padrao ABNT;${qty};un\r\n`;
+      }
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Lista_Materiais_OpenEletrica_${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('Lista de Materiais exportada em CSV!');
+    });
 
     // Exportação em Alta Definição / Impressão de PDF
     document.getElementById('btn-print-layout').addEventListener('click', () => {

@@ -964,6 +964,8 @@ export class CadEngine {
     this.currentWindowWidth = 1.20; // 1.20m padrão
     this.currentRoomName = 'SALA DE ESTAR';
     this.doorOrientationIndex = 0; // 0..3 (4 posições: esq/dentro, dir/dentro, dir/fora, esq/fora)
+    this.currentConduitType = 'ceiling'; // 'ceiling' | 'wall' | 'floor'
+    this.currentConduitDiameter = 20; // 20, 25, 32, 40 mm
     this.sldPosition = { x: 11.2, y: 2.2 }; // Posição móvel do Diagrama Unifilar
     this.wiringWarnings = []; // Alertas normativos NBR 5410
     this.commandConflictNodes = new Set(); // IDs de pontos de luz e interruptores com inconformidade de comando NBR 5410
@@ -1177,6 +1179,100 @@ export class CadEngine {
       width: Math.max(1, maxX - minX),
       height: Math.max(1, maxY - minY)
     };
+  }
+
+  // Levantamento Automatizado de Quantitativos e Lista de Materiais (NBR 5410)
+  generateBillOfMaterials() {
+    const nodeMap = new Map(this.nodes.map(n => [n.id, n]));
+    const ceilingHeight = 2.80; // Cota padrão de laje/teto
+
+    const bom = {
+      conduits: {},
+      wires: {},
+      boxes: {
+        octagonal4x4: 0,
+        rect4x2: 0
+      },
+      devices: {
+        switchSimple: 0,
+        switchParallel: 0,
+        switchIntermediate: 0,
+        outletLow: 0,
+        outletMiddle: 0,
+        outletHigh: 0,
+        lightCeiling: 0,
+        panelQDC: 0
+      }
+    };
+
+    // 1. Contagem de dispositivos e caixas
+    for (const node of this.nodes) {
+      if (node.type === 'light_ceiling') {
+        bom.devices.lightCeiling++;
+        bom.boxes.octagonal4x4++;
+      } else if (node.type === 'switch_simple') {
+        bom.devices.switchSimple++;
+        bom.boxes.rect4x2++;
+      } else if (node.type === 'switch_parallel') {
+        bom.devices.switchParallel++;
+        bom.boxes.rect4x2++;
+      } else if (node.type === 'switch_intermediate') {
+        bom.devices.switchIntermediate++;
+        bom.boxes.rect4x2++;
+      } else if (node.type === 'outlet_low') {
+        bom.devices.outletLow++;
+        bom.boxes.rect4x2++;
+      } else if (node.type === 'outlet_middle') {
+        bom.devices.outletMiddle++;
+        bom.boxes.rect4x2++;
+      } else if (node.type === 'outlet_high') {
+        bom.devices.outletHigh++;
+        bom.boxes.rect4x2++;
+      } else if (node.type === 'distribution_board') {
+        bom.devices.panelQDC++;
+      }
+    }
+
+    // 2. Cálculo métrico de eletrodutos com subidas e descidas
+    for (const c of this.conduits) {
+      const a = nodeMap.get(c.nodeAId);
+      const b = nodeMap.get(c.nodeBId);
+      if (!a || !b) continue;
+
+      const d2d = Math.hypot(b.position.x - a.position.x, b.position.y - a.position.y);
+      const zA = typeof a.elevation === 'number' ? a.elevation : (a.type === 'light_ceiling' ? 2.80 : a.type === 'outlet_low' ? 0.30 : a.type === 'outlet_high' ? 2.20 : 1.20);
+      const zB = typeof b.elevation === 'number' ? b.elevation : (b.type === 'light_ceiling' ? 2.80 : b.type === 'outlet_low' ? 0.30 : b.type === 'outlet_high' ? 2.20 : 1.20);
+
+      const instType = c.installationType || 'ceiling';
+      let verticalLen = 0;
+      if (instType === 'ceiling') {
+        verticalLen = Math.abs(ceilingHeight - zA) + Math.abs(ceilingHeight - zB);
+      } else if (instType === 'floor') {
+        verticalLen = zA + zB;
+      } else {
+        verticalLen = Math.abs(zA - zB);
+      }
+
+      const totalConduitLen = (d2d + verticalLen) * 1.10; // +10% de folga normativa
+      const dn = c.diameter || 20;
+      const typeLabel = instType === 'floor' ? 'Piso' : instType === 'wall' ? 'Parede' : 'Teto';
+      const key = `Eletroduto Corrugado PVC DN${dn} (${typeLabel})`;
+      bom.conduits[key] = (bom.conduits[key] || 0) + totalConduitLen;
+
+      // 3. Fiação no trecho
+      const wires = this.wireAllocations.get(c.id);
+      if (wires && wires.length > 0) {
+        for (const w of wires) {
+          const gauge = (w.circuitId && typeof w.circuitId === 'number' && w.circuitId >= 3) ? '4.0mm²' : (w.type === 'return' ? '1.5mm²' : '2.5mm²');
+          const typeName = w.type === 'phase' ? 'Fase' : w.type === 'neutral' ? 'Neutro' : w.type === 'ground' ? 'Proteção (Terra)' : 'Retorno';
+          const wireKey = `Cabo Cobre PVC 70°C #${gauge} (${typeName})`;
+          const wireLen = totalConduitLen + 0.40; // 20cm ponta em cada extremidade
+          bom.wires[wireKey] = (bom.wires[wireKey] || 0) + wireLen;
+        }
+      }
+    }
+
+    return bom;
   }
 
   // Serializa o estado completo do projeto conforme a Seção 2.2 das diretrizes
@@ -2077,19 +2173,24 @@ export class CadEngine {
     }
   }
 
-  addConduit(nodeAId, nodeBId, type = 'ceiling', curvature = 1) {
+  addConduit(nodeAId, nodeBId, type = null, curvature = 1) {
     const exists = this.conduits.some(c => 
       (c.nodeAId === nodeAId && c.nodeBId === nodeBId) ||
       (c.nodeAId === nodeBId && c.nodeBId === nodeAId)
     );
     if (exists || nodeAId === nodeBId) return null;
 
+    const conduitType = type || this.currentConduitType || 'ceiling';
+    const conduitDiam = this.currentConduitDiameter || 20;
+
     const conduit = {
       id: `cond_${Date.now()}_${Math.floor(Math.random() * 10000)}`,
       nodeAId,
       nodeBId,
-      type,
-      diameterMm: 20,
+      type: conduitType,
+      installationType: conduitType,
+      diameter: conduitDiam,
+      diameterMm: conduitDiam,
       curvature
     };
     this.conduits.push(conduit);
@@ -5174,9 +5275,11 @@ export class CadEngine {
         }
 
         if (c.installationType === 'floor') {
-          ctx.setLineDash([5, 5]);
+          ctx.setLineDash([6, 5]); // Tracejado NBR 5444 / NBR 6492 (Eletroduto embutido no piso)
+        } else if (c.installationType === 'wall') {
+          ctx.setLineDash([9, 3, 2, 3]); // Traço-ponto NBR 5444 / NBR 6492 (Eletroduto embutido na parede)
         } else {
-          ctx.setLineDash([]);
+          ctx.setLineDash([]); // Linha contínua NBR 5444 (Eletroduto embutido no teto / laje)
         }
 
         ctx.beginPath();
