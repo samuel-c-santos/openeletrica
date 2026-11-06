@@ -1,4 +1,12 @@
-# OpenElétrica: Sistema CAD para Projetos de Instalações Elétricas Prediais (ABNT NBR 5410)
+<p align="center">
+  <img src="docs/assets/logo.svg" alt="Logotipo OpenElétrica" width="96" height="96" />
+</p>
+
+<h1 align="center">OpenElétrica</h1>
+
+<p align="center">
+  <strong>Sistema CAD para Projetos de Instalações Elétricas Prediais em Baixa Tensão (ABNT NBR 5410 e ABNT NBR 6492)</strong>
+</p>
 
 O OpenElétrica é uma plataforma em software livre e de código aberto para elaboração, cálculo e documentação de projetos de instalações elétricas prediais em baixa tensão, em conformidade com as normas ABNT NBR 5410 e ABNT NBR 6492.
 
@@ -63,6 +71,8 @@ A aplicação opera inteiramente no cliente via navegador web (arquitetura offli
 ├── tsconfig.json              Configuração de compilação TypeScript
 ├── vite.config.ts             Configuração do empacotador Vite
 ├── docs/                      Documentação técnica complementar
+│   ├── assets/                Identidade visual e recursos gráficos
+│   │   └── logo.svg           Logotipo vetorial canônico
 │   ├── architecture.md        Arquitetura de software e fluxo de dados
 │   ├── nbr5410-engine.md      Critérios e equacionamento normativo da NBR 5410
 │   ├── wiring-routing-graph.md Algoritmos de roteamento e resolução topológica
