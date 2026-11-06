@@ -32,6 +32,10 @@ export class Vector2D {
     return this;
   }
 
+  multiply(s) {
+    return this.mul(s);
+  }
+
   div(s) {
     if (s !== 0) {
       this.x /= s;
@@ -669,7 +673,7 @@ export class WireRenderer {
 
     const u = dir.normalize();
     // Multiplica pela orientação de lado do eletroduto (side: +1 ou -1)
-    const n = u.orthogonal().multiply(side || 1);
+    const n = u.orthogonal().mul(side || 1);
 
     const spacing = 6;
     const sc = 0.85;
