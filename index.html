@@ -197,54 +197,44 @@
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
       }
-      #header, #ribbon, #context-subtoolbar, #viewport-container, #inspector-drawer, .floating-bottom-left, .floating-right, .modal-overlay, #layout-top-toolbar, .layout-resize-handle, .layout-align-guide-x, .layout-align-guide-y, #layout-ruler-top-bar, #layout-ruler-left-bar, #layout-ruler-corner, #canvas-ruler-h, #canvas-ruler-v, .layout-status-pill {
+      #header, #ribbon, #context-subtoolbar, #viewport-container, #inspector-drawer, .floating-bottom-left, .floating-right, .modal-overlay, #layout-top-toolbar, .layout-resize-handle, .layout-align-guide-x, .layout-align-guide-y, #layout-ruler-top-bar, #layout-ruler-left-bar, #layout-ruler-corner, #canvas-ruler-h, #canvas-ruler-v, .layout-status-pill, .btn-rename-layout-item, #toast-notification {
         display: none !important;
       }
-      #layout-workspace {
+      #layout-paper-container {
+        display: block !important;
+        position: static !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #ffffff !important;
+        width: 100% !important;
+        height: auto !important;
+        overflow: visible !important;
+      }
+      #layout-workspace, #layout-stage-outer, .layout-sheet-wrap {
         display: block !important;
         position: static !important;
         margin: 0 !important;
         padding: 0 !important;
         width: 100% !important;
-        height: 100% !important;
+        height: auto !important;
         overflow: visible !important;
-      }
-      #layout-paper-container {
-        display: block !important;
-        position: absolute !important;
-        left: 0 !important;
-        top: 0 !important;
-        margin: 0 !important;
-        padding: 0 !important;
         background: #ffffff !important;
-        width: 100% !important;
-        height: 100% !important;
-        overflow: visible !important;
-      }
-      .layout-sheet-wrap {
-        display: block !important;
-        position: absolute !important;
-        left: 0 !important;
-        top: 0 !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        background: #ffffff !important;
-        width: 100% !important;
-        height: 100% !important;
-        overflow: visible !important;
-        min-height: 0 !important;
       }
       .paper-sheet {
-        position: absolute !important;
+        display: block !important;
+        position: relative !important;
         left: 0 !important;
         top: 0 !important;
         box-shadow: none !important;
         margin: 0 !important;
+        padding: 0 !important;
         border: none !important;
         zoom: 1 !important;
         transform: none !important;
         page-break-after: avoid !important;
         page-break-inside: avoid !important;
+        break-after: avoid !important;
+        break-inside: avoid !important;
       }
       .layout-item {
         border: 1.5px solid #000000 !important;
@@ -692,7 +682,7 @@
       </div>
 
       <!-- Área de Prancha com Régua Esquerda -->
-      <div style="display:flex; flex:1; width:100%; height:calc(100% - 20px); overflow:hidden; position:relative;">
+      <div id="layout-stage-outer" style="display:flex; flex:1; width:100%; height:calc(100% - 20px); overflow:hidden; position:relative;">
         <div id="layout-ruler-left-bar">
           <canvas id="canvas-ruler-v" style="width:20px; height:100%; display:block;"></canvas>
         </div>
@@ -3531,31 +3521,10 @@
       }
       styleEl.textContent = `
         @page {
-          size: ${sheet.w_mm}mm ${sheet.h_mm}mm !important;
-          margin: 0 !important;
+          size: ${sheet.w_mm}mm ${sheet.h_mm}mm;
+          margin: 0;
         }
         @media print {
-          #header, #ribbon, #context-subtoolbar, #viewport-container, #inspector-drawer, .floating-bottom-left, .floating-right, .modal-overlay, #layout-top-toolbar, .layout-resize-handle, .layout-align-guide-x, .layout-align-guide-y, #layout-ruler-top-bar, #layout-ruler-left-bar, #layout-ruler-corner, #canvas-ruler-h, #canvas-ruler-v, .layout-status-pill {
-            display: none !important;
-          }
-          #layout-workspace {
-            display: block !important;
-            position: static !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            width: 100% !important;
-            height: 100% !important;
-            overflow: visible !important;
-          }
-          #layout-paper-container, .layout-sheet-wrap {
-            display: block !important;
-            position: static !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            width: 100% !important;
-            height: 100% !important;
-            overflow: visible !important;
-          }
           .paper-sheet {
             width: ${sheet.w_mm}mm !important;
             height: ${sheet.h_mm}mm !important;
@@ -3563,13 +3532,6 @@
             min-height: ${sheet.h_mm}mm !important;
             max-width: ${sheet.w_mm}mm !important;
             max-height: ${sheet.h_mm}mm !important;
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
-            zoom: 1 !important;
-            transform: none !important;
-            box-shadow: none !important;
-            border: none !important;
           }
         }
       `;
@@ -4705,11 +4667,29 @@
       renderLayoutViewport();
     }
 
+    function getLayoutBoxContentSize(box, defaultW = 300, defaultH = 200) {
+      if (!box) return { w: defaultW, h: defaultH };
+      const content = box.querySelector('.layout-item-content');
+      let w = content ? content.clientWidth : 0;
+      let h = content ? content.clientHeight : 0;
+      if (!w || w <= 0) {
+        w = parseInt(box.style.width, 10) || defaultW;
+      }
+      if (!h || h <= 0) {
+        const rawH = parseInt(box.style.height, 10) || defaultH;
+        const header = box.querySelector('.layout-item-header');
+        const headerH = (header && window.getComputedStyle(header).display !== 'none') ? 26 : 0;
+        h = Math.max(20, rawH - headerH);
+      }
+      return { w: Math.round(w), h: Math.round(h) };
+    }
+
     function renderLayoutViewport() {
       const box = document.getElementById('item-viewport');
       if (!box || box.style.display === 'none') return;
-      canvasViewport.width = box.clientWidth;
-      canvasViewport.height = box.clientHeight - 26;
+      const sz = getLayoutBoxContentSize(box, 680, 520);
+      canvasViewport.width = sz.w;
+      canvasViewport.height = sz.h;
 
       const origPanX = engine.viewport.panX;
       const origPanY = engine.viewport.panY;
@@ -4740,12 +4720,13 @@
       // 1. Diagrama Unifilar
       const uniBox = document.getElementById('item-unifilar');
       if (uniBox && uniBox.style.display !== 'none') {
-        canvasUnifilar.width = uniBox.clientWidth;
-        canvasUnifilar.height = uniBox.clientHeight - 26;
-        ctxUnifilar.clearRect(0, 0, canvasUnifilar.width, canvasUnifilar.height);
+        const szUni = getLayoutBoxContentSize(uniBox, 300, 240);
+        canvasUnifilar.width = szUni.w;
+        canvasUnifilar.height = szUni.h;
+        ctxUnifilar.clearRect(0, 0, szUni.w, szUni.h);
         ctxUnifilar.save();
         ctxUnifilar.fillStyle = '#ffffff';
-        ctxUnifilar.fillRect(0, 0, canvasUnifilar.width, canvasUnifilar.height);
+        ctxUnifilar.fillRect(0, 0, szUni.w, szUni.h);
         engine.renderUnifilarDiagram(ctxUnifilar, 20, 40, true);
         ctxUnifilar.restore();
       }
@@ -4821,8 +4802,9 @@
       // 4. Maquete 3D na Folha
       const box3D = document.getElementById('item-viewport-3d');
       if (box3D && box3D.style.display !== 'none' && canvasLayout3D && ctxLayout3D) {
-        canvasLayout3D.width = box3D.clientWidth;
-        canvasLayout3D.height = box3D.clientHeight - 26;
+        const sz3D = getLayoutBoxContentSize(box3D, 300, 240);
+        canvasLayout3D.width = sz3D.w;
+        canvasLayout3D.height = sz3D.h;
         render3D(canvasLayout3D, ctxLayout3D);
       }
 
@@ -4996,24 +4978,42 @@
     });
 
     // Exportação em Alta Definição / Impressão de PDF
-    document.getElementById('btn-print-layout').addEventListener('click', () => {
+    let printSavedZoom = null;
+
+    function prepareLayoutForPrint() {
       const sheetKey = document.getElementById('layout-select-sheet')?.value || 'A1';
       updatePrintPageStyle(sheetKey);
+      const sheetEl = document.getElementById('paper-sheet');
+      if (sheetEl) {
+        printSavedZoom = sheetEl.style.zoom || '1';
+        sheetEl.style.zoom = '1';
+      }
       renderPaperSheet();
+    }
+
+    function restoreLayoutAfterPrint() {
+      const sheetEl = document.getElementById('paper-sheet');
+      if (sheetEl && printSavedZoom !== null) {
+        sheetEl.style.zoom = printSavedZoom;
+        printSavedZoom = null;
+      }
+      fitSheetToScreen();
+      renderPaperSheet();
+    }
+
+    document.getElementById('btn-print-layout').addEventListener('click', () => {
+      prepareLayoutForPrint();
       setTimeout(() => {
         window.print();
-      }, 60);
+      }, 100);
     });
 
     window.addEventListener('beforeprint', () => {
-      const sheetKey = document.getElementById('layout-select-sheet')?.value || 'A1';
-      updatePrintPageStyle(sheetKey);
-      renderPaperSheet();
+      prepareLayoutForPrint();
     });
 
     window.addEventListener('afterprint', () => {
-      fitSheetToScreen();
-      renderPaperSheet();
+      restoreLayoutAfterPrint();
     });
 
     document.getElementById('sheet-3d-filter')?.addEventListener('change', () => {
