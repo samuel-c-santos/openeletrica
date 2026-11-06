@@ -189,11 +189,13 @@
     /* Estilos de Impressão Direta em Alta Definição (Vector PDF ABNT) */
     @media print {
       html, body {
-        background: #ffffff !important;
-        overflow: visible !important;
+        display: block !important;
+        width: 100% !important;
         height: auto !important;
         margin: 0 !important;
         padding: 0 !important;
+        background: #ffffff !important;
+        overflow: visible !important;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
       }
@@ -3345,7 +3347,7 @@
         subtoolbarEl.style.display = 'none';
         if (headerEngButtons) headerEngButtons.style.display = 'none';
         layoutContainer.style.display = 'flex';
-        applySheetFormat(document.getElementById('layout-select-sheet')?.value || 'A1', false);
+        applySheetFormat(document.getElementById('layout-select-sheet')?.value || 'A1', true);
       }
     }
 
@@ -4978,42 +4980,24 @@
     });
 
     // Exportação em Alta Definição / Impressão de PDF
-    let printSavedZoom = null;
-
     function prepareLayoutForPrint() {
       const sheetKey = document.getElementById('layout-select-sheet')?.value || 'A1';
       updatePrintPageStyle(sheetKey);
-      const sheetEl = document.getElementById('paper-sheet');
-      if (sheetEl) {
-        printSavedZoom = sheetEl.style.zoom || '1';
-        sheetEl.style.zoom = '1';
+      const wrap = document.getElementById('layout-sheet-wrap');
+      if (wrap) {
+        wrap.scrollLeft = 0;
+        wrap.scrollTop = 0;
       }
-      renderPaperSheet();
-    }
-
-    function restoreLayoutAfterPrint() {
-      const sheetEl = document.getElementById('paper-sheet');
-      if (sheetEl && printSavedZoom !== null) {
-        sheetEl.style.zoom = printSavedZoom;
-        printSavedZoom = null;
-      }
-      fitSheetToScreen();
       renderPaperSheet();
     }
 
     document.getElementById('btn-print-layout').addEventListener('click', () => {
       prepareLayoutForPrint();
-      setTimeout(() => {
-        window.print();
-      }, 100);
+      window.print();
     });
 
     window.addEventListener('beforeprint', () => {
       prepareLayoutForPrint();
-    });
-
-    window.addEventListener('afterprint', () => {
-      restoreLayoutAfterPrint();
     });
 
     document.getElementById('sheet-3d-filter')?.addEventListener('change', () => {
