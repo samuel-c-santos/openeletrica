@@ -128,7 +128,7 @@
     #layout-ruler-top-bar { height: 20px; width: 100%; background: #1e293b; border-bottom: 1px solid #475569; display: flex; align-items: center; z-index: 20; flex-shrink: 0; box-sizing: border-box; overflow: hidden; }
     #layout-ruler-corner { width: 20px; height: 20px; background: #0f172a; border-right: 1px solid #475569; color: #94a3b8; font-size: 8px; font-weight: 700; display: flex; align-items: center; justify-content: center; user-select: none; flex-shrink: 0; box-sizing: border-box; }
     #layout-ruler-left-bar { width: 20px; height: 100%; background: #1e293b; border-right: 1px solid #475569; z-index: 20; flex-shrink: 0; box-sizing: border-box; overflow: hidden; }
-    .layout-sheet-wrap { flex: 1; width: calc(100% - 20px); height: 100%; overflow: auto; display: flex; justify-content: center; align-items: flex-start; padding: 40px; box-sizing: border-box; position: relative; }
+    .layout-sheet-wrap { flex: 1; width: calc(100% - 20px); height: 100%; overflow: auto; display: block; padding: 60px; box-sizing: border-box; position: relative; }
     .paper-sheet { background: #ffffff; box-shadow: 0 20px 40px rgba(0,0,0,0.4); position: relative; overflow: hidden; margin: 0 auto; flex-shrink: 0; box-sizing: border-box; transform-origin: top center; }
     .paper-border-outer { position: absolute; inset: 0; border: 1.5px solid #000000; pointer-events: none; box-sizing: border-box; }
     .paper-margin-inner { position: absolute; border: 2.5px solid #000000; pointer-events: none; box-sizing: border-box; }
@@ -637,12 +637,16 @@
         <div class="layout-toolbar-group">
           <span class="context-title" style="font-size:10.5px;">Modo:</span>
           <button class="btn-eng-action active" id="btn-layout-tool-item" title="Mover ou Redimensionar o quadro na folha" style="padding:2px 7px; font-size:11px; white-space:nowrap;">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:13px;height:13px;"><path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"></path><path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"></path><path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"></path><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"></path></svg>
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:13px;height:13px;"><rect width="18" height="18" x="3" y="3" rx="2"></rect><path d="M3 9h18M9 21V9"></path></svg>
             Mover Quadros
           </button>
           <button class="btn-eng-action" id="btn-layout-tool-content" title="Navegar no Conteúdo (Pan e Zoom dentro da planta)" style="padding:2px 7px; font-size:11px; white-space:nowrap;">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:13px;height:13px;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
             Mover Conteúdo
+          </button>
+          <button class="btn-eng-action" id="btn-layout-tool-pan" title="Pan na Prancha (Mover visualização da folha com o mouse ou scroll)" style="padding:2px 7px; font-size:11px; white-space:nowrap;">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:13px;height:13px;"><path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"></path><path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"></path><path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"></path><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"></path></svg>
+            Pan Prancha
           </button>
 
           <div class="divider-v"></div>
@@ -2993,6 +2997,9 @@
 
         const tool = btn.dataset.tool;
         engine.activeTool = tool;
+        if (engine.mode === 'layout' && tool === 'pan' && typeof setLayoutTool === 'function') {
+          setLayoutTool('pan');
+        }
         if (tool === 'add_node') {
           engine.pendingNodeType = btn.dataset.type;
         }
@@ -3780,6 +3787,7 @@
         if (document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'SELECT') {
           isSpacePressedInLayout = true;
           if (layoutSheetWrap) layoutSheetWrap.style.cursor = 'grab';
+          document.body.style.cursor = 'grab';
         }
       }
     });
@@ -3787,15 +3795,74 @@
     window.addEventListener('keyup', (e) => {
       if (e.code === 'Space' || e.key === ' ') {
         isSpacePressedInLayout = false;
-        if (layoutSheetWrap && !isPanningSheet) layoutSheetWrap.style.cursor = 'default';
+        if (layoutSheetWrap && !isPanningSheet) {
+          layoutSheetWrap.style.cursor = layoutTool === 'pan' ? 'grab' : (layoutTool === 'content' ? 'crosshair' : 'default');
+        }
+        if (!isPanningSheet) document.body.style.cursor = '';
       }
     });
 
     window.addEventListener('blur', () => {
       isPanningSheet = false;
       isSpacePressedInLayout = false;
-      if (layoutSheetWrap) layoutSheetWrap.style.cursor = 'default';
+      document.body.style.cursor = '';
+      if (layoutSheetWrap) layoutSheetWrap.style.cursor = layoutTool === 'pan' ? 'grab' : 'default';
     });
+
+    // Desativa o auto-scroll nativo do navegador no botão do meio (scroll click)
+    window.addEventListener('auxclick', (e) => {
+      if (engine.mode === 'layout' && e.button === 1) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    }, { capture: true });
+
+    // Início de Pan da Prancha (Botão 1 = scroll do mouse; Botão 0 com Espaço ou Ferramenta Pan)
+    window.addEventListener('mousedown', (e) => {
+      if (engine.mode !== 'layout' || !layoutSheetWrap) return;
+      const isMiddle = e.button === 1;
+      const isPanLeft = e.button === 0 && (isSpacePressedInLayout || layoutTool === 'pan');
+
+      if (isMiddle || isPanLeft) {
+        // Se estiver no modo 'content' dentro de um canvas interno e for botão esquerdo sem espaço, deixa o canvas navegar o conteúdo
+        if (layoutTool === 'content' && !isSpacePressedInLayout && !isMiddle && (e.target === canvasViewport || canvasViewport?.contains(e.target) || e.target === canvasLayout3D)) {
+          return;
+        }
+
+        const wrapRect = layoutSheetWrap.getBoundingClientRect();
+        if (e.clientX >= wrapRect.left && e.clientX <= wrapRect.right && e.clientY >= wrapRect.top && e.clientY <= wrapRect.bottom) {
+          isPanningSheet = true;
+          sheetPanStart = { x: e.clientX, y: e.clientY };
+          sheetScrollStart = { left: layoutSheetWrap.scrollLeft, top: layoutSheetWrap.scrollTop };
+          layoutSheetWrap.style.cursor = 'grabbing';
+          document.body.style.cursor = 'grabbing';
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }
+    }, { capture: true });
+
+    window.addEventListener('mousemove', (e) => {
+      if (isPanningSheet && layoutSheetWrap) {
+        const dx = e.clientX - sheetPanStart.x;
+        const dy = e.clientY - sheetPanStart.y;
+        layoutSheetWrap.scrollLeft = sheetScrollStart.left - dx;
+        layoutSheetWrap.scrollTop = sheetScrollStart.top - dy;
+        updateCachedRulerRects();
+        renderRulers();
+        e.preventDefault();
+      }
+    }, { capture: true });
+
+    window.addEventListener('mouseup', () => {
+      if (isPanningSheet) {
+        isPanningSheet = false;
+        document.body.style.cursor = '';
+        if (layoutSheetWrap) {
+          layoutSheetWrap.style.cursor = (isSpacePressedInLayout || layoutTool === 'pan') ? 'grab' : (layoutTool === 'content' ? 'crosshair' : 'default');
+        }
+      }
+    }, { capture: true });
 
     if (layoutSheetWrap) {
       layoutSheetWrap.addEventListener('mousemove', (e) => {
@@ -3820,79 +3887,79 @@
         renderRulers();
       });
 
-      layoutSheetWrap.addEventListener('mousedown', (e) => {
-        if (e.button === 1 || (e.button === 0 && isSpacePressedInLayout)) {
-          isPanningSheet = true;
-          sheetPanStart = { x: e.clientX, y: e.clientY };
-          sheetScrollStart = { left: layoutSheetWrap.scrollLeft, top: layoutSheetWrap.scrollTop };
-          layoutSheetWrap.style.cursor = 'grabbing';
-          e.preventDefault();
-        }
-      });
-
-      window.addEventListener('mousemove', (e) => {
-        if (isPanningSheet && layoutSheetWrap) {
-          const dx = e.clientX - sheetPanStart.x;
-          const dy = e.clientY - sheetPanStart.y;
-          layoutSheetWrap.scrollLeft = sheetScrollStart.left - dx;
-          layoutSheetWrap.scrollTop = sheetScrollStart.top - dy;
-          updateCachedRulerRects();
-          renderRulers();
-        }
-      });
-
-      window.addEventListener('mouseup', () => {
-        if (isPanningSheet) {
-          isPanningSheet = false;
-          if (layoutSheetWrap) {
-            layoutSheetWrap.style.cursor = isSpacePressedInLayout ? 'grab' : 'default';
-          }
-        }
-      });
-
-      // Wheel Zoom da Prancha (Aproxima e afasta a folha técnica suavemente)
+      // Wheel Zoom da Prancha (Aproxima e afasta suavemente centrado no ponto do cursor)
       layoutSheetWrap.addEventListener('wheel', (e) => {
-        if (layoutTool === 'content' && (e.target === canvasViewport || canvasViewport.contains(e.target))) {
+        if (layoutTool === 'content' && (e.target === canvasViewport || canvasViewport?.contains(e.target))) {
           return;
         }
-        if (layoutTool === 'content' && canvasLayout3D && (e.target === canvasLayout3D || canvasLayout3D.contains(e.target))) {
+        if (layoutTool === 'content' && canvasLayout3D && (e.target === canvasLayout3D || canvasLayout3D?.contains(e.target))) {
           return;
         }
 
         e.preventDefault();
-        const factor = e.deltaY < 0 ? 1.08 : 0.92;
-        const newZoom = Math.max(0.12, Math.min(2.5, currentSheetZoom * factor));
+        const factor = e.deltaY < 0 ? 1.10 : 0.90;
+        const oldZoom = currentSheetZoom;
+        const newZoom = Math.max(0.12, Math.min(2.5, oldZoom * factor));
+        if (newZoom === oldZoom) return;
+
+        const wrapRect = layoutSheetWrap.getBoundingClientRect();
+        const mouseX = e.clientX - wrapRect.left;
+        const mouseY = e.clientY - wrapRect.top;
+        const contentX = mouseX + layoutSheetWrap.scrollLeft;
+        const contentY = mouseY + layoutSheetWrap.scrollTop;
+        const ratio = newZoom / oldZoom;
+
         applySheetZoom(newZoom);
+
+        layoutSheetWrap.scrollLeft = contentX * ratio - mouseX;
+        layoutSheetWrap.scrollTop = contentY * ratio - mouseY;
+        updateCachedRulerRects();
+        renderRulers();
       }, { passive: false });
     }
 
-    let layoutTool = 'item'; // 'item' (Mover Item) ou 'content' (Navegar Conteúdo da Viewport)
+    let layoutTool = 'item'; // 'item', 'content' ou 'pan'
     let isMovingViewportContent = false;
     let contentPanStart = { x: 0, y: 0 };
 
     const statusPill = document.getElementById('layout-mode-status');
+    const btnLayoutToolItem = document.getElementById('btn-layout-tool-item');
+    const btnLayoutToolContent = document.getElementById('btn-layout-tool-content');
+    const btnLayoutToolPan = document.getElementById('btn-layout-tool-pan');
 
-    document.getElementById('btn-layout-tool-item').addEventListener('click', () => {
-      layoutTool = 'item';
-      document.getElementById('btn-layout-tool-item').classList.add('active');
-      document.getElementById('btn-layout-tool-content').classList.remove('active');
-      canvasViewport.style.cursor = 'default';
-      if (statusPill) {
-        statusPill.innerHTML = '<span style="width:7px; height:7px; border-radius:50%; background:#10b981;"></span>Modo: <strong>Mover Quadros</strong>';
-      }
-      showToast('Modo: Mover ou redimensionar quadros na folha.');
-    });
+    function setLayoutTool(tool) {
+      layoutTool = tool;
+      btnLayoutToolItem?.classList.toggle('active', tool === 'item');
+      btnLayoutToolContent?.classList.toggle('active', tool === 'content');
+      btnLayoutToolPan?.classList.toggle('active', tool === 'pan');
 
-    document.getElementById('btn-layout-tool-content').addEventListener('click', () => {
-      layoutTool = 'content';
-      document.getElementById('btn-layout-tool-content').classList.add('active');
-      document.getElementById('btn-layout-tool-item').classList.remove('active');
-      canvasViewport.style.cursor = 'grab';
-      if (statusPill) {
-        statusPill.innerHTML = '<span style="width:7px; height:7px; border-radius:50%; background:#0284c7;"></span>Modo: <strong>Navegar Conteúdo</strong>';
+      if (tool === 'pan') {
+        if (layoutSheetWrap) layoutSheetWrap.style.cursor = 'grab';
+        if (canvasViewport) canvasViewport.style.cursor = 'grab';
+        if (statusPill) {
+          statusPill.innerHTML = '<span style="width:7px; height:7px; border-radius:50%; background:#f59e0b;"></span>Modo: <strong>Pan Prancha</strong>';
+        }
+        showToast('Modo: Pan na Prancha (arraste para mover a visualização da folha).');
+      } else if (tool === 'content') {
+        if (layoutSheetWrap) layoutSheetWrap.style.cursor = 'default';
+        if (canvasViewport) canvasViewport.style.cursor = 'grab';
+        if (statusPill) {
+          statusPill.innerHTML = '<span style="width:7px; height:7px; border-radius:50%; background:#0284c7;"></span>Modo: <strong>Navegar Conteúdo</strong>';
+        }
+        showToast('Modo: Navegar conteúdo (pan/zoom dentro da planta).');
+      } else {
+        if (layoutSheetWrap) layoutSheetWrap.style.cursor = 'default';
+        if (canvasViewport) canvasViewport.style.cursor = 'default';
+        if (statusPill) {
+          statusPill.innerHTML = '<span style="width:7px; height:7px; border-radius:50%; background:#10b981;"></span>Modo: <strong>Mover Quadros</strong>';
+        }
+        showToast('Modo: Mover ou redimensionar quadros na folha.');
       }
-      showToast('Modo: Navegar conteúdo (pan/zoom dentro da planta).');
-    });
+    }
+
+    btnLayoutToolItem?.addEventListener('click', () => setLayoutTool('item'));
+    btnLayoutToolContent?.addEventListener('click', () => setLayoutTool('content'));
+    btnLayoutToolPan?.addEventListener('click', () => setLayoutTool('pan'));
 
     // Aplicação Integral do Formato da Folha Normativa
     function applySheetFormat(sheetKey, resetItems = false) {
@@ -4067,10 +4134,13 @@
 
     // Mover Conteúdo da Viewport (Pan/Zoom interno como no QGIS)
     canvasViewport.addEventListener('mousedown', (e) => {
-      if (layoutTool === 'content') {
-        isMovingViewportContent = true;
-        contentPanStart = { x: e.clientX, y: e.clientY };
-        canvasViewport.style.cursor = 'grabbing';
+      if (layoutTool === 'content' && !isSpacePressedInLayout) {
+        if (e.button === 0 || e.button === 1) {
+          isMovingViewportContent = true;
+          contentPanStart = { x: e.clientX, y: e.clientY };
+          canvasViewport.style.cursor = 'grabbing';
+          e.preventDefault();
+        }
       }
     });
 
@@ -4098,11 +4168,13 @@
 
     if (canvasLayout3D) {
       canvasLayout3D.addEventListener('mousedown', (e) => {
-        if (layoutTool === 'content') {
-          isMoving3DContent = true;
-          content3DStart = { x: e.clientX, y: e.clientY };
-          canvasLayout3D.style.cursor = 'grabbing';
-          e.stopPropagation();
+        if (layoutTool === 'content' && !isSpacePressedInLayout) {
+          if (e.button === 0 || e.button === 1) {
+            isMoving3DContent = true;
+            content3DStart = { x: e.clientX, y: e.clientY };
+            canvasLayout3D.style.cursor = 'grabbing';
+            e.stopPropagation();
+          }
         }
       });
       window.addEventListener('mousemove', (e) => {
@@ -4469,7 +4541,7 @@
       let startPos = { x: 0, y: 0 };
 
       handleEl.addEventListener('mousedown', (e) => {
-        if (layoutTool !== 'item') return;
+        if (layoutTool !== 'item' || e.button !== 0 || isSpacePressedInLayout) return;
         isDraggingItem = true;
         startMouse = { x: e.clientX, y: e.clientY };
         startPos = { x: itemEl.offsetLeft, y: itemEl.offsetTop };
@@ -4505,7 +4577,7 @@
       let startDim = { w: 0, h: 0 };
 
       handleEl.addEventListener('mousedown', (e) => {
-        if (layoutTool !== 'item') return;
+        if (layoutTool !== 'item' || e.button !== 0 || isSpacePressedInLayout) return;
         isResizing = true;
         startMouse = { x: e.clientX, y: e.clientY };
         startDim = { w: itemEl.offsetWidth, h: itemEl.offsetHeight };
