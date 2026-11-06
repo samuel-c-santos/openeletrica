@@ -418,6 +418,19 @@
       </button>
     </div>
 
+    <!-- Mini-Modal Flutuante de Edição Direta de Cota Vinculada no Canvas -->
+    <div id="dim-edit-popup" style="display:none; position:absolute; z-index:100; background:#ffffff; border:1.5px solid #2563eb; border-radius:8px; padding:8px 12px; box-shadow:0 8px 24px rgba(37, 99, 235, 0.24); transform:translate(-50%, -100%); margin-top:-10px;">
+      <div style="font-size:10.5px; font-weight:700; color:#1e40af; margin-bottom:5px; display:flex; align-items:center; gap:5px;">
+        <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+        <span id="dim-edit-title">Alterar Medida da Cota</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:6px;">
+        <input type="number" step="0.05" min="0.10" id="dim-edit-input" style="width:75px; padding:4px 8px; font-size:13px; font-weight:700; color:#0f172a; border:1px solid #94a3b8; border-radius:4px; outline:none;" />
+        <span style="font-size:12px; font-weight:600; color:#64748b;">m</span>
+        <button id="dim-edit-btn-apply" style="background:#2563eb; color:#ffffff; border:none; border-radius:4px; padding:4px 10px; font-size:11.5px; font-weight:700; cursor:pointer;">Aplicar ↵</button>
+      </div>
+    </div>
+
     <!-- Painel Lateral Deslizante (Inspector) -->
     <div id="inspector-drawer">
       <div class="drawer-title">
@@ -1669,8 +1682,72 @@
       }
     });
 
+    // ==================== MINI-MODAL FLUTUANTE DE COTA VINCULADA ====================
+    const dimEditPopup = document.getElementById('dim-edit-popup');
+    const dimEditInput = document.getElementById('dim-edit-input');
+    const dimEditTitle = document.getElementById('dim-edit-title');
+    const dimEditBtnApply = document.getElementById('dim-edit-btn-apply');
+    let activeDimEditInfo = null;
+
+    function closeDimEditPopup() {
+      if (dimEditPopup) {
+        dimEditPopup.style.display = 'none';
+        activeDimEditInfo = null;
+      }
+    }
+
+    function applyDimEditValue() {
+      if (!activeDimEditInfo || !dimEditInput) return;
+      const val = parseFloat(dimEditInput.value);
+      if (!isNaN(val) && val > 0.05) {
+        engine.applyDrivingDimension(activeDimEditInfo.dimIndex, val, activeDimEditInfo.wallIndex);
+        updateInspector();
+        engine.render(ctx, canvas.width, canvas.height);
+      }
+      closeDimEditPopup();
+    }
+
+    engine.onEditDrivingDimension = (info) => {
+      activeDimEditInfo = info;
+      if (dimEditPopup && dimEditInput) {
+        dimEditPopup.style.left = `${info.screenPos.x}px`;
+        dimEditPopup.style.top = `${info.screenPos.y}px`;
+        dimEditPopup.style.display = 'block';
+        if (dimEditTitle) dimEditTitle.textContent = info.label || 'Alterar Medida da Cota';
+        dimEditInput.value = info.currentDist.toFixed(2);
+        setTimeout(() => {
+          dimEditInput.focus();
+          dimEditInput.select();
+        }, 30);
+      }
+    };
+
+    dimEditBtnApply?.addEventListener('click', applyDimEditValue);
+
+    dimEditInput?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        applyDimEditValue();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        closeDimEditPopup();
+      }
+    });
+
     // ==================== EVENTOS DE MOUSE NO CANVAS MODEL ====================
     canvas.addEventListener('mousedown', (e) => {
+      if (dimEditPopup && dimEditPopup.style.display === 'block') {
+        const popupRect = dimEditPopup.getBoundingClientRect();
+        if (
+          e.clientX < popupRect.left ||
+          e.clientX > popupRect.right ||
+          e.clientY < popupRect.top ||
+          e.clientY > popupRect.bottom
+        ) {
+          closeDimEditPopup();
+        }
+      }
+
       const rect = canvas.getBoundingClientRect();
       const pt = { x: e.clientX - rect.left, y: e.clientY - rect.top };
       engine.onMouseDown(pt, e.button);
@@ -1681,6 +1758,13 @@
       const rect = canvas.getBoundingClientRect();
       const pt = { x: e.clientX - rect.left, y: e.clientY - rect.top };
       engine.onMouseMove(pt);
+      if (engine.hoverDrivingDimension) {
+        canvas.style.cursor = 'pointer';
+      } else if (engine.activeTool === 'pan') {
+        canvas.style.cursor = 'grab';
+      } else {
+        canvas.style.cursor = 'default';
+      }
       engine.render(ctx, canvas.width, canvas.height);
     });
 
@@ -1690,6 +1774,7 @@
     });
 
     canvas.addEventListener('wheel', (e) => {
+      closeDimEditPopup();
       e.preventDefault();
       const rect = canvas.getBoundingClientRect();
       const pt = { x: e.clientX - rect.left, y: e.clientY - rect.top };

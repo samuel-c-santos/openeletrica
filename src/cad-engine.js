@@ -664,6 +664,8 @@ export class CadEngine {
     // Sistema de Seleção Avançado com Alternância de Candidatos via Tecla Tab
     this.hoverCandidates = [];
     this.hoverCandidateIndex = 0;
+    this.hoverDrivingDimension = null; // Cota vinculada sob o cursor para edição direta
+    this.onEditDrivingDimension = null; // Callback para mini-modal flutuante de edição direta de cota
 
     this.saveSnapshot();
   }
@@ -848,6 +850,43 @@ export class CadEngine {
     return results;
   }
 
+  // Identifica se o clique na tela atingiu o rótulo de uma cota vinculada à parede selecionada
+  getDrivingDimensionAtScreen(screenPt) {
+    if (!this.selectedElement || this.selectedElement.type !== 'wall' || typeof this.selectedElement.index !== 'number') {
+      return null;
+    }
+    const wallIndex = this.selectedElement.index;
+    const drivingDims = this.getDrivingDimensionsForWall(wallIndex);
+    if (!drivingDims || drivingDims.length === 0) return null;
+
+    for (const d of drivingDims) {
+      const dim = d.dim;
+      const ptA = dim.a || dim.ptA;
+      const ptB = dim.b || dim.ptB;
+      if (!ptA || !ptB) continue;
+      const L = Math.hypot(ptB.x - ptA.x, ptB.y - ptA.y);
+      if (L < 0.05) continue;
+      const u = new Vector2D((ptB.x - ptA.x) / L, (ptB.y - ptA.y) / L);
+      const n = u.orthogonal();
+      const off = dim.offset || 0.35;
+      const midDim = new Vector2D((ptA.x + ptB.x) / 2 + n.x * off, (ptA.y + ptB.y) / 2 + n.y * off);
+      const sMid = this.viewport.worldToScreen(midDim);
+
+      if (sMid.distanceTo(screenPt) < 28) {
+        return {
+          dimIndex: d.dimIndex,
+          wallIndex,
+          dim,
+          label: d.label,
+          type: d.type,
+          currentDist: d.currentDist,
+          screenPos: sMid
+        };
+      }
+    }
+    return null;
+  }
+
   // Aplica valor paramétrico à cota, deslocando a parede e mantendo cantos fechados
   applyDrivingDimension(dimIndex, newDist, wallIndex) {
     const dim = this.dimensions[dimIndex];
@@ -880,10 +919,10 @@ export class CadEngine {
       // Mantém outras paredes conectadas unidas à quina B
       for (const other of this.walls) {
         if (other === wall) continue;
-        if (Math.hypot(other.a.x - oldB.x, other.a.y - oldB.y) < 0.18) {
+        if (Math.hypot(other.a.x - oldB.x, other.a.y - oldB.y) < 0.22) {
           other.a.x += shiftX; other.a.y += shiftY;
         }
-        if (Math.hypot(other.b.x - oldB.x, other.b.y - oldB.y) < 0.18) {
+        if (Math.hypot(other.b.x - oldB.x, other.b.y - oldB.y) < 0.22) {
           other.b.x += shiftX; other.b.y += shiftY;
         }
       }
@@ -907,20 +946,42 @@ export class CadEngine {
       wall.a.x += shiftX; wall.a.y += shiftY;
       wall.b.x += shiftX; wall.b.y += shiftY;
 
-      // Conexões de quina em A e B acompanham juntas
+      // Conexões de quina e junções em T acompanham o deslocamento
       for (const other of this.walls) {
         if (other === wall) continue;
-        if (Math.hypot(other.a.x - oldA.x, other.a.y - oldA.y) < 0.18) {
+
+        // Quina em A
+        if (Math.hypot(other.a.x - oldA.x, other.a.y - oldA.y) < 0.22) {
           other.a.x += shiftX; other.a.y += shiftY;
+        } else {
+          // Junção em T ao longo do corpo da parede
+          const prA = Vector2D.projectOnSegment(other.a, oldA, oldB);
+          if (prA.distance < 0.18 && prA.t > 0.01 && prA.t < 0.99) {
+            other.a.x += shiftX; other.a.y += shiftY;
+          }
         }
-        if (Math.hypot(other.b.x - oldA.x, other.b.y - oldA.y) < 0.18) {
+
+        // Quina em B
+        if (Math.hypot(other.b.x - oldB.x, other.b.y - oldB.y) < 0.22) {
           other.b.x += shiftX; other.b.y += shiftY;
+        } else {
+          // Junção em T ao longo do corpo da parede
+          const prB = Vector2D.projectOnSegment(other.b, oldA, oldB);
+          if (prB.distance < 0.18 && prB.t > 0.01 && prB.t < 0.99) {
+            other.b.x += shiftX; other.b.y += shiftY;
+          }
         }
-        if (Math.hypot(other.a.x - oldB.x, other.a.y - oldB.y) < 0.18) {
-          other.a.x += shiftX; other.a.y += shiftY;
+      }
+
+      // Portas e janelas contidas na parede acompanham o deslocamento
+      for (const d of (this.doors || [])) {
+        if (d.wallId === wall.id || Vector2D.projectOnSegment(d.pos, oldA, oldB).distance < 0.22) {
+          d.pos.x += shiftX; d.pos.y += shiftY;
         }
-        if (Math.hypot(other.b.x - oldB.x, other.b.y - oldB.y) < 0.18) {
-          other.b.x += shiftX; other.b.y += shiftY;
+      }
+      for (const w of (this.windows || [])) {
+        if (w.wallId === wall.id || Vector2D.projectOnSegment(w.pos, oldA, oldB).distance < 0.22) {
+          w.pos.x += shiftX; w.pos.y += shiftY;
         }
       }
 
@@ -935,7 +996,7 @@ export class CadEngine {
     this.recalculateWiring();
     this.notify();
     if (typeof window !== 'undefined' && window.__showToast) {
-      window.__showToast(`Cota paramétrica atualizada: ${newDist.toFixed(2)} m`);
+      window.__showToast(`Cota vinculada atualizada: ${newDist.toFixed(2)} m`);
     }
     return true;
   }
@@ -1153,7 +1214,7 @@ export class CadEngine {
   }
 
   findSnap(screenPt) {
-    let closestDist = 20;
+    let closestDist = 26;
     const rawWorld = this.viewport.screenToWorld(screenPt);
     let best = { snapped: false, point: rawWorld, type: null };
     this.polarGuide = null;
@@ -1166,6 +1227,53 @@ export class CadEngine {
         if (d < closestDist) {
           closestDist = d;
           best = { snapped: true, point: new Vector2D(node.position.x, node.position.y), targetNodeId: node.id, type: 'node' };
+        }
+      }
+    }
+
+    // 1.5 Snap a Aberturas Arquitetônicas (Portas e Janelas: Marcos/Batentes e Centro do Vão)
+    if (this.layers.openings) {
+      const openingTol = 25;
+
+      // Portas: Batente A, Batente B e Centro
+      for (const d of this.doors) {
+        const rad = d.radius || 0.80;
+        const hw = rad / 2;
+        const rot = d.rotation || 0;
+        const u = new Vector2D(Math.cos(rot), Math.sin(rot));
+        const pts = [
+          { pt: new Vector2D(d.pos.x - u.x * hw, d.pos.y - u.y * hw), type: 'door_jamb', label: 'Marco da Porta (Batente)' },
+          { pt: new Vector2D(d.pos.x + u.x * hw, d.pos.y + u.y * hw), type: 'door_jamb', label: 'Marco da Porta (Batente)' },
+          { pt: new Vector2D(d.pos.x, d.pos.y), type: 'door_center', label: 'Centro da Porta' }
+        ];
+        for (const item of pts) {
+          const s = this.viewport.worldToScreen(item.pt);
+          const dScreen = s.distanceTo(screenPt);
+          if (dScreen < closestDist && dScreen < openingTol) {
+            closestDist = dScreen;
+            best = { snapped: true, point: item.pt, type: item.type, label: item.label };
+          }
+        }
+      }
+
+      // Janelas: Batente A, Batente B e Centro
+      for (const w of this.windows) {
+        const width = w.width || 1.20;
+        const hw = width / 2;
+        const rot = w.rotation || 0;
+        const u = new Vector2D(Math.cos(rot), Math.sin(rot));
+        const pts = [
+          { pt: new Vector2D(w.pos.x - u.x * hw, w.pos.y - u.y * hw), type: 'window_jamb', label: 'Marco da Janela (Batente)' },
+          { pt: new Vector2D(w.pos.x + u.x * hw, w.pos.y + u.y * hw), type: 'window_jamb', label: 'Marco da Janela (Batente)' },
+          { pt: new Vector2D(w.pos.x, w.pos.y), type: 'window_center', label: 'Centro da Janela' }
+        ];
+        for (const item of pts) {
+          const s = this.viewport.worldToScreen(item.pt);
+          const dScreen = s.distanceTo(screenPt);
+          if (dScreen < closestDist && dScreen < openingTol) {
+            closestDist = dScreen;
+            best = { snapped: true, point: item.pt, type: item.type, label: item.label };
+          }
         }
       }
     }
@@ -1588,6 +1696,16 @@ export class CadEngine {
 
     // 8. Ferramenta Selecionar (Com suporte à Alternância de Seleção por Tab)
     if (this.activeTool === 'select') {
+      // 8.0 Se uma parede está selecionada, prioriza clique direto sobre o rótulo da cota vinculada
+      if (this.selectedElement && this.selectedElement.type === 'wall' && typeof this.selectedElement.index === 'number') {
+        const drivingHit = this.getDrivingDimensionAtScreen(screenPt);
+        if (drivingHit) {
+          if (this.onEditDrivingDimension) {
+            this.onEditDrivingDimension(drivingHit);
+          }
+          return;
+        }
+      }
       // 8.1 Se temos um candidato ativo pela tecla Tab sob o cursor, seleciona-o diretamente!
       if (this.hoverCandidates && this.hoverCandidates.length > 0) {
         const cand = this.hoverCandidates[this.hoverCandidateIndex] || this.hoverCandidates[0];
@@ -1952,9 +2070,15 @@ export class CadEngine {
     }
 
     if (this.activeTool === 'select' && !this.isDragging) {
+      if (this.selectedElement && this.selectedElement.type === 'wall' && typeof this.selectedElement.index === 'number') {
+        this.hoverDrivingDimension = this.getDrivingDimensionAtScreen(screenPt);
+      } else {
+        this.hoverDrivingDimension = null;
+      }
       this.updateHoverCandidates(screenPt);
     } else {
       this.hoverCandidates = [];
+      this.hoverDrivingDimension = null;
     }
   }
 
@@ -2299,7 +2423,8 @@ export class CadEngine {
       if (!ptA || !ptB) continue;
       const isSelected = !isPaperSpace && this.selectedElement && this.selectedElement.type === 'dimension' && this.selectedElement.index === i;
       const isDriving = !isPaperSpace && drivingDims.includes(i);
-      this.drawSingleDimension(ctx, ptA, ptB, dim.offset || 0.35, isSelected, false, isDriving);
+      const isHovered = isDriving && this.hoverDrivingDimension && this.hoverDrivingDimension.dimIndex === i;
+      this.drawSingleDimension(ctx, ptA, ptB, dim.offset || 0.35, isSelected, false, isDriving, isHovered);
     }
 
     // Prévia dinâmica se estiver inserindo cota em 3 passos
@@ -2324,7 +2449,7 @@ export class CadEngine {
     }
   }
 
-  drawSingleDimension(ctx, ptA, ptB, offset = 0.35, isSelected = false, isPreview = false, isDriving = false) {
+  drawSingleDimension(ctx, ptA, ptB, offset = 0.35, isSelected = false, isPreview = false, isDriving = false, isHoveredDriving = false) {
     if (!ptA || !ptB || typeof ptA.x === 'undefined' || typeof ptB.x === 'undefined') return;
     const L = Math.hypot(ptB.x - ptA.x, ptB.y - ptA.y);
     if (L < 0.02) return;
@@ -2345,11 +2470,11 @@ export class CadEngine {
     let mainColor = '#047857'; // Verde técnico padrão ABNT NBR 6492
     if (isSelected) mainColor = '#0284c7'; // Azul seleção
     else if (isPreview) mainColor = '#0284c7'; // Azul prévia
-    else if (isDriving) mainColor = '#2563eb'; // Azul realçado Cota Vinculada
+    else if (isDriving) mainColor = isHoveredDriving ? '#1d4ed8' : '#2563eb'; // Azul realçado Cota Vinculada
 
     ctx.strokeStyle = mainColor;
     ctx.fillStyle = mainColor;
-    ctx.lineWidth = isSelected || isDriving ? 2.2 : 1.2;
+    ctx.lineWidth = isSelected || isDriving ? (isHoveredDriving ? 2.6 : 2.2) : 1.2;
 
     if (isPreview) {
       ctx.setLineDash([3, 3]);
@@ -2399,12 +2524,12 @@ export class CadEngine {
     const m = ctx.measureText ? ctx.measureText(txt) : { width: 40 };
     const tw = m && typeof m.width === 'number' ? m.width : 40;
 
-    ctx.fillStyle = isDriving ? '#eff6ff' : '#ffffff';
-    ctx.fillRect(-tw / 2 - 5, -9, tw + 10, 18);
+    ctx.fillStyle = isHoveredDriving ? '#dbeafe' : (isDriving ? '#eff6ff' : '#ffffff');
+    ctx.fillRect(-tw / 2 - 6, -10, tw + 12, 20);
     if (isDriving) {
-      ctx.strokeStyle = '#2563eb';
-      ctx.lineWidth = 1.0;
-      ctx.strokeRect(-tw / 2 - 5, -9, tw + 10, 18);
+      ctx.strokeStyle = isHoveredDriving ? '#1d4ed8' : '#2563eb';
+      ctx.lineWidth = isHoveredDriving ? 2.0 : 1.0;
+      ctx.strokeRect(-tw / 2 - 6, -10, tw + 12, 20);
     }
 
     ctx.fillStyle = mainColor;
@@ -3312,6 +3437,33 @@ export class CadEngine {
         ctx.fillStyle = '#0284c7';
         ctx.font = 'bold 10px Arial, sans-serif';
         ctx.fillText('⟂ Perpendicular 90°', s.x + 12, s.y - 8);
+      } else if (this.currentSnap.type === 'door_jamb' || this.currentSnap.type === 'window_jamb') {
+        // Marcador quadrado laranja/âmbar com cruz interna (Batente / Marco de Abertura)
+        ctx.strokeStyle = '#d97706';
+        ctx.lineWidth = 2.0;
+        ctx.strokeRect(s.x - 5, s.y - 5, 10, 10);
+        ctx.beginPath();
+        ctx.moveTo(s.x, s.y - 4); ctx.lineTo(s.x, s.y + 4);
+        ctx.moveTo(s.x - 4, s.y); ctx.lineTo(s.x + 4, s.y);
+        ctx.stroke();
+
+        ctx.fillStyle = '#d97706';
+        ctx.font = 'bold 10px Arial, sans-serif';
+        ctx.fillText(this.currentSnap.label || 'Marco de Abertura', s.x + 10, s.y - 8);
+      } else if (this.currentSnap.type === 'door_center' || this.currentSnap.type === 'window_center') {
+        // Círculo com ponto central (Eixo de Abertura)
+        ctx.strokeStyle = '#d97706';
+        ctx.lineWidth = 1.8;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, 5, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.fillStyle = '#d97706';
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, 2, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.font = 'bold 10px Arial, sans-serif';
+        ctx.fillText(this.currentSnap.label || 'Centro da Abertura', s.x + 10, s.y - 8);
       } else if (this.currentSnap.type === 'boneca') {
         // Marcador de Boneca 10 cm da porta
         ctx.strokeStyle = '#10b981';
