@@ -378,13 +378,57 @@ export class Viewport {
 
 // ==================== SIMBOLOGIA ABNT PROFISSIONAL ====================
 export class SymbolRenderer {
-  static renderNode(ctx, node, viewport, isSelected) {
+  // Retorna a posição na tela e no mundo do rótulo nativo de um ponto elétrico (ex: letra do comando ou circuito)
+  static getNodeLabelScreenPos(node, viewport) {
+    if (!node || !node.position) return null;
+    const s = viewport.worldToScreen(node.position);
+    const th = ((node.rotation || 0) * Math.PI) / 180;
+    const offX = (node.labelOffset?.x || 0) * viewport.zoom;
+    const offY = (node.labelOffset?.y || 0) * viewport.zoom;
+
+    let localX = offX;
+    let localY = offY;
+    let text = '';
+
+    if (node.type.startsWith('switch')) {
+      const swR = 13 * 0.65;
+      localY += (-swR - 7);
+      text = node.command || 'a';
+    } else if (node.type.startsWith('outlet')) {
+      const sz = 13 * 0.9;
+      localY += (sz + 9);
+      text = String(node.circuitId || 1);
+    } else if (node.type === 'combo_switch_outlet') {
+      const swR = 13 * 0.55;
+      localX += (-13 * 0.55);
+      localY += (-swR - 6);
+      text = node.modules?.[0]?.command || node.command || 'a';
+    } else {
+      return null;
+    }
+
+    const rotatedX = localX * Math.cos(th) - localY * Math.sin(th);
+    const rotatedY = localX * Math.sin(th) + localY * Math.cos(th);
+
+    const screenX = s.x + rotatedX;
+    const screenY = s.y + rotatedY;
+    return {
+      screen: new Vector2D(screenX, screenY),
+      world: viewport.screenToWorld(new Vector2D(screenX, screenY)),
+      text
+    };
+  }
+
+  static renderNode(ctx, node, viewport, isSelected, isLabelSelected = false) {
     const s = viewport.worldToScreen(node.position);
     ctx.save();
     ctx.translate(s.x, s.y);
-    ctx.rotate((node.rotation * Math.PI) / 180);
+    const th = ((node.rotation || 0) * Math.PI) / 180;
+    ctx.rotate(th);
 
     const r = 13;
+    const offX = (node.labelOffset?.x || 0) * viewport.zoom;
+    const offY = (node.labelOffset?.y || 0) * viewport.zoom;
 
     if (isSelected) {
       ctx.strokeStyle = '#0284c7';
@@ -394,53 +438,6 @@ export class SymbolRenderer {
       ctx.arc(0, 0, r + 7, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
-    }
-
-    // Rótulo Deslocado de Ponto Elétrico (Chamada de Detalhe conforme NBR 6492)
-    if (node.labelOffset && (Math.abs(node.labelOffset.x) > 0.05 || Math.abs(node.labelOffset.y) > 0.05)) {
-      const zoom = viewport.zoom;
-      const offX = node.labelOffset.x * zoom;
-      const offY = node.labelOffset.y * zoom;
-
-      ctx.save();
-      ctx.strokeStyle = '#94a3b8';
-      ctx.lineWidth = 1.0;
-      ctx.setLineDash([3, 2]);
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.lineTo(offX, offY);
-      ctx.stroke();
-
-      let tag = `C${node.circuitId || 1}`;
-      if (node.command) tag += ` • ${node.command}`;
-      if (node.powerWatts) tag += ` (${node.powerWatts}W)`;
-
-      ctx.font = 'bold 8.5px Arial, sans-serif';
-      const tw = ctx.measureText(tag).width;
-      const bw = tw + 10;
-      const bh = 17;
-
-      ctx.fillStyle = '#ffffff';
-      ctx.strokeStyle = isSelected ? '#0284c7' : '#94a3b8';
-      ctx.lineWidth = isSelected ? 1.6 : 1.0;
-      ctx.setLineDash([]);
-      ctx.beginPath();
-      ctx.roundRect(offX - bw / 2, offY - bh / 2, bw, bh, 3);
-      ctx.fill();
-      ctx.stroke();
-
-      ctx.fillStyle = isSelected ? '#0284c7' : '#0f172a';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(tag, offX, offY);
-
-      if (isSelected) {
-        ctx.fillStyle = '#0284c7';
-        ctx.beginPath();
-        ctx.arc(offX, offY - bh / 2 - 4, 3, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      ctx.restore();
     }
 
     ctx.strokeStyle = '#000000';
@@ -527,13 +524,22 @@ export class SymbolRenderer {
           ctx.fill();
         }
 
-        ctx.fillStyle = '#000000';
+        ctx.fillStyle = isLabelSelected ? '#0284c7' : '#000000';
         ctx.font = 'bold 9px Arial, sans-serif';
         ctx.textAlign = 'center';
-        if (node.circuitId) ctx.fillText(String(node.circuitId), 0, sz + 9);
+        const circY = sz + 9 + offY;
+        if (node.circuitId) ctx.fillText(String(node.circuitId), offX, circY);
         if (node.powerWatts && node.powerWatts > 100) {
           ctx.font = '8px Arial, sans-serif';
-          ctx.fillText(`${node.powerWatts}W`, 0, -sz / 2 - 4);
+          ctx.fillText(`${node.powerWatts}W`, offX, -sz / 2 - 4 + offY);
+        }
+        if (isLabelSelected) {
+          ctx.save();
+          ctx.strokeStyle = '#0284c7';
+          ctx.lineWidth = 1.2;
+          ctx.setLineDash([3, 2]);
+          ctx.strokeRect(offX - 8, circY - 8, 16, 16);
+          ctx.restore();
         }
         break;
       }
@@ -555,11 +561,22 @@ export class SymbolRenderer {
         }
 
         if (node.command) {
-          ctx.fillStyle = '#000000';
+          const lblX = offX;
+          const lblY = -swR - 7 + offY;
+          ctx.fillStyle = isLabelSelected ? '#0284c7' : '#000000';
           ctx.font = 'bold 10px Arial, sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText(node.command, 0, -swR - 7);
+          ctx.fillText(node.command, lblX, lblY);
+
+          if (isLabelSelected) {
+            ctx.save();
+            ctx.strokeStyle = '#0284c7';
+            ctx.lineWidth = 1.2;
+            ctx.setLineDash([3, 2]);
+            ctx.strokeRect(lblX - 7, lblY - 7, 14, 14);
+            ctx.restore();
+          }
         }
         break;
       }
@@ -580,11 +597,22 @@ export class SymbolRenderer {
         ctx.stroke();
 
         if (swMod.command) {
-          ctx.fillStyle = '#000000';
+          const lblX = offX;
+          const lblY = -swR - 6 + offY;
+          ctx.fillStyle = isLabelSelected ? '#0284c7' : '#000000';
           ctx.font = 'bold 9px Arial, sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText(swMod.command, 0, -swR - 6);
+          ctx.fillText(swMod.command, lblX, lblY);
+
+          if (isLabelSelected) {
+            ctx.save();
+            ctx.strokeStyle = '#0284c7';
+            ctx.lineWidth = 1.2;
+            ctx.setLineDash([3, 2]);
+            ctx.strokeRect(lblX - 7, lblY - 7, 14, 14);
+            ctx.restore();
+          }
         }
         ctx.restore();
 
@@ -633,16 +661,25 @@ export class SymbolRenderer {
         ctx.lineTo(0, swR);
         ctx.stroke();
 
-        ctx.fillStyle = '#000000';
+        ctx.fillStyle = isLabelSelected ? '#0284c7' : '#000000';
         ctx.font = 'bold 9px Arial, sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(cmdA, -swR * 0.45, 0);
-        ctx.fillText(cmdB, swR * 0.45, 0);
+        ctx.fillText(cmdA, -swR * 0.45 + offX, offY);
+        ctx.fillText(cmdB, swR * 0.45 + offX, offY);
 
         if (node.circuitId) {
           ctx.font = 'bold 8px Arial, sans-serif';
-          ctx.fillText(String(node.circuitId), 0, swR + 7);
+          ctx.fillText(String(node.circuitId), offX, swR + 7 + offY);
+        }
+
+        if (isLabelSelected) {
+          ctx.save();
+          ctx.strokeStyle = '#0284c7';
+          ctx.lineWidth = 1.2;
+          ctx.setLineDash([3, 2]);
+          ctx.strokeRect(offX - swR - 2, offY - 8, swR * 2 + 4, 16);
+          ctx.restore();
         }
         break;
       }
@@ -1288,6 +1325,9 @@ export class CadEngine {
 
   deleteRiser(riserId) {
     this.risers = this.risers.filter(r => r.id !== riserId);
+    if (this.selectedElement && this.selectedElement.type === 'riser' && this.selectedElement.id === riserId) {
+      this.selectedElement = null;
+    }
     this.saveSnapshot();
     this.notify();
   }
@@ -2415,7 +2455,7 @@ export class CadEngine {
     return best;
   }
 
-  onMouseDown(screenPt, button) {
+  onMouseDown(screenPt, button = 0) {
     if (button === 1 || this.activeTool === 'pan') {
       this.isPanning = true;
       this.dragStartScreen = screenPt;
@@ -2724,6 +2764,17 @@ export class CadEngine {
         } else if (cand.type === 'node_label') {
           this.selectedElement = { type: 'node_label', id: cand.id, node: cand.node };
           this.selectedNodeId = cand.id;
+          this.isDragging = true;
+          this.dragStartWorld = worldPos;
+          this.dragInitialOffset = {
+            x: cand.node.labelOffset?.x || 0,
+            y: cand.node.labelOffset?.y || 0
+          };
+          this.notify();
+          return;
+        } else if (cand.type === 'riser') {
+          this.selectedElement = { type: 'riser', id: cand.id, riser: cand.riser };
+          this.selectedNodeId = null;
           this.isDragging = true;
           this.notify();
           return;
@@ -3066,13 +3117,29 @@ export class CadEngine {
           }
         }
       }
-      // 8. Mover Rótulo Deslocado de Nó Elétrico (Chamada de Detalhe)
+      // 7.1 Mover Prumada Vertical
+      else if (this.selectedElement && this.selectedElement.type === 'riser') {
+        const riser = this.risers ? this.risers.find(r => r.id === this.selectedElement.id) : null;
+        if (riser) {
+          riser.position.x = curWorld.x;
+          riser.position.y = curWorld.y;
+          this.notify();
+        }
+      }
+      // 8. Mover Rótulo Nativo de Ponto Elétrico
       else if (this.selectedElement && this.selectedElement.type === 'node_label') {
         const node = this.nodes.find(n => n.id === this.selectedElement.id);
         if (node) {
+          const dx = curWorld.x - (this.dragStartWorld?.x || curWorld.x);
+          const dy = curWorld.y - (this.dragStartWorld?.y || curWorld.y);
+          const th = ((node.rotation || 0) * Math.PI) / 180;
+          const cos = Math.cos(th);
+          const sin = Math.sin(th);
+          const localDx = dx * cos + dy * sin;
+          const localDy = -dx * sin + dy * cos;
           node.labelOffset = {
-            x: Math.round((curWorld.x - node.position.x) * 20) / 20,
-            y: Math.round((curWorld.y - node.position.y) * 20) / 20
+            x: Math.round(((this.dragInitialOffset?.x || 0) + localDx) * 100) / 100,
+            y: Math.round(((this.dragInitialOffset?.y || 0) + localDy) * 100) / 100
           };
           this.notify();
         }
@@ -3174,8 +3241,24 @@ export class CadEngine {
       }
     }
 
-    // 3. Pontos Elétricos
+    // 3. Pontos Elétricos, Rótulos e Prumadas
     if (this.layers.electric) {
+      // 3.1 Rótulo Nativo do Ponto Elétrico (Prioridade para clique direto no texto)
+      for (const node of this.nodes) {
+        const lblInfo = SymbolRenderer.getNodeLabelScreenPos(node, this.viewport);
+        if (lblInfo && lblInfo.screen.distanceTo(screenPt) < 18) {
+          candidates.push({
+            type: 'node_label',
+            id: node.id,
+            node: node,
+            label: `Rótulo "${lblInfo.text}" (Arraste para mover)`,
+            pos: lblInfo.world,
+            screen: lblInfo.screen
+          });
+        }
+      }
+
+      // 3.2 Símbolo do Ponto Elétrico
       for (const node of this.nodes) {
         const sN = this.viewport.worldToScreen(node.position);
         if (sN.distanceTo(screenPt) < 22) {
@@ -3194,18 +3277,17 @@ export class CadEngine {
         }
       }
 
-      // 3.1 Rótulo Deslocado de Ponto Elétrico (Chamada de Detalhe)
-      for (const node of this.nodes) {
-        if (node.labelOffset && (Math.abs(node.labelOffset.x) > 0.05 || Math.abs(node.labelOffset.y) > 0.05)) {
-          const lblWorld = new Vector2D(node.position.x + node.labelOffset.x, node.position.y + node.labelOffset.y);
-          const sLbl = this.viewport.worldToScreen(lblWorld);
-          if (sLbl.distanceTo(screenPt) < 22) {
+      // 3.3 Prumadas Verticais de Eletroduto (NBR 5410 / NBR 6492)
+      if (this.risers) {
+        for (const r of this.risers) {
+          const sR = this.viewport.worldToScreen(r.position);
+          if (sR.distanceTo(screenPt) < 22) {
             candidates.push({
-              type: 'node_label',
-              id: node.id,
-              node: node,
-              label: `Rótulo C${node.circuitId || 1} (Arraste para mover)`,
-              pos: lblWorld
+              type: 'riser',
+              id: r.id,
+              riser: r,
+              label: `Prumada ${r.name || 'P'} (⌀${r.diameter || 25}mm)`,
+              pos: r.position
             });
           }
         }
@@ -4451,6 +4533,17 @@ export class CadEngine {
       ctx.lineWidth = isSelected ? 2.5 : 1.6;
       ctx.fillStyle = '#ffffff';
 
+      if (isSelected) {
+        ctx.save();
+        ctx.strokeStyle = '#0284c7';
+        ctx.lineWidth = 1.6;
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, radius + 5, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+
       ctx.beginPath();
       ctx.arc(s.x, s.y, radius, 0, Math.PI * 2);
       ctx.fill();
@@ -4723,7 +4816,9 @@ export class CadEngine {
     // 5. Pontos Elétricos (Simbologia ABNT)
     if (this.layers.electric) {
       for (const node of this.nodes) {
-        SymbolRenderer.renderNode(ctx, node, this.viewport, node.id === this.selectedNodeId);
+        const isNodeSelected = node.id === this.selectedNodeId;
+        const isLabelSelected = !!(this.selectedElement && this.selectedElement.type === 'node_label' && this.selectedElement.id === node.id);
+        SymbolRenderer.renderNode(ctx, node, this.viewport, isNodeSelected, isLabelSelected);
       }
       // 5.1 Prumadas Verticais de Eletroduto (NBR 5410 / NBR 6492)
       this.renderRisers(ctx);

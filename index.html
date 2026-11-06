@@ -1636,10 +1636,20 @@
         return;
       }
 
+      if (engine.selectedElement && engine.selectedElement.type === 'riser') {
+        engine.deleteRiser(engine.selectedElement.id);
+        engine.selectedElement = null;
+        engine.render(ctx, canvas.width, canvas.height);
+        document.getElementById('inspector-drawer').classList.remove('open');
+        showToast('Prumada vertical excluída.');
+        return;
+      }
+
       if (engine.selectedElements && engine.selectedElements.length > 0) {
         engine.saveSnapshot();
         const nodeIdsToDelete = new Set();
         const conduitIdsToDelete = new Set();
+        const riserIdsToDelete = new Set();
         const wallIndices = [];
         const doorIndices = [];
         const winIndices = [];
@@ -1648,6 +1658,7 @@
         for (const item of engine.selectedElements) {
           if (item.type === 'node') nodeIdsToDelete.add(item.id);
           else if (item.type === 'conduit') conduitIdsToDelete.add(item.id);
+          else if (item.type === 'riser') riserIdsToDelete.add(item.id);
           else if (item.type === 'wall') wallIndices.push(item.index);
           else if (item.type === 'door') doorIndices.push(item.index);
           else if (item.type === 'window') winIndices.push(item.index);
@@ -1662,6 +1673,9 @@
         if (conduitIdsToDelete.size > 0) {
           engine.conduits = engine.conduits.filter(c => !conduitIdsToDelete.has(c.id));
           engine.recalculateWiring();
+        }
+        if (riserIdsToDelete.size > 0) {
+          engine.risers = engine.risers.filter(r => !riserIdsToDelete.has(r.id));
         }
         if (wallIndices.length > 0) {
           wallIndices.sort((a, b) => b - a).forEach(idx => engine.walls.splice(idx, 1));
@@ -2281,6 +2295,45 @@
 
           document.getElementById('btn-flip-conduit')?.addEventListener('click', () => {
             engine.toggleConduitCurvature(c.id);
+          });
+
+          document.getElementById('btn-delete-element')?.addEventListener('click', deleteCurrentSelection);
+          return;
+        } else if (engine.selectedElement.type === 'riser') {
+          const r = engine.risers ? engine.risers.find(item => item.id === engine.selectedElement.id) : null;
+          if (!r) {
+            drawer.classList.remove('open');
+            return;
+          }
+          const fromL = engine.levels?.find(l => l.id === r.fromLevelId)?.name || 'N/A';
+          const toL = engine.levels?.find(l => l.id === r.toLevelId)?.name || 'N/A';
+
+          drawer.classList.add('open');
+          content.innerHTML = `
+            <div class="prop-row"><span class="prop-label">Elemento:</span><span class="prop-val">Prumada Vertical</span></div>
+            <div class="prop-row"><span class="prop-label">Identificador:</span><span class="prop-val">${r.name || 'P'}</span></div>
+            <div class="prop-row"><span class="prop-label">Origem:</span><span class="prop-val">${fromL}</span></div>
+            <div class="prop-row"><span class="prop-label">Destino:</span><span class="prop-val">${toL}</span></div>
+            <div class="prop-row">
+              <span class="prop-label">Diâmetro:</span>
+              <select class="prop-select" id="inspector-riser-diam">
+                <option value="20" ${r.diameter === 20 ? 'selected' : ''}>20 mm (1/2")</option>
+                <option value="25" ${r.diameter === 25 ? 'selected' : ''}>25 mm (3/4")</option>
+                <option value="32" ${r.diameter === 32 ? 'selected' : ''}>32 mm (1")</option>
+                <option value="40" ${r.diameter === 40 ? 'selected' : ''}>40 mm (1 1/4")</option>
+                <option value="50" ${r.diameter === 50 ? 'selected' : ''}>50 mm (1 1/2")</option>
+              </select>
+            </div>
+            <button class="btn-eng-action" id="btn-delete-element" style="margin-top:12px; width:100%; justify-content:center; color:#ef4444; border-color:#fca5a5; background:#fef2f2;">
+              <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+              Excluir Prumada [Del]
+            </button>
+          `;
+
+          document.getElementById('inspector-riser-diam')?.addEventListener('change', (e) => {
+            engine.saveSnapshot();
+            r.diameter = parseInt(e.target.value);
+            engine.notify();
           });
 
           document.getElementById('btn-delete-element')?.addEventListener('click', deleteCurrentSelection);
