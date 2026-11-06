@@ -916,13 +916,13 @@ export class CadEngine {
       wall.b.x += shiftX;
       wall.b.y += shiftY;
 
-      // Mantém outras paredes conectadas unidas à quina B
+      // Mantém outras paredes conectadas unidas à quina B (tanto endpoint a quanto b)
       for (const other of this.walls) {
         if (other === wall) continue;
-        if (Math.hypot(other.a.x - oldB.x, other.a.y - oldB.y) < 0.22) {
+        if (Math.hypot(other.a.x - oldB.x, other.a.y - oldB.y) < 0.25) {
           other.a.x += shiftX; other.a.y += shiftY;
         }
-        if (Math.hypot(other.b.x - oldB.x, other.b.y - oldB.y) < 0.22) {
+        if (Math.hypot(other.b.x - oldB.x, other.b.y - oldB.y) < 0.25) {
           other.b.x += shiftX; other.b.y += shiftY;
         }
       }
@@ -946,28 +946,26 @@ export class CadEngine {
       wall.a.x += shiftX; wall.a.y += shiftY;
       wall.b.x += shiftX; wall.b.y += shiftY;
 
-      // Conexões de quina e junções em T acompanham o deslocamento
+      // Conexões de quina em ambas as extremidades e junções em T esticam juntas
       for (const other of this.walls) {
         if (other === wall) continue;
 
-        // Quina em A
-        if (Math.hypot(other.a.x - oldA.x, other.a.y - oldA.y) < 0.22) {
+        // Vértice other.a conectado a oldA, oldB ou junção em T ao longo do corpo
+        if (Math.hypot(other.a.x - oldA.x, other.a.y - oldA.y) < 0.25 || Math.hypot(other.a.x - oldB.x, other.a.y - oldB.y) < 0.25) {
           other.a.x += shiftX; other.a.y += shiftY;
         } else {
-          // Junção em T ao longo do corpo da parede
           const prA = Vector2D.projectOnSegment(other.a, oldA, oldB);
-          if (prA.distance < 0.18 && prA.t > 0.01 && prA.t < 0.99) {
+          if (prA.distance < 0.20 && prA.t > 0.01 && prA.t < 0.99) {
             other.a.x += shiftX; other.a.y += shiftY;
           }
         }
 
-        // Quina em B
-        if (Math.hypot(other.b.x - oldB.x, other.b.y - oldB.y) < 0.22) {
+        // Vértice other.b conectado a oldA, oldB ou junção em T ao longo do corpo
+        if (Math.hypot(other.b.x - oldA.x, other.b.y - oldA.y) < 0.25 || Math.hypot(other.b.x - oldB.x, other.b.y - oldB.y) < 0.25) {
           other.b.x += shiftX; other.b.y += shiftY;
         } else {
-          // Junção em T ao longo do corpo da parede
           const prB = Vector2D.projectOnSegment(other.b, oldA, oldB);
-          if (prB.distance < 0.18 && prB.t > 0.01 && prB.t < 0.99) {
+          if (prB.distance < 0.20 && prB.t > 0.01 && prB.t < 0.99) {
             other.b.x += shiftX; other.b.y += shiftY;
           }
         }
@@ -982,6 +980,34 @@ export class CadEngine {
       for (const w of (this.windows || [])) {
         if (w.wallId === wall.id || Vector2D.projectOnSegment(w.pos, oldA, oldB).distance < 0.22) {
           w.pos.x += shiftX; w.pos.y += shiftY;
+        }
+      }
+
+      // Atualiza âncoras de outras cotas vinculadas aos vértices movidos
+      for (let j = 0; j < (this.dimensions || []).length; j++) {
+        if (j === dimIndex) continue;
+        const otherDim = this.dimensions[j];
+        if (!otherDim) continue;
+        const pA = otherDim.a || otherDim.ptA;
+        const pB = otherDim.b || otherDim.ptB;
+
+        // Cota longitudinal da própria parede transladada
+        const isDimAlongMovedWall = (Math.hypot(pA.x - oldA.x, pA.y - oldA.y) < 0.25 && Math.hypot(pB.x - oldB.x, pB.y - oldB.y) < 0.25) ||
+                                    (Math.hypot(pA.x - oldB.x, pA.y - oldB.y) < 0.25 && Math.hypot(pB.x - oldA.x, pB.y - oldA.y) < 0.25);
+        if (isDimAlongMovedWall) {
+          pA.x += shiftX; pA.y += shiftY;
+          pB.x += shiftX; pB.y += shiftY;
+          continue;
+        }
+
+        // Cotas das paredes perpendiculares que esticaram
+        if (Math.hypot(pA.x - oldA.x, pA.y - oldA.y) < 0.25 || Math.hypot(pA.x - oldB.x, pA.y - oldB.y) < 0.25) {
+          pA.x += shiftX; pA.y += shiftY;
+          otherDim.dist = Number(Math.hypot(pB.x - pA.x, pB.y - pA.y).toFixed(2));
+        }
+        if (Math.hypot(pB.x - oldA.x, pB.y - oldA.y) < 0.25 || Math.hypot(pB.x - oldB.x, pB.y - oldB.y) < 0.25) {
+          pB.x += shiftX; pB.y += shiftY;
+          otherDim.dist = Number(Math.hypot(pB.x - pA.x, pB.y - pA.y).toFixed(2));
         }
       }
 
