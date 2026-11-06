@@ -15,7 +15,7 @@ O sistema trabalha com dois espaços de referência coordenados:
 ### 1.2 Espaço da Tela (Coordenadas de Exibição em Pixels)
 A projeção das entidades no elemento Canvas é governada por uma matriz afim de transformação de visualização:
 
-$$\begin{pmatrix} X_{\text{tela}} \\ Y_{\text{tela}} \end{pmatrix} = \begin{pmatrix} \text{escala} \cdot \cos\theta & -\text{escala} \cdot \operatorname{sen}\theta \\ \text{escala} \cdot \operatorname{sen}\theta & \text{escala} \cdot \cos\theta \end{pmatrix} \begin{pmatrix} X_{\text{mundo}} \\ Y_{\text{mundo}} \end{pmatrix} + \begin{pmatrix} \text{transl}_X \\ \text{transl}_Y \end{pmatrix}$$
+$$\begin{pmatrix} X_{\text{tela}} \\ Y_{\text{tela}} \end{pmatrix} = \begin{pmatrix} \text{escala} \cdot \cos\theta & -\text{escala} \cdot \sin\theta \\ \text{escala} \cdot \sin\theta & \text{escala} \cdot \cos\theta \end{pmatrix} \begin{pmatrix} X_{\text{mundo}} \\ Y_{\text{mundo}} \end{pmatrix} + \begin{pmatrix} \text{transl}_X \\ \text{transl}_Y \end{pmatrix}$$
 
 O mecanismo suporta translação livre e ampliação de visualização na faixa contínua de 10% a 1000%, preservando a estabilidade da taxa de quadros.
 

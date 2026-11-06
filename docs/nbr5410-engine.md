@@ -77,7 +77,7 @@ A queda de tensão em regime contínuo, medida a partir dos terminais de origem 
 * 2% em alimentadores intermediários, preservando a margem para os circuitos terminais.
 
 ### 3.1 Equacionamento da Queda de Tensão
-$$\Delta V\% = \frac{k \cdot L \cdot I_B \cdot (r \cdot \cos\phi + x \cdot \operatorname{sen}\phi)}{V} \cdot 100$$
+$$\Delta V\% = \frac{k \cdot L \cdot I_B \cdot (r \cdot \cos\phi + x \cdot \sin\phi)}{V} \cdot 100$$
 
 Onde:
 * $k = 2$ para sistemas monofásicos ou bifásicos a dois fios;
