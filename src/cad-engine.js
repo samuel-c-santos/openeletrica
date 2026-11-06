@@ -651,6 +651,28 @@ export class CadEngine {
       revision: '00'
     };
 
+    // Multi-pavimentos e Prumadas Verticais (NBR 5410 / NBR 6492)
+    this.levels = [
+      {
+        id: 'level_terreo',
+        name: 'Pavimento Térreo',
+        elevation: 0.0,
+        height: 2.80,
+        walls: [],
+        rooms: [],
+        doors: [],
+        windows: [],
+        roomDividers: [],
+        dimensions: [],
+        nodes: [],
+        conduits: []
+      }
+    ];
+    this.activeLevelId = 'level_terreo';
+    this.underlayLevelId = null; // ID do nível exibido em plano fantasma / subjacente
+    this.risers = []; // Prumadas verticais interligando pavimentos
+    this.risers = []; // Prumadas verticais interligando pavimentos
+
     // Snap e Guia Polar
     this.snapSettings = {
       endpoint: true,
@@ -698,15 +720,20 @@ export class CadEngine {
   }
 
   saveSnapshot() {
+    this.saveCurrentLevelState();
     const state = {
+      levels: JSON.parse(JSON.stringify(this.levels)),
+      activeLevelId: this.activeLevelId,
+      underlayLevelId: this.underlayLevelId,
+      risers: JSON.parse(JSON.stringify(this.risers)),
       nodes: JSON.parse(JSON.stringify(this.nodes)),
       conduits: JSON.parse(JSON.stringify(this.conduits)),
       walls: JSON.parse(JSON.stringify(this.walls)),
       rooms: JSON.parse(JSON.stringify(this.rooms)),
       doors: JSON.parse(JSON.stringify(this.doors)),
-      windows: JSON.parse(JSON.stringify(this.windows)),
+      windows: JSON.parse(JSON.stringify(this.windows || [])),
       dimensions: JSON.parse(JSON.stringify(this.dimensions || [])),
-      roomDividers: JSON.parse(JSON.stringify(this.roomDividers)),
+      roomDividers: JSON.parse(JSON.stringify(this.roomDividers || [])),
       sldPosition: { ...this.sldPosition }
     };
     this.undoStack.push(state);
@@ -730,6 +757,12 @@ export class CadEngine {
   }
 
   loadState(state) {
+    if (state.levels) {
+      this.levels = JSON.parse(JSON.stringify(state.levels));
+      this.activeLevelId = state.activeLevelId || this.levels[0].id;
+      this.underlayLevelId = state.underlayLevelId || null;
+      this.risers = JSON.parse(JSON.stringify(state.risers || []));
+    }
     this.nodes = JSON.parse(JSON.stringify(state.nodes));
     this.conduits = JSON.parse(JSON.stringify(state.conduits));
     this.walls = JSON.parse(JSON.stringify(state.walls));
@@ -755,6 +788,7 @@ export class CadEngine {
 
   // Serializa o estado completo do projeto conforme a Seção 2.2 das diretrizes
   serializeProject() {
+    this.saveCurrentLevelState();
     return {
       version: '1.0.0',
       generator: 'OpenElétrica CAD',
@@ -769,6 +803,10 @@ export class CadEngine {
         date: this.projectMeta?.date || '05/11/2026',
         revision: this.projectMeta?.revision || '00'
       },
+      levels: JSON.parse(JSON.stringify(this.levels)),
+      activeLevelId: this.activeLevelId,
+      underlayLevelId: this.underlayLevelId,
+      risers: JSON.parse(JSON.stringify(this.risers)),
       architecture: {
         scale: 50,
         walls: JSON.parse(JSON.stringify(this.walls)),
@@ -798,16 +836,55 @@ export class CadEngine {
       throw new Error('Arquivo de projeto inválido: objeto JSON esperado.');
     }
 
-    const arch = data.architecture || {};
-    this.walls = Array.isArray(arch.walls) ? JSON.parse(JSON.stringify(arch.walls)) : (Array.isArray(data.walls) ? JSON.parse(JSON.stringify(data.walls)) : []);
-    this.doors = Array.isArray(arch.doors) ? JSON.parse(JSON.stringify(arch.doors)) : (Array.isArray(data.doors) ? JSON.parse(JSON.stringify(data.doors)) : []);
-    this.windows = Array.isArray(arch.windows) ? JSON.parse(JSON.stringify(arch.windows)) : (Array.isArray(data.windows) ? JSON.parse(JSON.stringify(data.windows)) : []);
-    this.rooms = Array.isArray(arch.rooms) ? JSON.parse(JSON.stringify(arch.rooms)) : (Array.isArray(data.rooms) ? JSON.parse(JSON.stringify(data.rooms)) : []);
-    this.roomDividers = Array.isArray(arch.roomDividers) ? JSON.parse(JSON.stringify(arch.roomDividers)) : (Array.isArray(data.roomDividers) ? JSON.parse(JSON.stringify(data.roomDividers)) : []);
-    this.dimensions = Array.isArray(arch.dimensions) ? JSON.parse(JSON.stringify(arch.dimensions)) : (Array.isArray(data.dimensions) ? JSON.parse(JSON.stringify(data.dimensions)) : []);
+    if (Array.isArray(data.levels) && data.levels.length > 0) {
+      this.levels = JSON.parse(JSON.stringify(data.levels));
+      this.activeLevelId = (data.activeLevelId && this.levels.find(l => l.id === data.activeLevelId))
+        ? data.activeLevelId
+        : this.levels[0].id;
+      this.underlayLevelId = data.underlayLevelId || null;
+      this.risers = Array.isArray(data.risers) ? JSON.parse(JSON.stringify(data.risers)) : [];
 
-    this.nodes = Array.isArray(data.electricNodes) ? JSON.parse(JSON.stringify(data.electricNodes)) : (Array.isArray(data.nodes) ? JSON.parse(JSON.stringify(data.nodes)) : []);
-    this.conduits = Array.isArray(data.conduits) ? JSON.parse(JSON.stringify(data.conduits)) : [];
+      const currentLvl = this.levels.find(l => l.id === this.activeLevelId) || this.levels[0];
+      this.walls = Array.isArray(currentLvl.walls) ? JSON.parse(JSON.stringify(currentLvl.walls)) : [];
+      this.doors = Array.isArray(currentLvl.doors) ? JSON.parse(JSON.stringify(currentLvl.doors)) : [];
+      this.windows = Array.isArray(currentLvl.windows) ? JSON.parse(JSON.stringify(currentLvl.windows)) : [];
+      this.rooms = Array.isArray(currentLvl.rooms) ? JSON.parse(JSON.stringify(currentLvl.rooms)) : [];
+      this.roomDividers = Array.isArray(currentLvl.roomDividers) ? JSON.parse(JSON.stringify(currentLvl.roomDividers)) : [];
+      this.dimensions = Array.isArray(currentLvl.dimensions) ? JSON.parse(JSON.stringify(currentLvl.dimensions)) : [];
+      this.nodes = Array.isArray(currentLvl.nodes) ? JSON.parse(JSON.stringify(currentLvl.nodes)) : (Array.isArray(currentLvl.electricNodes) ? JSON.parse(JSON.stringify(currentLvl.electricNodes)) : []);
+      this.conduits = Array.isArray(currentLvl.conduits) ? JSON.parse(JSON.stringify(currentLvl.conduits)) : [];
+    } else {
+      const arch = data.architecture || {};
+      this.walls = Array.isArray(arch.walls) ? JSON.parse(JSON.stringify(arch.walls)) : (Array.isArray(data.walls) ? JSON.parse(JSON.stringify(data.walls)) : []);
+      this.doors = Array.isArray(arch.doors) ? JSON.parse(JSON.stringify(arch.doors)) : (Array.isArray(data.doors) ? JSON.parse(JSON.stringify(data.doors)) : []);
+      this.windows = Array.isArray(arch.windows) ? JSON.parse(JSON.stringify(arch.windows)) : (Array.isArray(data.windows) ? JSON.parse(JSON.stringify(data.windows)) : []);
+      this.rooms = Array.isArray(arch.rooms) ? JSON.parse(JSON.stringify(arch.rooms)) : (Array.isArray(data.rooms) ? JSON.parse(JSON.stringify(data.rooms)) : []);
+      this.roomDividers = Array.isArray(arch.roomDividers) ? JSON.parse(JSON.stringify(arch.roomDividers)) : (Array.isArray(data.roomDividers) ? JSON.parse(JSON.stringify(data.roomDividers)) : []);
+      this.dimensions = Array.isArray(arch.dimensions) ? JSON.parse(JSON.stringify(arch.dimensions)) : (Array.isArray(data.dimensions) ? JSON.parse(JSON.stringify(data.dimensions)) : []);
+      this.nodes = Array.isArray(data.electricNodes) ? JSON.parse(JSON.stringify(data.electricNodes)) : (Array.isArray(data.nodes) ? JSON.parse(JSON.stringify(data.nodes)) : []);
+      this.conduits = Array.isArray(data.conduits) ? JSON.parse(JSON.stringify(data.conduits)) : [];
+
+      this.levels = [
+        {
+          id: 'level_terreo',
+          name: 'Pavimento Térreo',
+          elevation: 0.0,
+          height: 2.80,
+          walls: JSON.parse(JSON.stringify(this.walls)),
+          doors: JSON.parse(JSON.stringify(this.doors)),
+          windows: JSON.parse(JSON.stringify(this.windows)),
+          rooms: JSON.parse(JSON.stringify(this.rooms)),
+          roomDividers: JSON.parse(JSON.stringify(this.roomDividers)),
+          dimensions: JSON.parse(JSON.stringify(this.dimensions)),
+          nodes: JSON.parse(JSON.stringify(this.nodes)),
+          conduits: JSON.parse(JSON.stringify(this.conduits))
+        }
+      ];
+      this.activeLevelId = 'level_terreo';
+      this.underlayLevelId = null;
+      this.risers = [];
+    }
+
     this.circuits = Array.isArray(data.circuits) ? JSON.parse(JSON.stringify(data.circuits)) : [];
     this.panels = Array.isArray(data.panels) ? JSON.parse(JSON.stringify(data.panels)) : [];
 
@@ -852,6 +929,25 @@ export class CadEngine {
     this.conduits = [];
     this.circuits = [];
     this.panels = [];
+    this.levels = [
+      {
+        id: 'level_terreo',
+        name: 'Pavimento Térreo',
+        elevation: 0.0,
+        height: 2.80,
+        walls: [],
+        doors: [],
+        windows: [],
+        rooms: [],
+        roomDividers: [],
+        dimensions: [],
+        nodes: [],
+        conduits: []
+      }
+    ];
+    this.activeLevelId = 'level_terreo';
+    this.underlayLevelId = null;
+    this.risers = [];
     this.projectMeta = {
       title: 'NOVO PROJETO ELÉTRICO',
       owner: '',
@@ -870,6 +966,141 @@ export class CadEngine {
     this.saveSnapshot();
     this.recalculateWiring();
     this.notify();
+  }
+
+  // Métodos de Gerenciamento de Pavimentos e Prumadas
+  saveCurrentLevelState() {
+    const lvl = this.levels ? this.levels.find(l => l.id === this.activeLevelId) : null;
+    if (lvl) {
+      lvl.walls = JSON.parse(JSON.stringify(this.walls));
+      lvl.rooms = JSON.parse(JSON.stringify(this.rooms));
+      lvl.doors = JSON.parse(JSON.stringify(this.doors));
+      lvl.windows = JSON.parse(JSON.stringify(this.windows || []));
+      lvl.roomDividers = JSON.parse(JSON.stringify(this.roomDividers || []));
+      lvl.dimensions = JSON.parse(JSON.stringify(this.dimensions || []));
+      lvl.nodes = JSON.parse(JSON.stringify(this.nodes));
+      lvl.conduits = JSON.parse(JSON.stringify(this.conduits));
+    }
+  }
+
+  switchLevel(newLevelId) {
+    if (!newLevelId || newLevelId === this.activeLevelId) return;
+    const target = this.levels ? this.levels.find(l => l.id === newLevelId) : null;
+    if (!target) return;
+
+    this.saveCurrentLevelState();
+
+    this.activeLevelId = newLevelId;
+    this.walls = Array.isArray(target.walls) ? JSON.parse(JSON.stringify(target.walls)) : [];
+    this.rooms = Array.isArray(target.rooms) ? JSON.parse(JSON.stringify(target.rooms)) : [];
+    this.doors = Array.isArray(target.doors) ? JSON.parse(JSON.stringify(target.doors)) : [];
+    this.windows = Array.isArray(target.windows) ? JSON.parse(JSON.stringify(target.windows)) : [];
+    this.roomDividers = Array.isArray(target.roomDividers) ? JSON.parse(JSON.stringify(target.roomDividers)) : [];
+    this.dimensions = Array.isArray(target.dimensions) ? JSON.parse(JSON.stringify(target.dimensions)) : [];
+    this.nodes = Array.isArray(target.nodes) ? JSON.parse(JSON.stringify(target.nodes)) : [];
+    this.conduits = Array.isArray(target.conduits) ? JSON.parse(JSON.stringify(target.conduits)) : [];
+
+    this.selectedElement = null;
+    this.selectedElements = [];
+    this.selectedNodeId = null;
+    this.wallStartPoint = null;
+    this.conduitStartNodeId = null;
+
+    this.recalculateWiring();
+    this.saveSnapshot();
+    this.notify();
+  }
+
+  addLevel(name, elevation, height = 2.80, copyFromLevelId = null) {
+    this.saveCurrentLevelState();
+    const id = 'level_' + Date.now();
+    let walls = [];
+    let doors = [];
+    let windows = [];
+    let rooms = [];
+
+    if (copyFromLevelId) {
+      const src = this.levels.find(l => l.id === copyFromLevelId);
+      if (src) {
+        walls = JSON.parse(JSON.stringify(src.walls || []));
+        doors = JSON.parse(JSON.stringify(src.doors || []));
+        windows = JSON.parse(JSON.stringify(src.windows || []));
+        rooms = JSON.parse(JSON.stringify(src.rooms || []));
+      }
+    }
+
+    const newLevel = {
+      id,
+      name: name || `Pavimento ${this.levels.length + 1}`,
+      elevation: Number(elevation) || 0.0,
+      height: Number(height) || 2.80,
+      walls,
+      rooms,
+      doors,
+      windows,
+      roomDividers: [],
+      dimensions: [],
+      nodes: [],
+      conduits: []
+    };
+
+    this.levels.push(newLevel);
+    this.levels.sort((a, b) => a.elevation - b.elevation);
+
+    if (copyFromLevelId) {
+      this.underlayLevelId = copyFromLevelId;
+    }
+
+    this.switchLevel(id);
+    return newLevel;
+  }
+
+  deleteLevel(levelId) {
+    if (this.levels.length <= 1) return false;
+    this.levels = this.levels.filter(l => l.id !== levelId);
+    this.risers = this.risers.filter(r => r.fromLevelId !== levelId && r.toLevelId !== levelId);
+    if (this.underlayLevelId === levelId) this.underlayLevelId = null;
+
+    if (this.activeLevelId === levelId) {
+      const nextId = this.levels[0].id;
+      this.activeLevelId = null;
+      this.switchLevel(nextId);
+    } else {
+      this.notify();
+    }
+    return true;
+  }
+
+  setUnderlayLevel(levelId) {
+    this.underlayLevelId = levelId && levelId !== this.activeLevelId ? levelId : null;
+    this.notify();
+  }
+
+  addRiser(pos, fromLevelId, toLevelId, label = '', diameter = 25) {
+    const num = (this.risers.length + 1).toString().padStart(2, '0');
+    const riser = {
+      id: 'pr_' + Date.now(),
+      name: label || `PR-${num}`,
+      position: { x: Number(pos.x.toFixed(2)), y: Number(pos.y.toFixed(2)) },
+      fromLevelId,
+      toLevelId,
+      diameter: diameter || 25
+    };
+    this.risers.push(riser);
+    this.saveSnapshot();
+    this.notify();
+    return riser;
+  }
+
+  deleteRiser(riserId) {
+    this.risers = this.risers.filter(r => r.id !== riserId);
+    this.saveSnapshot();
+    this.notify();
+  }
+
+  getAllLevelsWithData() {
+    this.saveCurrentLevelState();
+    return JSON.parse(JSON.stringify(this.levels));
   }
 
   // Carrega o cenário residencial demonstrativo canônico
@@ -962,6 +1193,94 @@ export class CadEngine {
       date: '05/11/2026',
       revision: '00'
     };
+
+    // Configuração dos pavimentos do modelo demonstrativo
+    const terreoWalls = JSON.parse(JSON.stringify(this.walls));
+    const terreoRooms = JSON.parse(JSON.stringify(this.rooms));
+    const terreoDoors = JSON.parse(JSON.stringify(this.doors));
+    const terreoWindows = JSON.parse(JSON.stringify(this.windows));
+    const terreoDimensions = JSON.parse(JSON.stringify(this.dimensions));
+    const terreoNodes = JSON.parse(JSON.stringify(this.nodes));
+    const terreoConduits = JSON.parse(JSON.stringify(this.conduits));
+
+    // Pavimento Superior de exemplo (1º Pavimento)
+    const supWalls = [
+      { id: 'sw1', a: { x: 1.0, y: 1.0 }, b: { x: 10.0, y: 1.0 }, thickness: 0.15 },
+      { id: 'sw2', a: { x: 10.0, y: 1.0 }, b: { x: 10.0, y: 11.0 }, thickness: 0.15 },
+      { id: 'sw3', a: { x: 10.0, y: 11.0 }, b: { x: 1.0, y: 11.0 }, thickness: 0.15 },
+      { id: 'sw4', a: { x: 1.0, y: 11.0 }, b: { x: 1.0, y: 1.0 }, thickness: 0.15 },
+      { id: 'sw5', a: { x: 1.0, y: 5.5 }, b: { x: 10.0, y: 5.5 }, thickness: 0.15 },
+      { id: 'sw6', a: { x: 5.5, y: 5.5 }, b: { x: 5.5, y: 11.0 }, thickness: 0.15 }
+    ];
+    const supRooms = [
+      { id: 'sr1', name: 'SUÍTE MASTER', pos: { x: 5.5, y: 3.2 }, areaM2: 38.0 },
+      { id: 'sr2', name: 'DORMITÓRIO 01', pos: { x: 3.2, y: 8.2 }, areaM2: 24.5 },
+      { id: 'sr3', name: 'DORMITÓRIO 02', pos: { x: 7.8, y: 8.2 }, areaM2: 24.5 }
+    ];
+    const supDoors = [
+      { id: 'sd1', pos: { x: 5.5, y: 5.5 }, radius: 0.8, startAngle: 0, endAngle: Math.PI / 2, rotation: 0, orientationIndex: 0 }
+    ];
+    const supWindows = [
+      { id: 'swin1', pos: { x: 5.5, y: 1.0 }, width: 1.6, rotation: 0 },
+      { id: 'swin2', pos: { x: 3.2, y: 11.0 }, width: 1.4, rotation: 0 }
+    ];
+    const supNodes = [
+      { id: 'sn_qd2', type: 'distribution_board', position: { x: 1.15, y: 10.2 }, circuit: 6, powerWatts: 0 },
+      { id: 'sn_l1', type: 'light_ceiling', position: { x: 5.5, y: 3.2 }, circuit: 7, command: 'd', powerWatts: 150 },
+      { id: 'sn_l2', type: 'light_ceiling', position: { x: 3.2, y: 8.2 }, circuit: 7, command: 'e', powerWatts: 100 },
+      { id: 'sn_l3', type: 'light_ceiling', position: { x: 7.8, y: 8.2 }, circuit: 7, command: 'f', powerWatts: 100 }
+    ];
+    const supConduits = [
+      { id: 'sc1', nodeAId: 'sn_qd2', nodeBId: 'sn_l2', installationType: 'ceiling', curveDirection: 1 },
+      { id: 'sc2', nodeAId: 'sn_l2', nodeBId: 'sn_l1', installationType: 'ceiling', curveDirection: -1 },
+      { id: 'sc3', nodeAId: 'sn_l1', nodeBId: 'sn_l3', installationType: 'ceiling', curveDirection: 1 }
+    ];
+
+    this.levels = [
+      {
+        id: 'level_terreo',
+        name: 'Pavimento Térreo',
+        elevation: 0.0,
+        height: 2.80,
+        walls: terreoWalls,
+        rooms: terreoRooms,
+        doors: terreoDoors,
+        windows: terreoWindows,
+        dimensions: terreoDimensions,
+        roomDividers: [],
+        nodes: terreoNodes,
+        conduits: terreoConduits
+      },
+      {
+        id: 'level_primeiro',
+        name: '1º Pavimento',
+        elevation: 2.80,
+        height: 2.80,
+        walls: supWalls,
+        rooms: supRooms,
+        doors: supDoors,
+        windows: supWindows,
+        dimensions: [],
+        roomDividers: [],
+        nodes: supNodes,
+        conduits: supConduits
+      }
+    ];
+
+    this.activeLevelId = 'level_terreo';
+    this.underlayLevelId = null;
+
+    // Prumada vertical conectando Térreo e 1º Pavimento junto ao QDC
+    this.risers = [
+      {
+        id: 'pr_01',
+        name: 'PR-01',
+        position: { x: 1.15, y: 10.2 },
+        fromLevelId: 'level_terreo',
+        toLevelId: 'level_primeiro',
+        diameter: 32
+      }
+    ];
 
     this.selectedElement = null;
     this.selectedElements = [];
@@ -1504,6 +1823,18 @@ export class CadEngine {
       }
     }
 
+    // 1.1 Snap a Prumadas Verticais
+    if (this.layers.electric && this.risers) {
+      for (const riser of this.risers) {
+        const sPos = this.viewport.worldToScreen(riser.position);
+        const d = sPos.distanceTo(screenPt);
+        if (d < closestDist) {
+          closestDist = d;
+          best = { snapped: true, point: new Vector2D(riser.position.x, riser.position.y), type: 'riser', riserId: riser.id, label: `Prumada ${riser.name}` };
+        }
+      }
+    }
+
     // 1.5 Snap a Aberturas Arquitetônicas (Portas e Janelas: Marcos/Batentes e Centro do Vão)
     if (this.layers.openings) {
       const openingTol = 25;
@@ -1747,6 +2078,26 @@ export class CadEngine {
       }
     }
 
+    // 9. Snap a Elementos do Pavimento Subjacente (Underlay / Alinhamento Vertical)
+    if (!best.snapped && this.underlayLevelId) {
+      const underlay = this.levels ? this.levels.find(l => l.id === this.underlayLevelId) : null;
+      if (underlay && underlay.walls) {
+        for (const w of underlay.walls) {
+          const sA = this.viewport.worldToScreen(w.a);
+          const sB = this.viewport.worldToScreen(w.b);
+          const dA = sA.distanceTo(screenPt);
+          const dB = sB.distanceTo(screenPt);
+          if (dA < closestDist && dA < 20) {
+            closestDist = dA;
+            best = { snapped: true, point: new Vector2D(w.a.x, w.a.y), type: 'underlay_vertex', label: 'Canto do Pavimento Subjacente' };
+          } else if (dB < closestDist && dB < 20) {
+            closestDist = dB;
+            best = { snapped: true, point: new Vector2D(w.b.x, w.b.y), type: 'underlay_vertex', label: 'Canto do Pavimento Subjacente' };
+          }
+        }
+      }
+    }
+
     return best;
   }
 
@@ -1775,6 +2126,22 @@ export class CadEngine {
     const snap = this.findSnap(screenPt);
     const worldPos = snap.snapped ? snap.point : this.viewport.screenToWorld(screenPt);
     this.dragStartWorld = worldPos;
+
+    // 0.5 Inserir Prumada Vertical (Eletroduto que sobe / desce entre pavimentos)
+    if (this.activeTool === 'riser') {
+      const curL = this.levels ? this.levels.find(l => l.id === this.activeLevelId) : null;
+      const otherL = this.levels ? this.levels.find(l => l.id !== this.activeLevelId) : null;
+      if (!otherL || !curL) {
+        alert('Para inserir uma prumada vertical, crie antes um segundo pavimento no Gerenciador de Pavimentos.');
+        return;
+      }
+      const fromId = curL.elevation < otherL.elevation ? curL.id : otherL.id;
+      const toId = curL.elevation < otherL.elevation ? otherL.id : curL.id;
+      this.addRiser(worldPos, fromId, toId);
+      this.activeTool = 'select';
+      this.notify();
+      return;
+    }
 
     // 1. Inserir Ponto Elétrico
     if (this.activeTool === 'add_node') {
@@ -3473,6 +3840,142 @@ export class CadEngine {
     ctx.restore();
   }
 
+  // Renderiza Pavimento Subjacente (Underlay / Plano Fantasma esmaecido)
+  renderUnderlay(ctx, underlay) {
+    if (!underlay || !underlay.walls) return;
+    ctx.save();
+
+    // Paredes subjacentes em traço fino e cinza claro translúcido
+    ctx.strokeStyle = 'rgba(148, 163, 184, 0.45)';
+    ctx.fillStyle = 'rgba(241, 245, 249, 0.15)';
+    ctx.lineWidth = 1.2;
+    ctx.setLineDash([4, 4]);
+
+    for (const w of underlay.walls) {
+      const dx = w.b.x - w.a.x;
+      const dy = w.b.y - w.a.y;
+      const len = Math.hypot(dx, dy) || 1;
+      const nx = -(dy / len) * ((w.thickness || 0.15) / 2);
+      const ny = (dx / len) * ((w.thickness || 0.15) / 2);
+
+      const a1 = this.viewport.worldToScreen({ x: w.a.x + nx, y: w.a.y + ny });
+      const b1 = this.viewport.worldToScreen({ x: w.b.x + nx, y: w.b.y + ny });
+      const b2 = this.viewport.worldToScreen({ x: w.b.x - nx, y: w.b.y - ny });
+      const a2 = this.viewport.worldToScreen({ x: w.a.x - nx, y: w.a.y - ny });
+
+      ctx.beginPath();
+      ctx.moveTo(a1.x, a1.y);
+      ctx.lineTo(b1.x, b1.y);
+      ctx.lineTo(b2.x, b2.y);
+      ctx.lineTo(a2.x, a2.y);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    }
+
+    // Cômodos do pavimento subjacente (marca d'água técnica)
+    ctx.setLineDash([]);
+    ctx.font = '500 11px Inter, sans-serif';
+    ctx.fillStyle = 'rgba(148, 163, 184, 0.40)';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    for (const r of (underlay.rooms || [])) {
+      const s = this.viewport.worldToScreen(r.pos);
+      ctx.fillText(`[${r.name}]`, s.x, s.y);
+    }
+
+    // Pontos elétricos do pavimento subjacente (ícones translúcidos vazados)
+    for (const n of (underlay.nodes || [])) {
+      const s = this.viewport.worldToScreen(n.position);
+      ctx.strokeStyle = 'rgba(148, 163, 184, 0.40)';
+      ctx.lineWidth = 1.0;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, 4, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  }
+
+  // Renderiza Prumadas Verticais conforme simbologia normativa NBR 5410 / NBR 6492
+  renderRisers(ctx) {
+    if (!this.risers || this.risers.length === 0) return;
+    const curLevel = this.levels ? this.levels.find(l => l.id === this.activeLevelId) : null;
+    if (!curLevel) return;
+
+    for (const r of this.risers) {
+      const fromL = this.levels.find(l => l.id === r.fromLevelId);
+      const toL = this.levels.find(l => l.id === r.toLevelId);
+      if (!fromL || !toL) continue;
+
+      const minElev = Math.min(fromL.elevation, toL.elevation);
+      const maxElev = Math.max(fromL.elevation, toL.elevation);
+      const myElev = curLevel.elevation;
+
+      let direction = null; // 'up' | 'down' | 'through'
+      let targetName = '';
+
+      if (Math.abs(myElev - minElev) < 0.05) {
+        direction = 'up';
+        targetName = `Sobe p/ ${toL.name}`;
+      } else if (Math.abs(myElev - maxElev) < 0.05) {
+        direction = 'down';
+        targetName = `Desce p/ ${fromL.name}`;
+      } else if (myElev > minElev && myElev < maxElev) {
+        direction = 'through';
+        targetName = `Passa (${fromL.name} ↔ ${toL.name})`;
+      } else {
+        continue;
+      }
+
+      const s = this.viewport.worldToScreen(r.position);
+      const isSelected = this.selectedElement && this.selectedElement.type === 'riser' && this.selectedElement.id === r.id;
+
+      ctx.save();
+      const radius = 9;
+      ctx.strokeStyle = isSelected ? '#0284c7' : '#0f172a';
+      ctx.lineWidth = isSelected ? 2.5 : 1.6;
+      ctx.fillStyle = '#ffffff';
+
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = isSelected ? '#0284c7' : '#0f172a';
+      if (direction === 'up') {
+        ctx.beginPath();
+        ctx.moveTo(s.x, s.y - radius + 2);
+        ctx.lineTo(s.x - 5, s.y + 4);
+        ctx.lineTo(s.x + 5, s.y + 4);
+        ctx.closePath();
+        ctx.fill();
+      } else if (direction === 'down') {
+        ctx.beginPath();
+        ctx.moveTo(s.x, s.y + radius - 2);
+        ctx.lineTo(s.x - 5, s.y - 4);
+        ctx.lineTo(s.x + 5, s.y - 4);
+        ctx.closePath();
+        ctx.fill();
+      } else {
+        ctx.beginPath();
+        ctx.moveTo(s.x - 5, s.y - 5);
+        ctx.lineTo(s.x + 5, s.y + 5);
+        ctx.moveTo(s.x + 5, s.y - 5);
+        ctx.lineTo(s.x - 5, s.y + 5);
+        ctx.stroke();
+      }
+
+      ctx.font = '600 10px Inter, sans-serif';
+      ctx.fillStyle = isSelected ? '#0284c7' : '#334155';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`${r.name} (${targetName}) ⌀${r.diameter || 25}mm`, s.x + radius + 5, s.y);
+
+      ctx.restore();
+    }
+  }
+
   renderUnifilarDiagram(ctx, worldX, worldY, isDirectScreen = false) {
     if (!this.layers.unifilar) return;
 
@@ -3613,6 +4116,14 @@ export class CadEngine {
       this.viewport.renderGrid(ctx, w, h);
     }
 
+    // 1.5 Pavimento Subjacente (Underlay / Plano Fantasma esmaecido)
+    if (this.underlayLevelId) {
+      const underlay = this.levels ? this.levels.find(l => l.id === this.underlayLevelId) : null;
+      if (underlay && underlay.id !== this.activeLevelId) {
+        this.renderUnderlay(ctx, underlay);
+      }
+    }
+
     // 2. Alvenaria e Cômodos da Arquitetura
     this.renderArchitecture(ctx);
 
@@ -3685,6 +4196,8 @@ export class CadEngine {
       for (const node of this.nodes) {
         SymbolRenderer.renderNode(ctx, node, this.viewport, node.id === this.selectedNodeId);
       }
+      // 5.1 Prumadas Verticais de Eletroduto (NBR 5410 / NBR 6492)
+      this.renderRisers(ctx);
     }
 
     // 6. Diagrama Unifilar no Canvas (Móvel)
@@ -3696,7 +4209,25 @@ export class CadEngine {
       ctx.save();
       ctx.lineWidth = 2;
 
-      if (this.currentSnap.type === 'perpendicular') {
+      if (this.currentSnap.type === 'riser') {
+        // Marcador de Prumada Vertical (Círculo azul com mira cruzada)
+        ctx.strokeStyle = '#0284c7';
+        ctx.lineWidth = 2.0;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, 11, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.fillStyle = '#0284c7';
+        ctx.font = 'bold 10px Arial, sans-serif';
+        ctx.fillText(this.currentSnap.label || 'Prumada Vertical', s.x + 14, s.y - 8);
+      } else if (this.currentSnap.type === 'underlay_vertex') {
+        // Marcador de Vértice Subjacente (Quadrado cinza)
+        ctx.strokeStyle = '#64748b';
+        ctx.lineWidth = 1.6;
+        ctx.strokeRect(s.x - 6, s.y - 6, 12, 12);
+        ctx.fillStyle = '#64748b';
+        ctx.font = 'bold 10px Arial, sans-serif';
+        ctx.fillText(this.currentSnap.label || 'Canto do Pavimento Subjacente', s.x + 12, s.y - 8);
+      } else if (this.currentSnap.type === 'perpendicular') {
         // Símbolo clássico CAD de perpendicular (⟂)
         ctx.strokeStyle = '#0284c7';
         ctx.strokeRect(s.x - 6, s.y - 6, 12, 12);

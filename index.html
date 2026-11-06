@@ -219,6 +219,26 @@
           Prancha ABNT
         </button>
       </div>
+
+      <!-- Seletor de Pavimento & Pavimento Subjacente (Multi-pavimentos) -->
+      <div class="level-controls-bar" style="display:flex; align-items:center; gap:6px; margin-left:8px;">
+        <div style="display:flex; align-items:center; gap:4px; background:#f1f5f9; padding:2px 8px; border-radius:6px; border:1px solid #cbd5e1;">
+          <span style="font-size:11px; font-weight:600; color:#334155;">Pavimento:</span>
+          <select id="select-active-level" style="font-size:12px; font-weight:600; color:#0f172a; background:transparent; border:none; outline:none; cursor:pointer;">
+            <option value="level_terreo">Pavimento Térreo (0.00m)</option>
+          </select>
+          <button id="btn-manage-levels" title="Gerenciar Pavimentos e Níveis" style="background:transparent; border:none; cursor:pointer; color:#0284c7; padding:2px; display:flex; align-items:center;">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px;height:14px;"><path d="M12 5v14M5 12h14"></path></svg>
+          </button>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:4px; background:#f8fafc; padding:2px 8px; border-radius:6px; border:1px solid #e2e8f0;">
+          <span style="font-size:11px; font-weight:500; color:#64748b;">Subjacente:</span>
+          <select id="select-underlay-level" style="font-size:11px; color:#475569; background:transparent; border:none; outline:none; cursor:pointer;">
+            <option value="">Nenhum</option>
+          </select>
+        </div>
+      </div>
     </div>
 
     <div class="header-actions">
@@ -390,6 +410,10 @@
       <button class="ribbon-btn" data-tool="conduit" title="Eletroduto Curvado no Teto (Conectar dois pontos)">
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 16 Q 12 4, 21 16"></path></svg>
         Eletroduto <span class="badge-sub">A</span>
+      </button>
+      <button class="ribbon-btn" data-tool="riser" title="Prumada Vertical (Eletroduto que sobe / desce entre pavimentos)">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"></circle><path d="m9 10 3-3 3 3M12 7v10M9 14l3 3 3-3"></path></svg>
+        Prumada
       </button>
       <button class="ribbon-btn" id="btn-auto-wire" title="Passar Fiação Automática (Dijkstra NBR 5410)">
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><line x1="2" y1="12" x2="22" y2="12"></line><line x1="7" y1="6" x2="7" y2="18"></line><line x1="12" y1="6" x2="12" y2="18"></line><line x1="12" y1="6" x2="15" y2="6"></line><line x1="17" y1="6" x2="17" y2="12"></line></svg>
@@ -886,6 +910,47 @@
     </div>
   </div>
 
+  <!-- Modal Gerenciador de Pavimentos e Níveis (Multi-pavimentos) -->
+  <div class="modal-overlay" id="modal-levels">
+    <div class="modal-box" style="max-width: 640px;">
+      <div class="modal-header">
+        <div class="modal-title">
+          <svg width="18" height="18" fill="none" stroke="#0284c7" stroke-width="2" viewBox="0 0 24 24"><path d="M3 21h18M3 7v14M21 7v14M9 3h6v4H9zM9 11h6M9 15h6"></path></svg>
+          Gerenciador de Pavimentos e Níveis
+        </div>
+        <button class="modal-close" data-close="modal-levels">✕</button>
+      </div>
+      <div class="modal-body" style="padding:16px;">
+        <table class="table-nbr" style="width:100%; margin-bottom:16px;">
+          <thead>
+            <tr>
+              <th>Nome do Pavimento</th>
+              <th style="width:100px;">Cota Z (m)</th>
+              <th style="width:100px;">Pé-direito (m)</th>
+              <th style="width:60px;">Ação</th>
+            </tr>
+          </thead>
+          <tbody id="table-levels-body"></tbody>
+        </table>
+
+        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px;">
+          <div style="font-size:12px; font-weight:600; color:#0f172a; margin-bottom:8px;">Adicionar Novo Pavimento</div>
+          <div style="display:grid; grid-template-columns: 2fr 1fr 1fr; gap:8px; margin-bottom:8px;">
+            <input type="text" id="input-new-level-name" class="context-input" placeholder="Ex: 2º Pavimento" />
+            <input type="number" step="0.05" id="input-new-level-elev" class="context-input" placeholder="Cota Z (m)" />
+            <input type="number" step="0.05" id="input-new-level-height" class="context-input" value="2.80" placeholder="Pé-direito" />
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <label style="font-size:11px; color:#475569; display:flex; align-items:center; gap:6px; cursor:pointer;">
+              <input type="checkbox" id="check-copy-walls" checked /> Copiar alvenaria do pavimento inferior
+            </label>
+            <button class="btn-ai-regenerate" id="btn-add-level-confirm" style="background:#0284c7;">Criar Pavimento</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal E: Visualizador 3D Isométrico -->
   <div class="modal-overlay" id="modal-3d">
     <div class="modal-box" style="max-width: 960px; height: 75vh;">
@@ -1009,6 +1074,136 @@
       if (sheetEngEl) sheetEngEl.textContent = meta.engineer || '';
       const sheetCreaEl = document.getElementById('sheet-stamp-crea');
       if (sheetCreaEl) sheetCreaEl.textContent = meta.crea || '';
+
+      updateLevelSelectors();
+    }
+
+    // ==================== GERENCIADOR DE PAVIMENTOS E NÍVEIS ====================
+    const selectActiveLevel = document.getElementById('select-active-level');
+    const selectUnderlayLevel = document.getElementById('select-underlay-level');
+    const modalLevels = document.getElementById('modal-levels');
+    const tableLevelsBody = document.getElementById('table-levels-body');
+    const btnManageLevels = document.getElementById('btn-manage-levels');
+    const btnAddLevelConfirm = document.getElementById('btn-add-level-confirm');
+
+    function updateLevelSelectors() {
+      if (!selectActiveLevel || !selectUnderlayLevel) return;
+      const levels = engine.levels || [];
+      const curId = engine.activeLevelId;
+      const underId = engine.underlayLevelId;
+
+      // Seletor de Pavimento Ativo
+      selectActiveLevel.innerHTML = levels.map(l => 
+        `<option value="${l.id}" ${l.id === curId ? 'selected' : ''}>${l.name} (${Number(l.elevation).toFixed(2)}m)</option>`
+      ).join('');
+
+      // Seletor de Pavimento Subjacente (Underlay)
+      const underlayOptions = [`<option value="">Nenhum</option>`];
+      for (const l of levels) {
+        if (l.id !== curId) {
+          underlayOptions.push(`<option value="${l.id}" ${l.id === underId ? 'selected' : ''}>${l.name} (${Number(l.elevation).toFixed(2)}m)</option>`);
+        }
+      }
+      selectUnderlayLevel.innerHTML = underlayOptions.join('');
+    }
+
+    function renderLevelsModal() {
+      if (!tableLevelsBody) return;
+      tableLevelsBody.innerHTML = '';
+      const levels = engine.levels || [];
+
+      levels.forEach((l) => {
+        const tr = document.createElement('tr');
+        const isCurrent = l.id === engine.activeLevelId;
+        tr.innerHTML = `
+          <td>
+            <div style="display:flex; align-items:center; gap:6px;">
+              ${isCurrent ? '<span style="width:7px; height:7px; border-radius:50%; background:#10b981;" title="Pavimento Ativo"></span>' : '<span style="width:7px; height:7px;"></span>'}
+              <strong>${l.name}</strong>
+            </div>
+          </td>
+          <td>${Number(l.elevation).toFixed(2)} m</td>
+          <td>${Number(l.height || 2.80).toFixed(2)} m</td>
+          <td style="text-align:center;">
+            ${levels.length > 1 ? `<button class="btn-del-circ" data-del-level="${l.id}" title="Excluir Pavimento">✕</button>` : '<span style="color:#cbd5e1;">—</span>'}
+          </td>
+        `;
+        tableLevelsBody.appendChild(tr);
+      });
+
+      // Handlers de exclusão de pavimento
+      tableLevelsBody.querySelectorAll('[data-del-level]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const lid = btn.dataset.delLevel;
+          if (confirm('Deseja realmente excluir este pavimento? Todos os elementos nele contidos serão removidos.')) {
+            engine.deleteLevel(lid);
+            updateLevelSelectors();
+            renderLevelsModal();
+            scheduleAutoSave();
+            resize();
+            showToast('Pavimento excluído.');
+          }
+        });
+      });
+    }
+
+    if (selectActiveLevel) {
+      selectActiveLevel.addEventListener('change', (e) => {
+        engine.switchLevel(e.target.value);
+        updateLevelSelectors();
+        scheduleAutoSave();
+        resize();
+        showToast(`Pavimento ativo: ${selectActiveLevel.options[selectActiveLevel.selectedIndex].text}`);
+      });
+    }
+
+    if (selectUnderlayLevel) {
+      selectUnderlayLevel.addEventListener('change', (e) => {
+        engine.setUnderlayLevel(e.target.value || null);
+        scheduleAutoSave();
+        resize();
+        if (e.target.value) {
+          showToast(`Pavimento subjacente ativado: ${selectUnderlayLevel.options[selectUnderlayLevel.selectedIndex].text}`);
+        } else {
+          showToast('Visualização subjacente desativada.');
+        }
+      });
+    }
+
+    if (btnManageLevels) {
+      btnManageLevels.addEventListener('click', () => {
+        renderLevelsModal();
+        modalLevels.style.display = 'flex';
+      });
+    }
+
+    if (btnAddLevelConfirm) {
+      btnAddLevelConfirm.addEventListener('click', () => {
+        const nameInput = document.getElementById('input-new-level-name');
+        const elevInput = document.getElementById('input-new-level-elev');
+        const heightInput = document.getElementById('input-new-level-height');
+        const checkCopy = document.getElementById('check-copy-walls');
+
+        const name = nameInput.value.trim() || `Pavimento ${(engine.levels?.length || 1) + 1}`;
+        const height = parseFloat(heightInput.value) || 2.80;
+        let elev = parseFloat(elevInput.value);
+        if (isNaN(elev)) {
+          const maxLvl = [...(engine.levels || [])].sort((a,b) => b.elevation - a.elevation)[0];
+          elev = maxLvl ? maxLvl.elevation + (maxLvl.height || 2.80) : 2.80;
+        }
+
+        const copyFromId = checkCopy && checkCopy.checked ? engine.activeLevelId : null;
+        engine.addLevel(name, elev, height, copyFromId);
+
+        nameInput.value = '';
+        elevInput.value = '';
+        updateLevelSelectors();
+        renderLevelsModal();
+        scheduleAutoSave();
+        resize();
+        modalLevels.style.display = 'none';
+        showToast(`Pavimento "${name}" criado com sucesso!`);
+      });
     }
 
     function resize() {
@@ -2881,10 +3076,15 @@
 
       targetCtx.clearRect(0, 0, w, h);
 
+      const allLevels = engine.getAllLevelsWithData();
+      const topLevel = allLevels[allLevels.length - 1];
+      const totalBuildingHeight = topLevel ? (topLevel.elevation + (topLevel.height || 2.80)) : 2.80;
+
       const centerX = w / 2;
-      const centerY = h / 2 + (targetCanvas === canvas3D ? 50 : 25);
-      const scale3D = targetCanvas === canvas3D ? 36 : Math.min(w, h) / 16;
-      const wallHeight = 2.8;
+      const centerY = h / 2 + (targetCanvas === canvas3D ? 30 : 20);
+      const scale3D = targetCanvas === canvas3D 
+        ? Math.min(36, Math.min(w, h) / (12 + totalBuildingHeight * 0.8))
+        : Math.min(w, h) / 18;
 
       const isSheet3D = targetCanvas !== canvas3D;
       if (isSheet3D) {
@@ -2895,131 +3095,168 @@
       function project3D(x, y, z) {
         const cx = x - 5.5;
         const cy = y - 5.5;
+        const cz = z - totalBuildingHeight / 2;
         const rx = cx * Math.cos(rotAngle) - cy * Math.sin(rotAngle);
         const ry = cx * Math.sin(rotAngle) + cy * Math.cos(rotAngle);
         const px = centerX + rx * scale3D;
-        const py = centerY + (ry * Math.cos(tiltAngle) - z * Math.sin(tiltAngle)) * scale3D;
+        const py = centerY + (ry * Math.cos(tiltAngle) - cz * Math.sin(tiltAngle)) * scale3D;
         return { x: px, y: py };
       }
 
-      // 1. Piso / Laje translúcida (Cinza claro arquitetônico na folha de impressão)
-      targetCtx.fillStyle = isSheet3D ? '#f1f5f9' : '#0f172a';
-      targetCtx.strokeStyle = isSheet3D ? '#cbd5e1' : '#1e293b';
-      targetCtx.lineWidth = 1;
-      const floorA = project3D(0.5, 0.5, 0);
-      const floorB = project3D(10.5, 0.5, 0);
-      const floorC = project3D(10.5, 11.5, 0);
-      const floorD = project3D(0.5, 11.5, 0);
+      // Renderiza cada pavimento empilhado
+      for (const lvl of allLevels) {
+        const bZ = Number(lvl.elevation) || 0;
+        const wH = Number(lvl.height) || 2.80;
+        const tZ = bZ + wH;
 
-      targetCtx.beginPath();
-      targetCtx.moveTo(floorA.x, floorA.y);
-      targetCtx.lineTo(floorB.x, floorB.y);
-      targetCtx.lineTo(floorC.x, floorC.y);
-      targetCtx.lineTo(floorD.x, floorD.y);
-      targetCtx.closePath();
-      targetCtx.fill(); targetCtx.stroke();
+        // 1. Piso / Laje estrutural do nível
+        targetCtx.fillStyle = isSheet3D ? '#f1f5f9' : '#0f172a';
+        targetCtx.strokeStyle = isSheet3D ? '#cbd5e1' : '#1e293b';
+        targetCtx.lineWidth = 1;
+        const floorA = project3D(0.5, 0.5, bZ);
+        const floorB = project3D(10.5, 0.5, bZ);
+        const floorC = project3D(10.5, 11.5, bZ);
+        const floorD = project3D(0.5, 11.5, bZ);
 
-      // 2. Alvenaria em Wireframe Sutil
-      targetCtx.strokeStyle = isSheet3D ? 'rgba(100, 116, 139, 0.45)' : 'rgba(148, 163, 184, 0.22)';
-      targetCtx.lineWidth = 1.0;
-
-      for (const wall of engine.walls) {
-        const p1 = project3D(wall.a.x, wall.a.y, 0);
-        const p2 = project3D(wall.b.x, wall.b.y, 0);
-        const p3 = project3D(wall.b.x, wall.b.y, wallHeight);
-        const p4 = project3D(wall.a.x, wall.a.y, wallHeight);
-
-        targetCtx.fillStyle = isSheet3D ? 'rgba(241, 245, 249, 0.5)' : 'rgba(255, 255, 255, 0.04)';
         targetCtx.beginPath();
-        targetCtx.moveTo(p1.x, p1.y);
-        targetCtx.lineTo(p2.x, p2.y);
-        targetCtx.lineTo(p3.x, p3.y);
-        targetCtx.lineTo(p4.x, p4.y);
+        targetCtx.moveTo(floorA.x, floorA.y);
+        targetCtx.lineTo(floorB.x, floorB.y);
+        targetCtx.lineTo(floorC.x, floorC.y);
+        targetCtx.lineTo(floorD.x, floorD.y);
         targetCtx.closePath();
         targetCtx.fill();
         targetCtx.stroke();
-      }
 
-      // 3. ELETRODUTOS 3D
-      const nodeMap = new Map(engine.nodes.map(n => [n.id, n]));
+        // Rótulo da cota do pavimento
+        const tagPt = project3D(0.3, 0.5, bZ);
+        targetCtx.font = '500 10px Inter, sans-serif';
+        targetCtx.fillStyle = isSheet3D ? '#64748b' : '#94a3b8';
+        targetCtx.fillText(`${lvl.name} (Z = ${bZ.toFixed(2)}m)`, tagPt.x, tagPt.y - 4);
 
-      for (const c of engine.conduits) {
-        const nA = nodeMap.get(c.nodeAId);
-        const nB = nodeMap.get(c.nodeBId);
-        if (!nA || !nB) continue;
+        // 2. Alvenaria em Wireframe do nível
+        targetCtx.strokeStyle = isSheet3D ? 'rgba(100, 116, 139, 0.45)' : 'rgba(148, 163, 184, 0.22)';
+        targetCtx.lineWidth = 1.0;
 
-        let zA = 1.2;
-        if (nA.type.startsWith('light')) zA = wallHeight;
-        else if (nA.type === 'outlet_low') zA = 0.3;
-        else if (nA.type === 'outlet_high') zA = 2.2;
-        else if (nA.type === 'distribution_board') zA = 1.5;
+        for (const wall of (lvl.walls || [])) {
+          const p1 = project3D(wall.a.x, wall.a.y, bZ);
+          const p2 = project3D(wall.b.x, wall.b.y, bZ);
+          const p3 = project3D(wall.b.x, wall.b.y, tZ);
+          const p4 = project3D(wall.a.x, wall.a.y, tZ);
 
-        let zB = 1.2;
-        if (nB.type.startsWith('light')) zB = wallHeight;
-        else if (nB.type === 'outlet_low') zB = 0.3;
-        else if (nB.type === 'outlet_high') zB = 2.2;
-        else if (nB.type === 'distribution_board') zB = 1.5;
-
-        const ptA_device = project3D(nA.position.x, nA.position.y, zA);
-        const ptA_ceiling = project3D(nA.position.x, nA.position.y, wallHeight);
-        const ptB_ceiling = project3D(nB.position.x, nB.position.y, wallHeight);
-        const ptB_device = project3D(nB.position.x, nB.position.y, zB);
-
-        const midX = (nA.position.x + nB.position.x) / 2;
-        const midY = (nA.position.y + nB.position.y) / 2;
-        const ptMid_ceiling = project3D(midX, midY, wallHeight + 0.1);
-
-        targetCtx.strokeStyle = '#f59e0b';
-        targetCtx.lineWidth = targetCanvas === canvas3D ? 3.0 : 2.0;
-        targetCtx.lineCap = 'round';
-        targetCtx.lineJoin = 'round';
-
-        targetCtx.beginPath();
-        targetCtx.moveTo(ptA_device.x, ptA_device.y);
-        targetCtx.lineTo(ptA_ceiling.x, ptA_ceiling.y);
-        targetCtx.quadraticCurveTo(ptMid_ceiling.x, ptMid_ceiling.y, ptB_ceiling.x, ptB_ceiling.y);
-        targetCtx.lineTo(ptB_device.x, ptB_device.y);
-        targetCtx.stroke();
-      }
-
-      // 4. CAIXAS ELÉTRICAS BIM EM 3D
-      for (const node of engine.nodes) {
-        let z = 1.2;
-        let isCeiling = false;
-        let isPanel = false;
-
-        if (node.type.startsWith('light')) { z = wallHeight; isCeiling = true; }
-        else if (node.type === 'outlet_low') { z = 0.3; }
-        else if (node.type === 'outlet_high') { z = 2.2; }
-        else if (node.type === 'distribution_board') { z = 1.5; isPanel = true; }
-
-        const pt = project3D(node.position.x, node.position.y, z);
-
-        if (isCeiling) {
-          targetCtx.fillStyle = '#f59e0b';
-          targetCtx.strokeStyle = '#ffffff';
-          targetCtx.lineWidth = 1.2;
+          targetCtx.fillStyle = isSheet3D ? 'rgba(241, 245, 249, 0.5)' : 'rgba(255, 255, 255, 0.04)';
           targetCtx.beginPath();
-          targetCtx.arc(pt.x, pt.y, targetCanvas === canvas3D ? 7 : 4, 0, Math.PI * 2);
-          targetCtx.fill(); targetCtx.stroke();
-          targetCtx.fillStyle = '#0f172a';
-          targetCtx.beginPath();
-          targetCtx.arc(pt.x, pt.y, 2, 0, Math.PI * 2);
+          targetCtx.moveTo(p1.x, p1.y);
+          targetCtx.lineTo(p2.x, p2.y);
+          targetCtx.lineTo(p3.x, p3.y);
+          targetCtx.lineTo(p4.x, p4.y);
+          targetCtx.closePath();
           targetCtx.fill();
-        } else if (isPanel) {
-          targetCtx.fillStyle = '#0f172a';
-          targetCtx.strokeStyle = '#0284c7';
-          targetCtx.lineWidth = 2.0;
-          const pw = targetCanvas === canvas3D ? 16 : 10;
-          const ph = targetCanvas === canvas3D ? 24 : 15;
-          targetCtx.fillRect(pt.x - pw / 2, pt.y - ph / 2, pw, ph);
-          targetCtx.strokeRect(pt.x - pw / 2, pt.y - ph / 2, pw, ph);
-        } else {
-          targetCtx.fillStyle = '#f59e0b';
-          targetCtx.fillRect(pt.x - 4, pt.y - 6, 8, 12);
-          targetCtx.fillStyle = '#ffffff';
-          targetCtx.fillRect(pt.x - 2, pt.y - 4, 4, 8);
+          targetCtx.stroke();
         }
+
+        // 3. Eletrodutos do nível
+        const nodeMap = new Map((lvl.nodes || []).map(n => [n.id, n]));
+        for (const c of (lvl.conduits || [])) {
+          const nA = nodeMap.get(c.nodeAId);
+          const nB = nodeMap.get(c.nodeBId);
+          if (!nA || !nB) continue;
+
+          let zA = bZ + 1.2;
+          if (nA.type.startsWith('light')) zA = tZ;
+          else if (nA.type === 'outlet_low') zA = bZ + 0.3;
+          else if (nA.type === 'outlet_high') zA = bZ + 2.2;
+          else if (nA.type === 'distribution_board') zA = bZ + 1.5;
+
+          let zB = bZ + 1.2;
+          if (nB.type.startsWith('light')) zB = tZ;
+          else if (nB.type === 'outlet_low') zB = bZ + 0.3;
+          else if (nB.type === 'outlet_high') zB = bZ + 2.2;
+          else if (nB.type === 'distribution_board') zB = bZ + 1.5;
+
+          const ptA_device = project3D(nA.position.x, nA.position.y, zA);
+          const ptA_ceiling = project3D(nA.position.x, nA.position.y, tZ);
+          const ptB_ceiling = project3D(nB.position.x, nB.position.y, tZ);
+          const ptB_device = project3D(nB.position.x, nB.position.y, zB);
+
+          const midX = (nA.position.x + nB.position.x) / 2;
+          const midY = (nA.position.y + nB.position.y) / 2;
+          const ptMid_ceiling = project3D(midX, midY, tZ + 0.08);
+
+          targetCtx.strokeStyle = '#f59e0b';
+          targetCtx.lineWidth = targetCanvas === canvas3D ? 2.5 : 1.8;
+          targetCtx.lineCap = 'round';
+          targetCtx.lineJoin = 'round';
+
+          targetCtx.beginPath();
+          targetCtx.moveTo(ptA_device.x, ptA_device.y);
+          targetCtx.lineTo(ptA_ceiling.x, ptA_ceiling.y);
+          targetCtx.quadraticCurveTo(ptMid_ceiling.x, ptMid_ceiling.y, ptB_ceiling.x, ptB_ceiling.y);
+          targetCtx.lineTo(ptB_device.x, ptB_device.y);
+          targetCtx.stroke();
+        }
+
+        // 4. Caixas elétricas e luminárias do nível
+        for (const node of (lvl.nodes || [])) {
+          let z = bZ + 1.2;
+          let isCeiling = false;
+          let isPanel = false;
+
+          if (node.type.startsWith('light')) { z = tZ; isCeiling = true; }
+          else if (node.type === 'outlet_low') { z = bZ + 0.3; }
+          else if (node.type === 'outlet_high') { z = bZ + 2.2; }
+          else if (node.type === 'distribution_board') { z = bZ + 1.5; isPanel = true; }
+
+          const pt = project3D(node.position.x, node.position.y, z);
+
+          if (isCeiling) {
+            targetCtx.fillStyle = '#f59e0b';
+            targetCtx.strokeStyle = '#ffffff';
+            targetCtx.lineWidth = 1.2;
+            targetCtx.beginPath();
+            targetCtx.arc(pt.x, pt.y, targetCanvas === canvas3D ? 6 : 4, 0, Math.PI * 2);
+            targetCtx.fill();
+            targetCtx.stroke();
+          } else if (isPanel) {
+            targetCtx.fillStyle = '#0f172a';
+            targetCtx.strokeStyle = '#0284c7';
+            targetCtx.lineWidth = 2.0;
+            const pw = targetCanvas === canvas3D ? 14 : 9;
+            const ph = targetCanvas === canvas3D ? 20 : 13;
+            targetCtx.fillRect(pt.x - pw / 2, pt.y - ph / 2, pw, ph);
+            targetCtx.strokeRect(pt.x - pw / 2, pt.y - ph / 2, pw, ph);
+          } else {
+            targetCtx.fillStyle = '#f59e0b';
+            targetCtx.fillRect(pt.x - 3, pt.y - 5, 6, 10);
+          }
+        }
+      }
+
+      // 5. Prumadas Verticais 3D (Eletrodutos entre pavimentos)
+      for (const r of (engine.risers || [])) {
+        const fromL = allLevels.find(l => l.id === r.fromLevelId);
+        const toL = allLevels.find(l => l.id === r.toLevelId);
+        if (!fromL || !toL) continue;
+
+        const minZ = Math.min(fromL.elevation, toL.elevation);
+        const maxZ = Math.max(fromL.elevation, toL.elevation) + 1.5;
+
+        const ptBot = project3D(r.position.x, r.position.y, minZ);
+        const ptTop = project3D(r.position.x, r.position.y, maxZ);
+
+        targetCtx.strokeStyle = '#0284c7';
+        targetCtx.lineWidth = targetCanvas === canvas3D ? 4.0 : 2.5;
+        targetCtx.beginPath();
+        targetCtx.moveTo(ptBot.x, ptBot.y);
+        targetCtx.lineTo(ptTop.x, ptTop.y);
+        targetCtx.stroke();
+
+        targetCtx.fillStyle = '#38bdf8';
+        targetCtx.beginPath(); targetCtx.arc(ptBot.x, ptBot.y, 4, 0, Math.PI * 2); targetCtx.fill();
+        targetCtx.beginPath(); targetCtx.arc(ptTop.x, ptTop.y, 4, 0, Math.PI * 2); targetCtx.fill();
+
+        targetCtx.font = 'bold 10px Inter, sans-serif';
+        targetCtx.fillStyle = '#0284c7';
+        targetCtx.fillText(`${r.name} ⌀${r.diameter || 25}mm`, ptTop.x + 8, ptTop.y);
       }
     }
 
