@@ -11,19 +11,19 @@
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; background: #ffffff; color: #1e293b; overflow: hidden; display: flex; flex-direction: column; height: 100vh; }
     
     /* Top Header Bar (Estilo CAD Engenharia) */
-    #header { height: 48px; background: #ffffff; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; z-index: 20; }
-    .header-left { display: flex; align-items: center; gap: 14px; }
-    .logo { display: flex; align-items: center; gap: 9px; font-weight: 800; font-size: 15px; color: #0f172a; letter-spacing: -0.4px; }
+    #header { height: 48px; background: #ffffff; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; z-index: 20; box-sizing: border-box; }
+    .header-left { display: flex; align-items: center; gap: 10px; flex-shrink: 1; min-width: 0; }
+    .logo { display: flex; align-items: center; gap: 9px; font-weight: 800; font-size: 15px; color: #0f172a; letter-spacing: -0.4px; flex-shrink: 0; }
     .logo-badge { width: 30px; height: 30px; background: #000000; border-radius: 7px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
     
-    .project-input { border: 1px solid #cbd5e1; border-radius: 4px; padding: 5px 12px; font-size: 13px; font-weight: 600; color: #334155; width: 280px; text-transform: uppercase; outline: none; }
+    .project-input { border: 1px solid #cbd5e1; border-radius: 4px; padding: 5px 10px; font-size: 12.5px; font-weight: 600; color: #334155; width: 190px; max-width: 220px; text-transform: uppercase; outline: none; flex-shrink: 1; }
     .project-input:focus { border-color: #0284c7; box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.15); }
 
-    .header-actions { display: flex; align-items: center; gap: 4px; }
-    .icon-btn { width: 34px; height: 34px; border: 1px solid transparent; border-radius: 6px; background: transparent; display: flex; align-items: center; justify-content: center; color: #475569; cursor: pointer; transition: all 0.12s; }
+    .header-actions { display: flex; align-items: center; gap: 3px; flex-shrink: 0; }
+    .icon-btn { width: 32px; height: 32px; border: 1px solid transparent; border-radius: 6px; background: transparent; display: flex; align-items: center; justify-content: center; color: #475569; cursor: pointer; transition: all 0.12s; flex-shrink: 0; }
     .icon-btn:hover { background: #f1f5f9; color: #0f172a; border-color: #e2e8f0; }
-    .icon-btn svg { width: 18px; height: 18px; stroke-width: 1.8; }
-    .divider-v { width: 1px; height: 22px; background: #e2e8f0; margin: 0 6px; }
+    .icon-btn svg { width: 17px; height: 17px; stroke-width: 1.8; }
+    .divider-v { width: 1px; height: 22px; background: #e2e8f0; margin: 0 5px; flex-shrink: 0; }
 
     .btn-ai-regenerate { background: #ea580c; color: white; border: none; padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 1px 3px rgba(234, 88, 12, 0.3); transition: background 0.15s; }
     .btn-ai-regenerate:hover { background: #c2410c; }
@@ -362,28 +362,6 @@
       <button class="icon-btn" title="Refazer (Ctrl+Y)" id="btn-redo">
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M21 7v6h-6"></path><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"></path></svg>
       </button>
-
-      <div class="divider-v"></div>
-
-      <!-- 3 Botões de Engenharia Rápida NBR 5410 (Visíveis apenas em Modo 2D) -->
-      <div id="header-eng-buttons" style="display:flex; align-items:center; gap:4px;">
-        <button class="btn-eng-action" id="btn-auto-room-points" title="Lançar automaticamente Luz de Teto, Interruptores e TUGs por Cômodo">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px;height:14px;"><circle cx="12" cy="12" r="8"></circle><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line></svg>
-          Lançar Pontos
-        </button>
-        <button class="btn-eng-action" id="btn-auto-conduits" title="Traçar Eletrodutos Automáticos ligando chaves, tomadas e lâmpadas ao QDC">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px;height:14px;"><path d="M3 16 Q 12 4, 21 16"></path></svg>
-          Lançar Eletrodutos
-        </button>
-        <button class="btn-eng-action primary" id="btn-auto-wire-top" title="Calcular Fiação e Dimensionar Circuitos (Dijkstra + NBR 5410)">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px;height:14px;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-          Gerar Fiação
-        </button>
-        <button class="btn-eng-action" id="btn-materials" title="Lista Quantitativa de Materiais de Instalação (NBR 5410)">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px;height:14px;"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2m-6 9 2 2 4-4"></path></svg>
-          Materiais
-        </button>
-      </div>
     </div>
   </header>
 
@@ -489,6 +467,28 @@
       <button class="ribbon-btn" id="btn-auto-wire" title="Passar Fiação Automática (Dijkstra NBR 5410)">
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><line x1="2" y1="12" x2="22" y2="12"></line><line x1="7" y1="6" x2="7" y2="18"></line><line x1="12" y1="6" x2="12" y2="18"></line><line x1="12" y1="6" x2="15" y2="6"></line><line x1="17" y1="6" x2="17" y2="12"></line></svg>
         Fiação
+      </button>
+    </div>
+
+    <div class="divider-v"></div>
+
+    <!-- Grupo Automação & Engenharia NBR 5410 -->
+    <div class="ribbon-group" id="header-eng-buttons">
+      <button class="ribbon-btn" id="btn-auto-room-points" title="Lançar automaticamente Luz de Teto, Interruptores e TUGs por Cômodo">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"></circle><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line></svg>
+        Lançar Pontos
+      </button>
+      <button class="ribbon-btn" id="btn-auto-conduits" title="Traçar Eletrodutos Automáticos ligando chaves, tomadas e lâmpadas ao QDC">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 16 Q 12 4, 21 16"></path></svg>
+        Lançar Tubulação
+      </button>
+      <button class="ribbon-btn" id="btn-auto-wire-top" title="Calcular Fiação e Dimensionar Circuitos (Dijkstra + NBR 5410)" style="color:#0284c7; font-weight:700;">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+        Dimensionar
+      </button>
+      <button class="ribbon-btn" id="btn-materials" title="Lista Quantitativa de Materiais de Instalação (NBR 5410)">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2m-6 9 2 2 4-4"></path></svg>
+        Materiais
       </button>
     </div>
   </nav>
