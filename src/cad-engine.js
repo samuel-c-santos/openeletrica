@@ -2092,21 +2092,41 @@ export class CadEngine {
       }
     }
 
-    // 1.5 Snap a Aberturas Arquitetônicas (Portas e Janelas: Marcos/Batentes e Centro do Vão)
+    // 1.5 Snap a Aberturas Arquitetônicas (Portas e Janelas: Quinas nas Faces da Parede e Centro do Vão)
     if (this.layers.openings) {
-      const openingTol = 25;
+      const openingTol = (this.activeTool === 'dimension') ? 28 : 24;
 
-      // Portas: Batente A, Batente B e Centro
+      // Portas: Quinas nas faces da parede (Batentes A e B nas faces interna e externa) e Centro
       for (const d of this.doors) {
         const rad = d.radius || 0.80;
         const hw = rad / 2;
         const rot = d.rotation || 0;
         const u = new Vector2D(Math.cos(rot), Math.sin(rot));
+        const n = u.orthogonal();
+
+        const wall = d.wallId ? this.walls.find(wl => wl.id === d.wallId) : this.findNearestWall(d.pos, 0.5)?.wall;
+        const th = (wall && wall.thickness) ? wall.thickness : (this.currentWallThickness || 0.15);
+        const hth = th / 2;
+
         const pts = [
-          { pt: new Vector2D(d.pos.x - u.x * hw, d.pos.y - u.y * hw), type: 'door_jamb', label: 'Marco da Porta (Batente)' },
-          { pt: new Vector2D(d.pos.x + u.x * hw, d.pos.y + u.y * hw), type: 'door_jamb', label: 'Marco da Porta (Batente)' },
-          { pt: new Vector2D(d.pos.x, d.pos.y), type: 'door_center', label: 'Centro da Porta' }
+          // Quinas da esquadria nas faces interna e externa da alvenaria (Batentes)
+          { pt: new Vector2D(d.pos.x - u.x * hw + n.x * hth, d.pos.y - u.y * hw + n.y * hth), type: 'door_jamb', label: 'Quina da Porta (Face)' },
+          { pt: new Vector2D(d.pos.x - u.x * hw - n.x * hth, d.pos.y - u.y * hw - n.y * hth), type: 'door_jamb', label: 'Quina da Porta (Face)' },
+          { pt: new Vector2D(d.pos.x + u.x * hw + n.x * hth, d.pos.y + u.y * hw + n.y * hth), type: 'door_jamb', label: 'Quina da Porta (Face)' },
+          { pt: new Vector2D(d.pos.x + u.x * hw - n.x * hth, d.pos.y + u.y * hw - n.y * hth), type: 'door_jamb', label: 'Quina da Porta (Face)' },
+          // Centro do vão nas faces
+          { pt: new Vector2D(d.pos.x + n.x * hth, d.pos.y + n.y * hth), type: 'door_center', label: 'Centro do Vão da Porta (Face)' },
+          { pt: new Vector2D(d.pos.x - n.x * hth, d.pos.y - n.y * hth), type: 'door_center', label: 'Centro do Vão da Porta (Face)' }
         ];
+
+        if (this.dimensionSnapMode === 'axes' || this.dimensionSnapMode === 'all') {
+          pts.push(
+            { pt: new Vector2D(d.pos.x - u.x * hw, d.pos.y - u.y * hw), type: 'door_jamb', label: 'Marco da Porta (Eixo)' },
+            { pt: new Vector2D(d.pos.x + u.x * hw, d.pos.y + u.y * hw), type: 'door_jamb', label: 'Marco da Porta (Eixo)' },
+            { pt: new Vector2D(d.pos.x, d.pos.y), type: 'door_center', label: 'Centro da Porta (Eixo)' }
+          );
+        }
+
         for (const item of pts) {
           const s = this.viewport.worldToScreen(item.pt);
           const dScreen = s.distanceTo(screenPt);
@@ -2117,17 +2137,37 @@ export class CadEngine {
         }
       }
 
-      // Janelas: Batente A, Batente B e Centro
+      // Janelas: Quinas nas faces da parede (Batentes A e B nas faces interna e externa) e Centro
       for (const w of this.windows) {
         const width = w.width || 1.20;
         const hw = width / 2;
         const rot = w.rotation || 0;
         const u = new Vector2D(Math.cos(rot), Math.sin(rot));
+        const n = u.orthogonal();
+
+        const wall = w.wallId ? this.walls.find(wl => wl.id === w.wallId) : this.findNearestWall(w.pos, 0.5)?.wall;
+        const th = (wall && wall.thickness) ? wall.thickness : (this.currentWallThickness || 0.15);
+        const hth = th / 2;
+
         const pts = [
-          { pt: new Vector2D(w.pos.x - u.x * hw, w.pos.y - u.y * hw), type: 'window_jamb', label: 'Marco da Janela (Batente)' },
-          { pt: new Vector2D(w.pos.x + u.x * hw, w.pos.y + u.y * hw), type: 'window_jamb', label: 'Marco da Janela (Batente)' },
-          { pt: new Vector2D(w.pos.x, w.pos.y), type: 'window_center', label: 'Centro da Janela' }
+          // Quinas da janela nas faces interna e externa da alvenaria (Batentes)
+          { pt: new Vector2D(w.pos.x - u.x * hw + n.x * hth, w.pos.y - u.y * hw + n.y * hth), type: 'window_jamb', label: 'Quina da Janela (Face)' },
+          { pt: new Vector2D(w.pos.x - u.x * hw - n.x * hth, w.pos.y - u.y * hw - n.y * hth), type: 'window_jamb', label: 'Quina da Janela (Face)' },
+          { pt: new Vector2D(w.pos.x + u.x * hw + n.x * hth, w.pos.y + u.y * hw + n.y * hth), type: 'window_jamb', label: 'Quina da Janela (Face)' },
+          { pt: new Vector2D(w.pos.x + u.x * hw - n.x * hth, w.pos.y + u.y * hw - n.y * hth), type: 'window_jamb', label: 'Quina da Janela (Face)' },
+          // Centro do vão nas faces
+          { pt: new Vector2D(w.pos.x + n.x * hth, w.pos.y + n.y * hth), type: 'window_center', label: 'Centro da Janela (Face)' },
+          { pt: new Vector2D(w.pos.x - n.x * hth, w.pos.y - n.y * hth), type: 'window_center', label: 'Centro da Janela (Face)' }
         ];
+
+        if (this.dimensionSnapMode === 'axes' || this.dimensionSnapMode === 'all') {
+          pts.push(
+            { pt: new Vector2D(w.pos.x - u.x * hw, w.pos.y - u.y * hw), type: 'window_jamb', label: 'Marco da Janela (Eixo)' },
+            { pt: new Vector2D(w.pos.x + u.x * hw, w.pos.y + u.y * hw), type: 'window_jamb', label: 'Marco da Janela (Eixo)' },
+            { pt: new Vector2D(w.pos.x, w.pos.y), type: 'window_center', label: 'Centro da Janela (Eixo)' }
+          );
+        }
+
         for (const item of pts) {
           const s = this.viewport.worldToScreen(item.pt);
           const dScreen = s.distanceTo(screenPt);
@@ -2211,12 +2251,12 @@ export class CadEngine {
       }
     }
 
-    // 4. Snap às Faces e Quinas da Alvenaria (Faces Internas e Externas que delimitam ambientes)
+    // 4. Snap a Quinas e Faces da Alvenaria (ABNT NBR 6492)
     if (this.layers.walls && this.walls.length > 0) {
       const geoms = this.computeWallGeometries();
-      const faceTol = (this.activeTool === 'dimension' && this.dimensionSnapMode === 'faces') ? 25 : 18;
+      const cornerTol = (this.activeTool === 'dimension') ? 28 : 24;
 
-      // 4.1 Quinas das faces internas e externas (a1, a2, b1, b2)
+      // 4.1 Quinas das faces internas e externas (a1, a2, b1, b2) - Prioridade Máxima
       if (this.snapSettings.endpoint && this.dimensionSnapMode !== 'axes') {
         for (const g of geoms) {
           const corners = [
@@ -2228,7 +2268,7 @@ export class CadEngine {
           for (const c of corners) {
             const sPt = this.viewport.worldToScreen(c.pt);
             const d = sPt.distanceTo(screenPt);
-            if (d < closestDist && d < faceTol) {
+            if (d < closestDist && d < cornerTol) {
               closestDist = d;
               best = {
                 snapped: true,
@@ -2242,8 +2282,30 @@ export class CadEngine {
         }
       }
 
+      // 4.1.1 Vértices do Eixo Central da Parede (Endpoint / Quinas de Alvenaria)
+      if (this.snapSettings.endpoint && (this.activeTool !== 'dimension' || this.dimensionSnapMode === 'axes' || this.dimensionSnapMode === 'all' || !best.snapped)) {
+        const endpointTol = (this.dimensionSnapMode === 'axes' || this.activeTool === 'wall') ? 26 : 20;
+        for (const wall of this.walls) {
+          const sA = this.viewport.worldToScreen(wall.a);
+          const sB = this.viewport.worldToScreen(wall.b);
+          const dA = sA.distanceTo(screenPt);
+          const dB = sB.distanceTo(screenPt);
+
+          if (dA < closestDist && dA < endpointTol) {
+            closestDist = dA;
+            best = { snapped: true, point: new Vector2D(wall.a.x, wall.a.y), wall, handle: 'a', type: 'endpoint', label: 'Quina da Parede (Eixo)' };
+          }
+          if (dB < closestDist && dB < endpointTol) {
+            closestDist = dB;
+            best = { snapped: true, point: new Vector2D(wall.b.x, wall.b.y), wall, handle: 'b', type: 'endpoint', label: 'Quina da Parede (Eixo)' };
+          }
+        }
+      }
+
       // 4.2 Arestas lineares das Faces Internas e Externas (linhas a1-b1 e a2-b2)
-      if (this.snapSettings.nearest && this.dimensionSnapMode !== 'axes') {
+      // Executa estritamente se nenhuma quina ou ponto discreto foi atracado
+      if (this.snapSettings.nearest && this.dimensionSnapMode !== 'axes' && !best.snapped) {
+        const faceEdgeTol = 16;
         for (const g of geoms) {
           const faces = [
             { a: g.a1, b: g.b1, label: 'Face da Parede' },
@@ -2253,36 +2315,27 @@ export class CadEngine {
             const proj = Vector2D.projectOnSegment(rawWorld, f.a, f.b);
             const sProj = this.viewport.worldToScreen(proj.point);
             const d = sProj.distanceTo(screenPt);
-            if (d < closestDist && d < faceTol) {
-              closestDist = d;
-              best = {
-                snapped: true,
-                point: proj.point,
-                wall: g.wall,
-                type: 'wall_face',
-                label: f.label
-              };
+            if (d < closestDist && d < faceEdgeTol) {
+              const dToA = proj.point.distanceTo(f.a);
+              const dToB = proj.point.distanceTo(f.b);
+              if (dToA < 0.20) {
+                closestDist = d;
+                best = { snapped: true, point: new Vector2D(f.a.x, f.a.y), wall: g.wall, type: 'wall_face_corner', label: 'Quina da Parede (Face)' };
+              } else if (dToB < 0.20) {
+                closestDist = d;
+                best = { snapped: true, point: new Vector2D(f.b.x, f.b.y), wall: g.wall, type: 'wall_face_corner', label: 'Quina da Parede (Face)' };
+              } else {
+                closestDist = d;
+                best = {
+                  snapped: true,
+                  point: proj.point,
+                  wall: g.wall,
+                  type: 'wall_face',
+                  label: f.label
+                };
+              }
             }
           }
-        }
-      }
-    }
-
-    // 5. Snap a Vértices do Eixo Central da Parede (Endpoint)
-    if (this.snapSettings.endpoint && this.layers.walls && this.dimensionSnapMode !== 'faces' && (this.activeTool !== 'dimension' || this.dimensionSnapMode === 'axes' || !best.snapped)) {
-      for (const wall of this.walls) {
-        const sA = this.viewport.worldToScreen(wall.a);
-        const sB = this.viewport.worldToScreen(wall.b);
-        const dA = sA.distanceTo(screenPt);
-        const dB = sB.distanceTo(screenPt);
-
-        if (dA < closestDist) {
-          closestDist = dA;
-          best = { snapped: true, point: new Vector2D(wall.a.x, wall.a.y), wall, handle: 'a', type: 'endpoint', label: 'Eixo da Parede' };
-        }
-        if (dB < closestDist) {
-          closestDist = dB;
-          best = { snapped: true, point: new Vector2D(wall.b.x, wall.b.y), wall, handle: 'b', type: 'endpoint', label: 'Eixo da Parede' };
         }
       }
     }
