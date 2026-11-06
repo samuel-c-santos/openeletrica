@@ -401,6 +401,14 @@
         <svg stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" fill="none"></circle><path d="M12 5 A 7 7 0 0 1 12 19 Z" fill="currentColor"></path><line x1="12" y1="5" x2="12" y2="1"></line></svg>
         Paralelo
       </button>
+      <button class="ribbon-btn" data-tool="add_node" data-type="combo_switch_outlet" title="Conjugado 4x2 (Interruptor + Tomada Média 1,20m)">
+        <svg stroke="currentColor" viewBox="0 0 24 24"><circle cx="7" cy="12" r="5" fill="none"></circle><polygon points="17 7 12 17 22 17" fill="none"></polygon><polygon points="17 7 12 17 17 17" fill="currentColor"></polygon></svg>
+        Conjugado
+      </button>
+      <button class="ribbon-btn" data-tool="add_node" data-type="combo_switch_switch" title="Interruptor 2 Seções (2 Teclas 1,20m)">
+        <svg stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" fill="none"></circle><line x1="12" y1="5" x2="12" y2="19"></line></svg>
+        2 Seções
+      </button>
     </div>
 
     <div class="divider-v"></div>
@@ -1617,9 +1625,18 @@
         return;
       }
 
+      if (engine.selectedElement && engine.selectedElement.type === 'conduit') {
+        engine.deleteConduit(engine.selectedElement.id);
+        engine.render(ctx, canvas.width, canvas.height);
+        document.getElementById('inspector-drawer').classList.remove('open');
+        showToast('Eletroduto excluído.');
+        return;
+      }
+
       if (engine.selectedElements && engine.selectedElements.length > 0) {
         engine.saveSnapshot();
         const nodeIdsToDelete = new Set();
+        const conduitIdsToDelete = new Set();
         const wallIndices = [];
         const doorIndices = [];
         const winIndices = [];
@@ -1627,6 +1644,7 @@
 
         for (const item of engine.selectedElements) {
           if (item.type === 'node') nodeIdsToDelete.add(item.id);
+          else if (item.type === 'conduit') conduitIdsToDelete.add(item.id);
           else if (item.type === 'wall') wallIndices.push(item.index);
           else if (item.type === 'door') doorIndices.push(item.index);
           else if (item.type === 'window') winIndices.push(item.index);
@@ -1636,6 +1654,10 @@
         if (nodeIdsToDelete.size > 0) {
           engine.nodes = engine.nodes.filter(n => !nodeIdsToDelete.has(n.id));
           engine.conduits = engine.conduits.filter(c => !nodeIdsToDelete.has(c.nodeAId) && !nodeIdsToDelete.has(c.nodeBId));
+          engine.recalculateWiring();
+        }
+        if (conduitIdsToDelete.size > 0) {
+          engine.conduits = engine.conduits.filter(c => !conduitIdsToDelete.has(c.id));
           engine.recalculateWiring();
         }
         if (wallIndices.length > 0) {
@@ -1691,6 +1713,160 @@
         if (!node) return;
 
         drawer.classList.add('open');
+
+        if (node.type === 'combo_switch_outlet') {
+          const modSw = node.modules?.[0] || { type: 'switch_simple', circuitId: 1, command: 'a' };
+          const modOut = node.modules?.[1] || { type: 'outlet_medium', circuitId: 2, powerWatts: 600, voltage: 127 };
+
+          let circOptionsSw = '';
+          let circOptionsOut = '';
+          for (let i = 1; i <= 8; i++) {
+            circOptionsSw += `<option value="${i}" ${modSw.circuitId === i ? 'selected' : ''}>Circuito ${i}</option>`;
+            circOptionsOut += `<option value="${i}" ${modOut.circuitId === i ? 'selected' : ''}>Circuito ${i}</option>`;
+          }
+
+          content.innerHTML = `
+            <div class="prop-row"><span class="prop-label">Elemento:</span><span class="prop-val">Conjugado 4x2 (Int. + TUG)</span></div>
+            <div class="prop-row"><span class="prop-label">Altura:</span><span class="prop-val">Média (1,20 m)</span></div>
+            <div style="margin: 8px 0 4px; font-weight:700; font-size:10.5px; color:#0284c7; border-bottom:1px solid #e2e8f0; padding-bottom:2px;">MÓDULO INTERRUPTOR</div>
+            <div class="prop-row">
+              <span class="prop-label">Circuito Ilum.:</span>
+              <select class="form-control" id="inspector-combo-sw-circ" style="width:110px; padding:2px 6px; font-size:11px;">
+                ${circOptionsSw}
+              </select>
+            </div>
+            <div class="prop-row">
+              <span class="prop-label">Comando:</span>
+              <input type="text" class="form-control" id="inspector-combo-sw-cmd" value="${modSw.command || 'a'}" style="width:60px; padding:2px 6px; font-size:11px; text-align:center;" />
+            </div>
+
+            <div style="margin: 10px 0 4px; font-weight:700; font-size:10.5px; color:#047857; border-bottom:1px solid #e2e8f0; padding-bottom:2px;">MÓDULO TOMADA (TUG)</div>
+            <div class="prop-row">
+              <span class="prop-label">Circuito TUG:</span>
+              <select class="form-control" id="inspector-combo-out-circ" style="width:110px; padding:2px 6px; font-size:11px;">
+                ${circOptionsOut}
+              </select>
+            </div>
+            <div class="prop-row">
+              <span class="prop-label">Potência:</span>
+              <div style="display:flex;align-items:center;gap:4px;">
+                <input type="number" step="50" class="form-control" id="inspector-combo-out-pwr" value="${modOut.powerWatts || 600}" style="width:75px; padding:2px 6px; font-size:11px;" /> W
+              </div>
+            </div>
+            <div class="prop-row">
+              <span class="prop-label">Tensão:</span>
+              <select class="form-control" id="inspector-combo-out-volt" style="width:85px; padding:2px 6px; font-size:11px;">
+                <option value="127" ${(modOut.voltage || 127) === 127 ? 'selected' : ''}>127 V</option>
+                <option value="220" ${(modOut.voltage || 127) === 220 ? 'selected' : ''}>220 V</option>
+              </select>
+            </div>
+
+            <button class="btn-eng-action" id="btn-delete-element" style="margin-top:14px; width:100%; justify-content:center; color:#ef4444; border-color:#fca5a5; background:#fef2f2;">
+              <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+              Excluir Ponto [Del]
+            </button>
+          `;
+
+          document.getElementById('inspector-combo-sw-circ')?.addEventListener('change', (e) => {
+            modSw.circuitId = parseInt(e.target.value);
+            node.circuitId = modSw.circuitId;
+            engine.saveSnapshot();
+            engine.recalculateWiring();
+            updateInspector();
+            engine.render(ctx, canvas.width, canvas.height);
+          });
+          document.getElementById('inspector-combo-sw-cmd')?.addEventListener('input', (e) => {
+            modSw.command = e.target.value.trim().toLowerCase();
+            node.command = modSw.command;
+            engine.saveSnapshot();
+            engine.recalculateWiring();
+            engine.render(ctx, canvas.width, canvas.height);
+          });
+          document.getElementById('inspector-combo-out-circ')?.addEventListener('change', (e) => {
+            modOut.circuitId = parseInt(e.target.value);
+            engine.saveSnapshot();
+            engine.recalculateWiring();
+            updateInspector();
+            engine.render(ctx, canvas.width, canvas.height);
+          });
+          document.getElementById('inspector-combo-out-pwr')?.addEventListener('change', (e) => {
+            modOut.powerWatts = parseFloat(e.target.value) || 600;
+            node.powerWatts = modOut.powerWatts;
+            engine.saveSnapshot();
+            engine.recalculateWiring();
+            updateInspector();
+            engine.render(ctx, canvas.width, canvas.height);
+          });
+          document.getElementById('inspector-combo-out-volt')?.addEventListener('change', (e) => {
+            modOut.voltage = parseInt(e.target.value);
+            engine.saveSnapshot();
+            engine.recalculateWiring();
+            updateInspector();
+            engine.render(ctx, canvas.width, canvas.height);
+          });
+          document.getElementById('btn-delete-element')?.addEventListener('click', deleteCurrentSelection);
+          return;
+        }
+
+        if (node.type === 'combo_switch_switch') {
+          const mod1 = node.modules?.[0] || { type: 'switch_simple', circuitId: 1, command: 'a' };
+          const mod2 = node.modules?.[1] || { type: 'switch_simple', circuitId: 1, command: 'b' };
+
+          let circOptions = '';
+          for (let i = 1; i <= 8; i++) {
+            circOptions += `<option value="${i}" ${node.circuitId === i ? 'selected' : ''}>Circuito ${i}</option>`;
+          }
+
+          content.innerHTML = `
+            <div class="prop-row"><span class="prop-label">Elemento:</span><span class="prop-val">Interruptor 2 Seções (4x2)</span></div>
+            <div class="prop-row"><span class="prop-label">Altura:</span><span class="prop-val">Média (1,20 m)</span></div>
+            <div class="prop-row">
+              <span class="prop-label">Circuito:</span>
+              <select class="form-control" id="inspector-node-circ" style="width:110px; padding:2px 6px; font-size:11px;">
+                ${circOptions}
+              </select>
+            </div>
+            <div class="prop-row">
+              <span class="prop-label">Tecla 1 (Cmd):</span>
+              <input type="text" class="form-control" id="inspector-sw2-cmd1" value="${mod1.command || 'a'}" style="width:60px; padding:2px 6px; font-size:11px; text-align:center;" />
+            </div>
+            <div class="prop-row">
+              <span class="prop-label">Tecla 2 (Cmd):</span>
+              <input type="text" class="form-control" id="inspector-sw2-cmd2" value="${mod2.command || 'b'}" style="width:60px; padding:2px 6px; font-size:11px; text-align:center;" />
+            </div>
+
+            <button class="btn-eng-action" id="btn-delete-element" style="margin-top:14px; width:100%; justify-content:center; color:#ef4444; border-color:#fca5a5; background:#fef2f2;">
+              <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+              Excluir Ponto [Del]
+            </button>
+          `;
+
+          document.getElementById('inspector-node-circ')?.addEventListener('change', (e) => {
+            node.circuitId = parseInt(e.target.value);
+            mod1.circuitId = node.circuitId;
+            mod2.circuitId = node.circuitId;
+            engine.saveSnapshot();
+            engine.recalculateWiring();
+            updateInspector();
+            engine.render(ctx, canvas.width, canvas.height);
+          });
+          document.getElementById('inspector-sw2-cmd1')?.addEventListener('input', (e) => {
+            mod1.command = e.target.value.trim().toLowerCase();
+            node.command = `${mod1.command},${mod2.command}`;
+            engine.saveSnapshot();
+            engine.recalculateWiring();
+            engine.render(ctx, canvas.width, canvas.height);
+          });
+          document.getElementById('inspector-sw2-cmd2')?.addEventListener('input', (e) => {
+            mod2.command = e.target.value.trim().toLowerCase();
+            node.command = `${mod1.command},${mod2.command}`;
+            engine.saveSnapshot();
+            engine.recalculateWiring();
+            engine.render(ctx, canvas.width, canvas.height);
+          });
+          document.getElementById('btn-delete-element')?.addEventListener('click', deleteCurrentSelection);
+          return;
+        }
 
         const sizing = sizeCircuit({
           powerWatts: node.powerWatts || 100,
@@ -1976,6 +2152,69 @@
               updateInspector();
               engine.render(ctx, canvas.width, canvas.height);
             }
+          });
+
+          document.getElementById('btn-delete-element')?.addEventListener('click', deleteCurrentSelection);
+          return;
+        } else if (engine.selectedElement.type === 'conduit') {
+          const c = engine.conduits.find(item => item.id === engine.selectedElement.id);
+          if (!c) return;
+          const wires = engine.wireAllocations.get(c.id) || [];
+          let wiresText = wires.length === 0 ? 'Sem condutores' : wires.map(w => {
+            const t = w.type === 'phase' ? 'F' : w.type === 'neutral' ? 'N' : w.type === 'earth' ? 'T' : `R(${w.command || ''})`;
+            return `${t} C${w.circuitId} #${w.gaugeMm2}mm²`;
+          }).join(', ');
+
+          content.innerHTML = `
+            <div class="prop-row"><span class="prop-label">Elemento:</span><span class="prop-val">Eletroduto (NBR 5410)</span></div>
+            <div class="prop-row">
+              <span class="prop-label">Diâmetro:</span>
+              <select class="form-control" id="inspector-conduit-diam" style="width:110px; padding:2px 6px; font-size:11px;">
+                <option value="20" ${(c.diameter || 20) === 20 ? 'selected' : ''}>⌀ 20 mm (1/2")</option>
+                <option value="25" ${(c.diameter || 20) === 25 ? 'selected' : ''}>⌀ 25 mm (3/4")</option>
+                <option value="32" ${(c.diameter || 20) === 32 ? 'selected' : ''}>⌀ 32 mm (1")</option>
+                <option value="40" ${(c.diameter || 20) === 40 ? 'selected' : ''}>⌀ 40 mm (1 1/4")</option>
+              </select>
+            </div>
+            <div class="prop-row">
+              <span class="prop-label">Instalação:</span>
+              <select class="form-control" id="inspector-conduit-type" style="width:110px; padding:2px 6px; font-size:11px;">
+                <option value="ceiling" ${c.installationType === 'ceiling' || !c.installationType ? 'selected' : ''}>Teto / Embutido</option>
+                <option value="wall" ${c.installationType === 'wall' ? 'selected' : ''}>Parede / Embutido</option>
+                <option value="floor" ${c.installationType === 'floor' ? 'selected' : ''}>Piso (Tracejado)</option>
+              </select>
+            </div>
+            <div class="prop-row">
+              <span class="prop-label">Condutores:</span>
+              <span class="prop-val" style="font-size:10px; color:#0284c7;">${wiresText}</span>
+            </div>
+
+            <button class="btn-eng-action" id="btn-flip-conduit" style="margin-top:10px; width:100%; justify-content:center;">
+              <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 12h16M12 4l-4 4 4 4M12 20l4-4-4-4"></path></svg>
+              Inverter Curvatura
+            </button>
+
+            <button class="btn-eng-action" id="btn-delete-element" style="margin-top:8px; width:100%; justify-content:center; color:#ef4444; border-color:#fca5a5; background:#fef2f2;">
+              <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+              Excluir Eletroduto [Del]
+            </button>
+          `;
+
+          document.getElementById('inspector-conduit-diam')?.addEventListener('change', (e) => {
+            engine.saveSnapshot();
+            c.diameter = parseInt(e.target.value);
+            engine.recalculateWiring();
+            engine.render(ctx, canvas.width, canvas.height);
+          });
+
+          document.getElementById('inspector-conduit-type')?.addEventListener('change', (e) => {
+            engine.saveSnapshot();
+            c.installationType = e.target.value;
+            engine.notify();
+          });
+
+          document.getElementById('btn-flip-conduit')?.addEventListener('click', () => {
+            engine.toggleConduitCurvature(c.id);
           });
 
           document.getElementById('btn-delete-element')?.addEventListener('click', deleteCurrentSelection);

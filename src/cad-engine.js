@@ -218,30 +218,70 @@ export class ElectricalGraph {
       if (!exists) list.push(wire);
     };
 
+    // 1. Alimentação dos Nós a partir do Quadro de Distribuição
     for (const node of this.nodesMap.values()) {
+      if (node.type === 'distribution_board') continue;
+
+      // Dispositivos Conjugados com Módulos Internos (NBR 5410)
+      if ((node.type === 'combo_switch_outlet' || node.type === 'combo_switch_switch' || node.type === 'gang_box') && Array.isArray(node.modules)) {
+        for (const mod of node.modules) {
+          const cId = mod.circuitId || node.circuitId || 1;
+          const path = this.findShortestPath(panelId, node.id);
+          if (!path) continue;
+          const gauge = gauges[cId] || 2.5;
+          const isSwitch = mod.type.startsWith('switch');
+
+          for (const cid of path) {
+            addWire(cid, { type: 'phase', circuitId: cId, gaugeMm2: gauge });
+            if (!isSwitch) {
+              addWire(cid, { type: 'neutral', circuitId: cId, gaugeMm2: gauge });
+              addWire(cid, { type: 'earth', circuitId: cId, gaugeMm2: gauge });
+            }
+          }
+        }
+        continue;
+      }
+
       if (node.circuitId === undefined) continue;
       const path = this.findShortestPath(panelId, node.id);
       if (!path) continue;
       const gauge = gauges[node.circuitId] || 2.5;
+      const isSwitch = node.type.startsWith('switch_');
 
       for (const cid of path) {
         addWire(cid, { type: 'phase', circuitId: node.circuitId, gaugeMm2: gauge });
-        addWire(cid, { type: 'neutral', circuitId: node.circuitId, gaugeMm2: gauge });
-        addWire(cid, { type: 'earth', circuitId: node.circuitId, gaugeMm2: gauge });
+        if (!isSwitch) {
+          // Conforme NBR 5410, interruptores não recebem condutor neutro nem condutor de proteção (terra)
+          addWire(cid, { type: 'neutral', circuitId: node.circuitId, gaugeMm2: gauge });
+          addWire(cid, { type: 'earth', circuitId: node.circuitId, gaugeMm2: gauge });
+        }
       }
     }
 
-    const switches = Array.from(this.nodesMap.values()).filter(n => n.type.startsWith('switch_') && n.command);
-    for (const sw of switches) {
-      const light = Array.from(this.nodesMap.values()).find(n => n.type.startsWith('light_') && n.command === sw.command);
-      if (!light) continue;
+    // 2. Retornos de Comandos de Iluminação (Interruptores -> Luminárias)
+    const switchItems = [];
+    for (const node of this.nodesMap.values()) {
+      if (node.type.startsWith('switch_') && node.command) {
+        switchItems.push({ id: node.id, circuitId: node.circuitId || 1, command: node.command });
+      } else if ((node.type === 'combo_switch_outlet' || node.type === 'combo_switch_switch' || node.type === 'gang_box') && Array.isArray(node.modules)) {
+        for (const mod of node.modules) {
+          if (mod.type.startsWith('switch') && mod.command) {
+            switchItems.push({ id: node.id, circuitId: mod.circuitId || node.circuitId || 1, command: mod.command });
+          }
+        }
+      }
+    }
 
-      const path = this.findShortestPath(sw.id, light.id);
-      if (!path) continue;
-      const gauge = gauges[sw.circuitId] || 1.5;
+    for (const sw of switchItems) {
+      const lights = Array.from(this.nodesMap.values()).filter(n => n.type.startsWith('light_') && n.command === sw.command);
+      for (const light of lights) {
+        const path = this.findShortestPath(sw.id, light.id);
+        if (!path) continue;
+        const gauge = gauges[sw.circuitId] || 1.5;
 
-      for (const cid of path) {
-        addWire(cid, { type: 'return', circuitId: sw.circuitId, command: sw.command, gaugeMm2: gauge });
+        for (const cid of path) {
+          addWire(cid, { type: 'return', circuitId: sw.circuitId, command: sw.command, gaugeMm2: gauge });
+        }
       }
     }
 
@@ -469,6 +509,89 @@ export class SymbolRenderer {
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.fillText(node.command, 0, -swR - 7);
+        }
+        break;
+      }
+      case 'combo_switch_outlet': {
+        // Dispositivo conjugado NBR 5410 e NBR 6492: Interruptor + Tomada Média (1,20m)
+        const swR = r * 0.55;
+        const sz = r * 0.75;
+        const swMod = node.modules?.[0] || { command: node.command || 'a', circuitId: node.circuitId || 1 };
+        const outMod = node.modules?.[1] || { circuitId: 2, powerWatts: node.powerWatts || 600 };
+
+        // 1. Interruptor Simples à esquerda
+        ctx.save();
+        ctx.translate(-r * 0.55, 0);
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(0, 0, swR, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        if (swMod.command) {
+          ctx.fillStyle = '#000000';
+          ctx.font = 'bold 9px Arial, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(swMod.command, 0, -swR - 6);
+        }
+        ctx.restore();
+
+        // 2. Tomada Média à direita (semi-preenchida conforme NBR 6492)
+        ctx.save();
+        ctx.translate(r * 0.55, 0);
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.moveTo(-sz, sz / 2);
+        ctx.lineTo(0, -sz / 2);
+        ctx.lineTo(sz, sz / 2);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#000000';
+        ctx.beginPath();
+        ctx.moveTo(0, -sz / 2);
+        ctx.lineTo(sz, sz / 2);
+        ctx.lineTo(0, sz / 2);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = '#000000';
+        ctx.font = 'bold 9px Arial, sans-serif';
+        ctx.textAlign = 'center';
+        if (outMod.circuitId) ctx.fillText(String(outMod.circuitId), 0, sz + 8);
+        ctx.restore();
+        break;
+      }
+      case 'combo_switch_switch': {
+        // Interruptor de 2 Seções / 2 Teclas (NBR 6492)
+        const swR = r * 0.75;
+        const cmdA = node.modules?.[0]?.command || 'a';
+        const cmdB = node.modules?.[1]?.command || 'b';
+
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(0, 0, swR, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // Linha divisória vertical representando as 2 teclas
+        ctx.beginPath();
+        ctx.moveTo(0, -swR);
+        ctx.lineTo(0, swR);
+        ctx.stroke();
+
+        ctx.fillStyle = '#000000';
+        ctx.font = 'bold 9px Arial, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(cmdA, -swR * 0.45, 0);
+        ctx.fillText(cmdB, swR * 0.45, 0);
+
+        if (node.circuitId) {
+          ctx.font = 'bold 8px Arial, sans-serif';
+          ctx.fillText(String(node.circuitId), 0, swR + 7);
         }
         break;
       }
@@ -1604,19 +1727,69 @@ export class CadEngine {
   }
 
   addNode(type, position, circuitId = 1, command = null) {
+    let powerWatts = 0;
+    let voltage = 127;
+    let modules = null;
+
+    if (type.startsWith('light')) {
+      powerWatts = 100;
+      voltage = 127;
+    } else if (type === 'outlet_high') {
+      powerWatts = 5500;
+      voltage = 220;
+    } else if (type.startsWith('outlet')) {
+      powerWatts = 600;
+      voltage = 127;
+    } else if (type === 'combo_switch_outlet') {
+      powerWatts = 600;
+      voltage = 127;
+      modules = [
+        { type: 'switch_simple', circuitId: 1, command: command || 'a' },
+        { type: 'outlet_medium', circuitId: 2, powerWatts: 600, voltage: 127 }
+      ];
+    } else if (type === 'combo_switch_switch') {
+      powerWatts = 0;
+      voltage = 127;
+      modules = [
+        { type: 'switch_simple', circuitId: circuitId || 1, command: command || 'a' },
+        { type: 'switch_simple', circuitId: circuitId || 1, command: 'b' }
+      ];
+    }
+
     const node = {
       id: `node_${Date.now()}_${Math.floor(Math.random() * 10000)}`,
       type,
       position: { x: position.x, y: position.y },
       circuitId,
-      command,
-      powerWatts: type.startsWith('light') ? 100 : (type === 'outlet_high' ? 5500 : 600),
-      voltage: type === 'outlet_high' ? 220 : 127
+      command: type === 'combo_switch_switch' ? `${command || 'a'},b` : (command || (type === 'combo_switch_outlet' ? 'a' : null)),
+      powerWatts,
+      voltage,
+      ...(modules ? { modules } : {})
     };
     this.nodes.push(node);
     this.saveSnapshot();
+    this.recalculateWiring();
     this.notify();
     return node;
+  }
+
+  deleteConduit(conduitId) {
+    this.saveSnapshot();
+    this.conduits = this.conduits.filter(c => c.id !== conduitId);
+    if (this.selectedElement && this.selectedElement.type === 'conduit' && this.selectedElement.id === conduitId) {
+      this.selectedElement = null;
+    }
+    this.recalculateWiring();
+    this.notify();
+  }
+
+  toggleConduitCurvature(conduitId) {
+    const c = this.conduits.find(item => item.id === conduitId);
+    if (c) {
+      this.saveSnapshot();
+      c.curveDirection = (c.curveDirection || 1) * -1;
+      this.notify();
+    }
   }
 
   addConduit(nodeAId, nodeBId, type = 'ceiling', curvature = 1) {
@@ -1805,6 +1978,19 @@ export class CadEngine {
     return closest;
   }
 
+  getCornerThickness(wall, pt) {
+    let thick = wall.thickness || 0.15;
+    for (const ow of this.walls) {
+      if (ow.id === wall.id) continue;
+      const distA = Math.hypot(ow.a.x - pt.x, ow.a.y - pt.y);
+      const distB = Math.hypot(ow.b.x - pt.x, ow.b.y - pt.y);
+      if (distA < 0.08 || distB < 0.08) {
+        if (ow.thickness) return ow.thickness;
+      }
+    }
+    return thick;
+  }
+
   findSnap(screenPt) {
     let closestDist = 26;
     const rawWorld = this.viewport.screenToWorld(screenPt);
@@ -1882,28 +2068,32 @@ export class CadEngine {
       }
     }
 
-    // 2. Snap da Boneca de 10 cm para Portas (Offset de 10cm da quina da parede)
+    // 2. Snap da Boneca de 10 cm para Portas (Offset de 10cm da face acabada da alvenaria concorrente)
     if (this.activeTool === 'door' && this.layers.openings) {
       const near = this.findNearestWall(rawWorld, 0.7);
       if (near) {
         const w = near.wall;
         const wLen = Math.hypot(w.b.x - w.a.x, w.b.y - w.a.y);
         const doorW = this.currentDoorWidth || 0.80;
-        const bonecaDist = 0.10 + doorW / 2; // Centro da porta a 10cm da quina
+
+        const tA = this.getCornerThickness(w, w.a);
+        const tB = this.getCornerThickness(w, w.b);
+        const bonecaDistA = (tA / 2) + 0.10 + (doorW / 2);
+        const bonecaDistB = (tB / 2) + 0.10 + (doorW / 2);
 
         if (wLen > doorW + 0.20) {
           const u = new Vector2D((w.b.x - w.a.x) / wLen, (w.b.y - w.a.y) / wLen);
-          const ptBonecaA = new Vector2D(w.a.x + u.x * bonecaDist, w.a.y + u.y * bonecaDist);
-          const ptBonecaB = new Vector2D(w.b.x - u.x * bonecaDist, w.b.y - u.y * bonecaDist);
+          const ptBonecaA = new Vector2D(w.a.x + u.x * bonecaDistA, w.a.y + u.y * bonecaDistA);
+          const ptBonecaB = new Vector2D(w.b.x - u.x * bonecaDistB, w.b.y - u.y * bonecaDistB);
 
           const sBA = this.viewport.worldToScreen(ptBonecaA);
           const sBB = this.viewport.worldToScreen(ptBonecaB);
 
           if (sBA.distanceTo(screenPt) < 25) {
-            return { snapped: true, point: ptBonecaA, wall: w, angle: near.angle, type: 'boneca', label: 'Boneca 10 cm' };
+            return { snapped: true, point: ptBonecaA, wall: w, angle: near.angle, type: 'boneca', label: 'Boneca 10 cm (face)' };
           }
           if (sBB.distanceTo(screenPt) < 25) {
-            return { snapped: true, point: ptBonecaB, wall: w, angle: near.angle, type: 'boneca', label: 'Boneca 10 cm' };
+            return { snapped: true, point: ptBonecaB, wall: w, angle: near.angle, type: 'boneca', label: 'Boneca 10 cm (face)' };
           }
         }
       }
@@ -2395,6 +2585,12 @@ export class CadEngine {
           this.isDragging = true;
           this.notify();
           return;
+        } else if (cand.type === 'conduit') {
+          this.selectedElement = { type: 'conduit', id: cand.id, conduit: cand.conduit };
+          this.selectedNodeId = null;
+          this.isDragging = false;
+          this.notify();
+          return;
         } else if (cand.type === 'unifilar') {
           this.selectedElement = { type: 'unifilar' };
           this.selectedNodeId = null;
@@ -2488,6 +2684,42 @@ export class CadEngine {
               this.notify();
               return;
             }
+          }
+        }
+      }
+
+      // 8.5.1 Fallback: Eletrodutos (NBR 5410)
+      if (this.layers.conduits) {
+        const nodeMap = new Map(this.nodes.map(n => [n.id, n]));
+        for (const c of this.conduits) {
+          const a = nodeMap.get(c.nodeAId);
+          const b = nodeMap.get(c.nodeBId);
+          if (!a || !b) continue;
+
+          const sA = this.viewport.worldToScreen(a.position);
+          const sB = this.viewport.worldToScreen(b.position);
+          const mid = new Vector2D((sA.x + sB.x) / 2, (sA.y + sB.y) / 2);
+          const dir = new Vector2D(sB.x - sA.x, sB.y - sA.y);
+          const normal = dir.orthogonal().normalize();
+          const curvatureAmount = Math.min(26, dir.length() * 0.16) * (c.curveDirection || 1);
+          const ctrlPt = new Vector2D(mid.x + normal.x * curvatureAmount, mid.y + normal.y * curvatureAmount);
+
+          let minDist = Infinity;
+          for (let step = 0; step <= 10; step++) {
+            const t = step / 10;
+            const inv = 1 - t;
+            const qx = inv * inv * sA.x + 2 * inv * t * ctrlPt.x + t * t * sB.x;
+            const qy = inv * inv * sA.y + 2 * inv * t * ctrlPt.y + t * t * sB.y;
+            const d = Math.hypot(screenPt.x - qx, screenPt.y - qy);
+            if (d < minDist) minDist = d;
+          }
+
+          if (minDist < 14) {
+            this.selectedElement = { type: 'conduit', id: c.id, conduit: c };
+            this.selectedNodeId = null;
+            this.isDragging = false;
+            this.notify();
+            return;
           }
         }
       }
@@ -2621,13 +2853,16 @@ export class CadEngine {
             const w = near.wall;
             const wLen = Math.hypot(w.b.x - w.a.x, w.b.y - w.a.y);
             const doorW = door.radius || 0.80;
-            const bonecaDist = 0.10 + doorW / 2;
+            const tA = this.getCornerThickness(w, w.a);
+            const tB = this.getCornerThickness(w, w.b);
+            const bonecaDistA = (tA / 2) + 0.10 + (doorW / 2);
+            const bonecaDistB = (tB / 2) + 0.10 + (doorW / 2);
             let targetPoint = near.point;
 
             if (wLen > doorW + 0.20) {
               const u = new Vector2D((w.b.x - w.a.x) / wLen, (w.b.y - w.a.y) / wLen);
-              const ptBonecaA = new Vector2D(w.a.x + u.x * bonecaDist, w.a.y + u.y * bonecaDist);
-              const ptBonecaB = new Vector2D(w.b.x - u.x * bonecaDist, w.b.y - u.y * bonecaDist);
+              const ptBonecaA = new Vector2D(w.a.x + u.x * bonecaDistA, w.a.y + u.y * bonecaDistA);
+              const ptBonecaB = new Vector2D(w.b.x - u.x * bonecaDistB, w.b.y - u.y * bonecaDistB);
               if (curWorld.distanceTo(ptBonecaA) < 0.35) targetPoint = ptBonecaA;
               else if (curWorld.distanceTo(ptBonecaB) < 0.35) targetPoint = ptBonecaB;
             }
@@ -2766,6 +3001,8 @@ export class CadEngine {
           const typeName = node.type === 'light_ceiling' ? 'Luz de Teto' 
             : node.type.startsWith('outlet') ? 'Tomada' 
             : node.type.startsWith('switch') ? 'Interruptor' 
+            : node.type === 'combo_switch_outlet' ? 'Conjugado (Int. + Tomada)'
+            : node.type === 'combo_switch_switch' ? 'Interruptor 2 Seções'
             : 'Quadro QD';
           candidates.push({
             type: 'node',
@@ -2880,6 +3117,49 @@ export class CadEngine {
               pos: midDim
             });
           }
+        }
+      }
+    }
+
+    // 9. Eletrodutos (NBR 5410)
+    if (this.layers.conduits) {
+      const nodeMap = new Map(this.nodes.map(n => [n.id, n]));
+      for (const c of this.conduits) {
+        const a = nodeMap.get(c.nodeAId);
+        const b = nodeMap.get(c.nodeBId);
+        if (!a || !b) continue;
+
+        const sA = this.viewport.worldToScreen(a.position);
+        const sB = this.viewport.worldToScreen(b.position);
+
+        const mid = new Vector2D((sA.x + sB.x) / 2, (sA.y + sB.y) / 2);
+        const dir = new Vector2D(sB.x - sA.x, sB.y - sA.y);
+        const normal = dir.orthogonal().normalize();
+        const curvatureAmount = Math.min(26, dir.length() * 0.16) * (c.curveDirection || 1);
+        const ctrlPt = new Vector2D(mid.x + normal.x * curvatureAmount, mid.y + normal.y * curvatureAmount);
+
+        let minDist = Infinity;
+        for (let step = 0; step <= 10; step++) {
+          const t = step / 10;
+          const inv = 1 - t;
+          const qx = inv * inv * sA.x + 2 * inv * t * ctrlPt.x + t * t * sB.x;
+          const qy = inv * inv * sA.y + 2 * inv * t * ctrlPt.y + t * t * sB.y;
+          const d = Math.hypot(screenPt.x - qx, screenPt.y - qy);
+          if (d < minDist) minDist = d;
+        }
+
+        if (minDist < 14) {
+          const midWorld = this.viewport.screenToWorld(new Vector2D(
+            0.25 * sA.x + 0.5 * ctrlPt.x + 0.25 * sB.x,
+            0.25 * sA.y + 0.5 * ctrlPt.y + 0.25 * sB.y
+          ));
+          candidates.push({
+            type: 'conduit',
+            id: c.id,
+            conduit: c,
+            label: `Eletroduto ⌀${c.diameter || 20}mm (${c.installationType === 'floor' ? 'Piso' : 'Teto/Parede'})`,
+            pos: midWorld
+          });
         }
       }
     }
@@ -4148,9 +4428,18 @@ export class CadEngine {
         const curvatureAmount = Math.min(26, dir.length() * 0.16) * (c.curveDirection || 1);
         const ctrlPt = new Vector2D(mid.x + normal.x * curvatureAmount, mid.y + normal.y * curvatureAmount);
 
+        const isSelected = this.selectedElement && this.selectedElement.type === 'conduit' && this.selectedElement.id === c.id;
+
         ctx.save();
-        ctx.strokeStyle = '#000000';
-        ctx.lineWidth = 1.4;
+        if (isSelected) {
+          ctx.strokeStyle = '#0284c7';
+          ctx.lineWidth = 3.5;
+          ctx.shadowColor = 'rgba(2, 132, 199, 0.45)';
+          ctx.shadowBlur = 8;
+        } else {
+          ctx.strokeStyle = '#000000';
+          ctx.lineWidth = 1.4;
+        }
 
         if (c.installationType === 'floor') {
           ctx.setLineDash([5, 5]);
