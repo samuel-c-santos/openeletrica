@@ -116,6 +116,8 @@
     .btn-eng-action.primary:hover { background: #0369a1; }
     .btn-eng-action.warning { background: #ea580c; color: #ffffff; border-color: #ea580c; }
     .btn-eng-action.warning:hover { background: #c2410c; }
+    .btn-micro { background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 4px; padding: 2px 7px; font-size: 10.5px; font-weight: 600; color: #334155; cursor: pointer; transition: all 0.1s; }
+    .btn-micro:hover { background: #0284c7; border-color: #0284c7; color: #ffffff; }
 
     /* Paper Space / Modo Layout (QGIS / ABNT) */
     #layout-paper-container { display: none; flex-direction: column; flex: 1; width: 100%; height: calc(100vh - 48px); position: relative; background: #334155; overflow: hidden; padding: 0; margin: 0; }
@@ -1625,8 +1627,9 @@
         return;
       }
 
-      if (engine.selectedElement && engine.selectedElement.type === 'conduit') {
-        engine.deleteConduit(engine.selectedElement.id);
+      if (engine.selectedElement && (engine.selectedElement.type === 'conduit' || engine.selectedElement.type === 'wire_tag')) {
+        const cId = engine.selectedElement.conduitId || engine.selectedElement.id;
+        engine.deleteConduit(cId);
         engine.render(ctx, canvas.width, canvas.height);
         document.getElementById('inspector-drawer').classList.remove('open');
         showToast('Eletroduto excluído.');
@@ -1707,9 +1710,10 @@
       const drawer = document.getElementById('inspector-drawer');
       const content = document.getElementById('inspector-content');
 
-      // 1. Ponto Elétrico
-      if (engine.selectedNodeId) {
-        const node = engine.nodes.find(n => n.id === engine.selectedNodeId);
+      // 1. Ponto Elétrico ou Rótulo de Chamada
+      if (engine.selectedNodeId || (engine.selectedElement && engine.selectedElement.type === 'node_label')) {
+        const nodeId = engine.selectedNodeId || engine.selectedElement.id;
+        const node = engine.nodes.find(n => n.id === nodeId);
         if (!node) return;
 
         drawer.classList.add('open');
@@ -1908,6 +1912,16 @@
               <option value="220" ${node.voltage === 220 ? 'selected' : ''}>220 V (F+F)</option>
             </select>
           </div>
+          <div class="prop-row">
+            <span class="prop-label">Posição Rótulo:</span>
+            <div style="display:flex; align-items:center; gap:3px;">
+              <button class="btn-micro" id="btn-lbl-center" title="Centralizado no Ponto">Centro</button>
+              <button class="btn-micro" id="btn-lbl-up" title="Deslocar Acima">🠅</button>
+              <button class="btn-micro" id="btn-lbl-down" title="Deslocar Abaixo">🠇</button>
+              <button class="btn-micro" id="btn-lbl-left" title="Deslocar à Esquerda">🠄</button>
+              <button class="btn-micro" id="btn-lbl-right" title="Deslocar à Direita">🠆</button>
+            </div>
+          </div>
           <div style="margin: 8px 0 4px 0; font-size:10.5px; font-weight:700; color:#0284c7;">DIMENSIONAMENTO NBR 5410</div>
           <div class="prop-row"><span class="prop-label">Corrente Ib:</span><span class="prop-val">${sizing.currentIb} A</span></div>
           <div class="prop-row"><span class="prop-label">Bitola do Cabo:</span><span class="prop-val">#${sizing.gaugeMm2} mm²</span></div>
@@ -1950,6 +1964,24 @@
           updateInspector();
           engine.render(ctx, canvas.width, canvas.height);
         });
+
+        // Controles de reposicionamento de rótulo (Chamada de detalhe NBR 6492)
+        const updateOffset = (dx, dy) => {
+          engine.saveSnapshot();
+          if (!node.labelOffset) node.labelOffset = { x: 0, y: 0 };
+          node.labelOffset.x = Math.round((node.labelOffset.x + dx) * 20) / 20;
+          node.labelOffset.y = Math.round((node.labelOffset.y + dy) * 20) / 20;
+          engine.render(ctx, canvas.width, canvas.height);
+        };
+        document.getElementById('btn-lbl-center')?.addEventListener('click', () => {
+          engine.saveSnapshot();
+          node.labelOffset = { x: 0, y: 0 };
+          engine.render(ctx, canvas.width, canvas.height);
+        });
+        document.getElementById('btn-lbl-up')?.addEventListener('click', () => updateOffset(0, -0.25));
+        document.getElementById('btn-lbl-down')?.addEventListener('click', () => updateOffset(0, 0.25));
+        document.getElementById('btn-lbl-left')?.addEventListener('click', () => updateOffset(-0.25, 0));
+        document.getElementById('btn-lbl-right')?.addEventListener('click', () => updateOffset(0.25, 0));
 
         document.getElementById('btn-delete-element')?.addEventListener('click', deleteCurrentSelection);
         return;
@@ -2156,8 +2188,9 @@
 
           document.getElementById('btn-delete-element')?.addEventListener('click', deleteCurrentSelection);
           return;
-        } else if (engine.selectedElement.type === 'conduit') {
-          const c = engine.conduits.find(item => item.id === engine.selectedElement.id);
+        } else if (engine.selectedElement.type === 'conduit' || engine.selectedElement.type === 'wire_tag') {
+          const cId = engine.selectedElement.conduitId || engine.selectedElement.id;
+          const c = engine.conduits.find(item => item.id === cId);
           if (!c) return;
           const wires = engine.wireAllocations.get(c.id) || [];
           let wiresText = wires.length === 0 ? 'Sem condutores' : wires.map(w => {
@@ -2188,6 +2221,17 @@
               <span class="prop-label">Condutores:</span>
               <span class="prop-val" style="font-size:10px; color:#0284c7;">${wiresText}</span>
             </div>
+            <div class="prop-row">
+              <span class="prop-label">Posição Fiação:</span>
+              <input type="range" id="inspector-wire-pos" min="15" max="85" value="${Math.round((c.wireT ?? 0.5) * 100)}" style="width:110px; cursor:pointer;" />
+            </div>
+            <div class="prop-row">
+              <span class="prop-label">Ajuste Fiação:</span>
+              <div style="display:flex; align-items:center; gap:4px;">
+                <button class="btn-micro" id="btn-center-wire" title="Centralizar fiação a 50%">50%</button>
+                <button class="btn-micro" id="btn-flip-wire-side" title="Inverter lado dos símbolos de fiação">Inverter Lado</button>
+              </div>
+            </div>
 
             <button class="btn-eng-action" id="btn-flip-conduit" style="margin-top:10px; width:100%; justify-content:center;">
               <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 12h16M12 4l-4 4 4 4M12 20l4-4-4-4"></path></svg>
@@ -2211,6 +2255,28 @@
             engine.saveSnapshot();
             c.installationType = e.target.value;
             engine.notify();
+          });
+
+          document.getElementById('inspector-wire-pos')?.addEventListener('input', (e) => {
+            c.wireT = parseInt(e.target.value) / 100;
+            engine.render(ctx, canvas.width, canvas.height);
+          });
+
+          document.getElementById('inspector-wire-pos')?.addEventListener('change', () => {
+            engine.saveSnapshot();
+          });
+
+          document.getElementById('btn-center-wire')?.addEventListener('click', () => {
+            engine.saveSnapshot();
+            c.wireT = 0.5;
+            updateInspector();
+            engine.render(ctx, canvas.width, canvas.height);
+          });
+
+          document.getElementById('btn-flip-wire-side')?.addEventListener('click', () => {
+            engine.saveSnapshot();
+            c.wireSide = (c.wireSide || 1) * -1;
+            engine.render(ctx, canvas.width, canvas.height);
           });
 
           document.getElementById('btn-flip-conduit')?.addEventListener('click', () => {

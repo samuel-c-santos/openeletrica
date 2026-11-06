@@ -392,6 +392,53 @@ export class SymbolRenderer {
       ctx.stroke();
     }
 
+    // Rótulo Deslocado de Ponto Elétrico (Chamada de Detalhe conforme NBR 6492)
+    if (node.labelOffset && (Math.abs(node.labelOffset.x) > 0.05 || Math.abs(node.labelOffset.y) > 0.05)) {
+      const zoom = viewport.zoom;
+      const offX = node.labelOffset.x * zoom;
+      const offY = node.labelOffset.y * zoom;
+
+      ctx.save();
+      ctx.strokeStyle = '#94a3b8';
+      ctx.lineWidth = 1.0;
+      ctx.setLineDash([3, 2]);
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(offX, offY);
+      ctx.stroke();
+
+      let tag = `C${node.circuitId || 1}`;
+      if (node.command) tag += ` • ${node.command}`;
+      if (node.powerWatts) tag += ` (${node.powerWatts}W)`;
+
+      ctx.font = 'bold 8.5px Arial, sans-serif';
+      const tw = ctx.measureText(tag).width;
+      const bw = tw + 10;
+      const bh = 17;
+
+      ctx.fillStyle = '#ffffff';
+      ctx.strokeStyle = isSelected ? '#0284c7' : '#94a3b8';
+      ctx.lineWidth = isSelected ? 1.6 : 1.0;
+      ctx.setLineDash([]);
+      ctx.beginPath();
+      ctx.roundRect(offX - bw / 2, offY - bh / 2, bw, bh, 3);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = isSelected ? '#0284c7' : '#0f172a';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(tag, offX, offY);
+
+      if (isSelected) {
+        ctx.fillStyle = '#0284c7';
+        ctx.beginPath();
+        ctx.arc(offX, offY - bh / 2 - 4, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
     ctx.strokeStyle = '#000000';
     ctx.fillStyle = '#000000';
     ctx.lineWidth = 1.6;
@@ -418,7 +465,7 @@ export class SymbolRenderer {
         break;
       }
       case 'light_ceiling': {
-        const cr = r + 1;
+        const cr = r + 2;
         ctx.fillStyle = '#ffffff';
         ctx.beginPath();
         ctx.arc(0, 0, cr, 0, Math.PI * 2);
@@ -435,19 +482,19 @@ export class SymbolRenderer {
         ctx.fillStyle = '#000000';
 
         // Metade superior inteira: Potência em Watts / VA
-        ctx.font = 'bold 8.5px Arial, sans-serif';
+        ctx.font = 'bold 8px Arial, sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         const pwr = node.powerWatts ? `${node.powerWatts}W` : '100W';
         ctx.fillText(pwr, 0, -cr * 0.48);
 
-        // Metade inferior esquerda: Número do circuito
-        ctx.font = 'bold 9px Arial, sans-serif';
-        ctx.fillText(String(node.circuitId || 1), -cr * 0.45, cr * 0.52);
+        // Metade inferior esquerda: Número do circuito (com respiro e sem colisão)
+        ctx.font = 'bold 8px Arial, sans-serif';
+        ctx.fillText(String(node.circuitId || 1), -cr * 0.50, cr * 0.52);
 
-        // Metade inferior direita: Letra do comando / interruptor
-        ctx.font = 'bold 9px Arial, sans-serif';
-        ctx.fillText(node.command || 'a', cr * 0.45, cr * 0.52);
+        // Metade inferior direita: Letra do comando / interruptor (com respiro e sem colisão)
+        ctx.font = 'bold 8px Arial, sans-serif';
+        ctx.fillText(node.command || 'a', cr * 0.50, cr * 0.52);
         break;
       }
       case 'outlet_low':
@@ -606,7 +653,7 @@ export class SymbolRenderer {
 
 // ==================== RENDERIZADOR DE FIAÇÃO ====================
 export class WireRenderer {
-  static renderWiresOnConduit(ctx, sA, sB, ctrlPt, wires, t = 0.5) {
+  static renderWiresOnConduit(ctx, sA, sB, ctrlPt, wires, t = 0.5, side = 1, isSelected = false) {
     if (!wires || wires.length === 0) return;
 
     const mt = 1 - t;
@@ -621,16 +668,26 @@ export class WireRenderer {
     if (len < 5) return;
 
     const u = dir.normalize();
-    const n = u.orthogonal();
+    // Multiplica pela orientação de lado do eletroduto (side: +1 ou -1)
+    const n = u.orthogonal().multiply(side || 1);
 
-    const spacing = 5;
+    const spacing = 6;
     const sc = 0.85;
 
     ctx.save();
-    ctx.strokeStyle = '#000000';
-    ctx.lineWidth = 1.5;
 
-    let offset = -((wires.length - 1) * spacing) / 2;
+    if (isSelected) {
+      ctx.strokeStyle = '#0284c7';
+      ctx.lineWidth = 2.0;
+      ctx.shadowColor = 'rgba(2, 132, 199, 0.35)';
+      ctx.shadowBlur = 6;
+    } else {
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 1.5;
+    }
+
+    const totalWidth = (wires.length - 1) * spacing;
+    let offset = -totalWidth / 2;
 
     for (const w of wires) {
       const p = new Vector2D(base.x + u.x * offset, base.y + u.y * offset);
@@ -663,24 +720,34 @@ export class WireRenderer {
         ctx.lineTo(p.x + n.x * (h * 0.9), p.y + n.y * (h * 0.9));
         ctx.stroke();
         if (w.command) {
-          ctx.fillStyle = '#000000';
-          ctx.font = 'bold 8px Arial, sans-serif';
+          ctx.fillStyle = isSelected ? '#0284c7' : '#000000';
+          ctx.font = 'bold 8.5px Arial, sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText(w.command, p.x + n.x * (h + 5), p.y + n.y * (h + 5));
+          ctx.fillText(w.command, p.x + n.x * (h + 6), p.y + n.y * (h + 6));
         }
       }
       offset += spacing;
     }
 
-    const firstCirc = wires[0]?.circuitId;
-    if (firstCirc) {
-      const labelPos = new Vector2D(base.x + n.x * (13 * sc), base.y + n.y * (13 * sc));
-      ctx.fillStyle = '#000000';
+    // Número do Circuito posicionado no lado OPOSTO da tubulação (-n)
+    // Isso garante que o número do circuito NUNCA sobreponha as letras de comando de retorno (como '1' e 'e')
+    const circIds = [...new Set(wires.map(w => w.circuitId).filter(Boolean))].join(',');
+    if (circIds) {
+      const labelPos = new Vector2D(base.x - n.x * (11 * sc), base.y - n.y * (11 * sc));
+      ctx.fillStyle = isSelected ? '#0284c7' : '#000000';
       ctx.font = 'bold 9px Arial, sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(String(firstCirc), labelPos.x, labelPos.y);
+      ctx.fillText(circIds, labelPos.x, labelPos.y);
+    }
+
+    // Alça visual sutil indicando possibilidade de arrasto quando selecionado
+    if (isSelected) {
+      ctx.strokeStyle = '#0284c7';
+      ctx.lineWidth = 1.0;
+      ctx.setLineDash([3, 3]);
+      ctx.strokeRect(base.x - totalWidth / 2 - 8, base.y - 14, totalWidth + 16, 28);
     }
 
     ctx.restore();
@@ -2591,6 +2658,18 @@ export class CadEngine {
           this.isDragging = false;
           this.notify();
           return;
+        } else if (cand.type === 'wire_tag') {
+          this.selectedElement = { type: 'wire_tag', conduitId: cand.conduitId, conduit: cand.conduit };
+          this.selectedNodeId = null;
+          this.isDragging = true;
+          this.notify();
+          return;
+        } else if (cand.type === 'node_label') {
+          this.selectedElement = { type: 'node_label', id: cand.id, node: cand.node };
+          this.selectedNodeId = cand.id;
+          this.isDragging = true;
+          this.notify();
+          return;
         } else if (cand.type === 'unifilar') {
           this.selectedElement = { type: 'unifilar' };
           this.selectedNodeId = null;
@@ -2896,6 +2975,51 @@ export class CadEngine {
           room.pos.y = curWorld.y;
         }
       }
+      // 7. Deslizar Indicador de Fiação no Eletroduto
+      else if (this.selectedElement && this.selectedElement.type === 'wire_tag') {
+        const c = this.conduits.find(item => item.id === this.selectedElement.conduitId);
+        if (c) {
+          const nodeMap = new Map(this.nodes.map(n => [n.id, n]));
+          const a = nodeMap.get(c.nodeAId);
+          const b = nodeMap.get(c.nodeBId);
+          if (a && b) {
+            const sA = this.viewport.worldToScreen(a.position);
+            const sB = this.viewport.worldToScreen(b.position);
+            const mid = new Vector2D((sA.x + sB.x) / 2, (sA.y + sB.y) / 2);
+            const dir = new Vector2D(sB.x - sA.x, sB.y - sA.y);
+            const normal = dir.orthogonal().normalize();
+            const curvatureAmount = Math.min(26, dir.length() * 0.16) * (c.curveDirection || 1);
+            const ctrlPt = new Vector2D(mid.x + normal.x * curvatureAmount, mid.y + normal.y * curvatureAmount);
+
+            let bestT = 0.5;
+            let minD = Infinity;
+            for (let step = 10; step <= 90; step++) {
+              const tCand = step / 100;
+              const mt = 1 - tCand;
+              const qx = mt * mt * sA.x + 2 * mt * tCand * ctrlPt.x + tCand * tCand * sB.x;
+              const qy = mt * mt * sA.y + 2 * mt * tCand * ctrlPt.y + tCand * tCand * sB.y;
+              const d = Math.hypot(screenPt.x - qx, screenPt.y - qy);
+              if (d < minD) {
+                minD = d;
+                bestT = tCand;
+              }
+            }
+            c.wireT = Math.round(bestT * 100) / 100;
+            this.notify();
+          }
+        }
+      }
+      // 8. Mover Rótulo Deslocado de Nó Elétrico (Chamada de Detalhe)
+      else if (this.selectedElement && this.selectedElement.type === 'node_label') {
+        const node = this.nodes.find(n => n.id === this.selectedElement.id);
+        if (node) {
+          node.labelOffset = {
+            x: Math.round((curWorld.x - node.position.x) * 20) / 20,
+            y: Math.round((curWorld.y - node.position.y) * 20) / 20
+          };
+          this.notify();
+        }
+      }
     }
 
     this.mouseScreenPos = screenPt;
@@ -3010,6 +3134,23 @@ export class CadEngine {
             label: `${typeName} (Circ. ${node.circuitId || 1})`,
             pos: node.position
           });
+        }
+      }
+
+      // 3.1 Rótulo Deslocado de Ponto Elétrico (Chamada de Detalhe)
+      for (const node of this.nodes) {
+        if (node.labelOffset && (Math.abs(node.labelOffset.x) > 0.05 || Math.abs(node.labelOffset.y) > 0.05)) {
+          const lblWorld = new Vector2D(node.position.x + node.labelOffset.x, node.position.y + node.labelOffset.y);
+          const sLbl = this.viewport.worldToScreen(lblWorld);
+          if (sLbl.distanceTo(screenPt) < 22) {
+            candidates.push({
+              type: 'node_label',
+              id: node.id,
+              node: node,
+              label: `Rótulo C${node.circuitId || 1} (Arraste para mover)`,
+              pos: lblWorld
+            });
+          }
         }
       }
     }
@@ -3160,6 +3301,42 @@ export class CadEngine {
             label: `Eletroduto ⌀${c.diameter || 20}mm (${c.installationType === 'floor' ? 'Piso' : 'Teto/Parede'})`,
             pos: midWorld
           });
+        }
+      }
+
+      // 9.1 Indicadores de Fiação nos Eletrodutos (arrastáveis ao longo do tubo)
+      if (this.layers.wiring) {
+        for (const c of this.conduits) {
+          const wires = this.wireAllocations.get(c.id);
+          if (!wires || wires.length === 0) continue;
+          const a = nodeMap.get(c.nodeAId);
+          const b = nodeMap.get(c.nodeBId);
+          if (!a || !b) continue;
+
+          const sA = this.viewport.worldToScreen(a.position);
+          const sB = this.viewport.worldToScreen(b.position);
+          const mid = new Vector2D((sA.x + sB.x) / 2, (sA.y + sB.y) / 2);
+          const dir = new Vector2D(sB.x - sA.x, sB.y - sA.y);
+          const normal = dir.orthogonal().normalize();
+          const curvatureAmount = Math.min(26, dir.length() * 0.16) * (c.curveDirection || 1);
+          const ctrlPt = new Vector2D(mid.x + normal.x * curvatureAmount, mid.y + normal.y * curvatureAmount);
+
+          const wireT = typeof c.wireT === 'number' ? c.wireT : 0.5;
+          const mt = 1 - wireT;
+          const px = mt * mt * sA.x + 2 * mt * wireT * ctrlPt.x + wireT * wireT * sB.x;
+          const py = mt * mt * sA.y + 2 * mt * wireT * ctrlPt.y + wireT * wireT * sB.y;
+          const sTag = new Vector2D(px, py);
+
+          if (sTag.distanceTo(screenPt) < 22) {
+            const circList = [...new Set(wires.map(w => w.circuitId).filter(Boolean))].join(', ');
+            candidates.push({
+              type: 'wire_tag',
+              conduitId: c.id,
+              conduit: c,
+              label: `Fiação Circ. ${circList} (Arraste para deslizar no tubo)`,
+              pos: this.viewport.screenToWorld(sTag)
+            });
+          }
         }
       }
     }
@@ -4456,7 +4633,13 @@ export class CadEngine {
         if (this.layers.wiring) {
           const wires = this.wireAllocations.get(c.id);
           if (wires && wires.length > 0) {
-            WireRenderer.renderWiresOnConduit(ctx, sA, sB, ctrlPt, wires, 0.5);
+            const wireT = typeof c.wireT === 'number' ? c.wireT : 0.5;
+            const wireSide = typeof c.wireSide === 'number' ? c.wireSide : 1;
+            const isWireSelected = this.selectedElement && (
+              (this.selectedElement.type === 'wire_tag' && this.selectedElement.conduitId === c.id) ||
+              (this.selectedElement.type === 'conduit' && this.selectedElement.id === c.id)
+            );
+            WireRenderer.renderWiresOnConduit(ctx, sA, sB, ctrlPt, wires, wireT, wireSide, isWireSelected);
           }
         }
       }
