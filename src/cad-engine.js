@@ -427,7 +427,7 @@ export class SymbolRenderer {
     };
   }
 
-  static renderNode(ctx, node, viewport, isSelected, isLabelSelected = false) {
+  static renderNode(ctx, node, viewport, isSelected, isLabelSelected = false, isConflict = false) {
     const s = viewport.worldToScreen(node.position);
     ctx.save();
     ctx.translate(s.x, s.y);
@@ -451,6 +451,19 @@ export class SymbolRenderer {
       ctx.arc(0, cySelect, r + 7, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
+    }
+
+    // Indicador visual de inconformidade de comando NBR 5410 (múltiplos interruptores simples no mesmo comando)
+    if (isConflict) {
+      const cyConflict = (node.type.startsWith('switch') || node.type.startsWith('combo')) ? (side * (hTh + stemLen + (r * 0.65))) : 0;
+      ctx.save();
+      ctx.strokeStyle = '#d97706';
+      ctx.lineWidth = 2.0;
+      ctx.setLineDash([3, 2]);
+      ctx.beginPath();
+      ctx.arc(0, cyConflict, r + 5, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
     }
 
     ctx.strokeStyle = '#000000';
@@ -953,6 +966,7 @@ export class CadEngine {
     this.doorOrientationIndex = 0; // 0..3 (4 posições: esq/dentro, dir/dentro, dir/fora, esq/fora)
     this.sldPosition = { x: 11.2, y: 2.2 }; // Posição móvel do Diagrama Unifilar
     this.wiringWarnings = []; // Alertas normativos NBR 5410
+    this.commandConflictNodes = new Set(); // IDs de pontos de luz e interruptores com inconformidade de comando NBR 5410
 
     // Modo da aplicação: 'model' (CAD 2D) ou 'layout' (Compositor de Prancha QGIS/ABNT)
     this.mode = 'model';
@@ -2152,6 +2166,43 @@ export class CadEngine {
       const hasConduit = this.conduits.some(c => c.nodeAId === node.id || c.nodeBId === node.id);
       if (!hasConduit) {
         this.wiringWarnings.push(`Ponto elétrico isolado (${node.type} C${node.circuitId || 1}): conecte um eletroduto até a luminária ou QDC para permitir a passagem da fiação.`);
+      }
+    }
+
+    // Validação Normativa NBR 5410: Dois ou mais interruptores simples no mesmo comando de luz
+    this.commandConflictNodes = new Set();
+    const lightMap = new Map();
+    for (const n of this.nodes) {
+      if (n.type.startsWith('light') && n.command) {
+        if (!lightMap.has(n.command)) lightMap.set(n.command, []);
+        lightMap.get(n.command).push(n);
+      }
+    }
+
+    const switchMap = new Map();
+    for (const n of this.nodes) {
+      if (n.type.startsWith('switch') && n.command) {
+        if (!switchMap.has(n.command)) switchMap.set(n.command, []);
+        switchMap.get(n.command).push({ id: n.id, type: n.type, node: n });
+      } else if (Array.isArray(n.modules)) {
+        for (const mod of n.modules) {
+          if (mod.type?.startsWith('switch') && mod.command) {
+            if (!switchMap.has(mod.command)) switchMap.set(mod.command, []);
+            switchMap.get(mod.command).push({ id: n.id, type: mod.type, node: n, isModule: true });
+          }
+        }
+      }
+    }
+
+    for (const [cmd, swList] of switchMap.entries()) {
+      if (swList.length > 1) {
+        const hasSimple = swList.some(s => s.type === 'switch_simple' || s.type === 'switch');
+        if (hasSimple) {
+          const lights = lightMap.get(cmd) || [];
+          for (const l of lights) this.commandConflictNodes.add(l.id);
+          for (const s of swList) this.commandConflictNodes.add(s.id);
+          this.wiringWarnings.push(`Inconformidade NBR 5410 (Comando '${cmd}'): Há ${swList.length} interruptores para a mesma iluminação, mas pelo menos um é simples. O acionamento em múltiplos pontos exige interruptores paralelos (Three-Way / Four-Way).`);
+        }
       }
     }
   }
@@ -5141,7 +5192,8 @@ export class CadEngine {
       for (const node of this.nodes) {
         const isNodeSelected = node.id === this.selectedNodeId;
         const isLabelSelected = !!(this.selectedElement && this.selectedElement.type === 'node_label' && this.selectedElement.id === node.id);
-        SymbolRenderer.renderNode(ctx, node, this.viewport, isNodeSelected, isLabelSelected);
+        const isConflict = !!(this.commandConflictNodes && this.commandConflictNodes.has(node.id));
+        SymbolRenderer.renderNode(ctx, node, this.viewport, isNodeSelected, isLabelSelected, isConflict);
       }
       // 5.1 Prumadas Verticais de Eletroduto (NBR 5410 / NBR 6492)
       this.renderRisers(ctx);

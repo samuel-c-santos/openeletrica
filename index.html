@@ -2022,6 +2022,18 @@
               <button class="btn-micro" id="btn-flip-node-side" style="padding:2px 8px;">Inverter Lado da Parede</button>
             </div>
           ` : ''}
+          ${(engine.commandConflictNodes && engine.commandConflictNodes.has(node.id)) ? `
+            <div style="background:#fffbeb; border:1px solid #fde68a; border-radius:6px; padding:8px 10px; margin:10px 0; color:#92400e; font-size:11px;">
+              <div style="font-weight:700; display:flex; align-items:center; gap:5px; margin-bottom:3px; color:#b45309;">
+                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                Inconformidade NBR 5410
+              </div>
+              <div style="line-height:1.35;">O comando '${node.command || 'a'}' possui múltiplos interruptores simples. Para chaveamento em 2 ou mais locais, a norma exige interruptores paralelos (Three-Way).</div>
+              <button class="btn-eng-action" id="btn-fix-to-three-way" style="margin-top:7px; width:100%; justify-content:center; background:#fef3c7; border-color:#f59e0b; color:#b45309; font-weight:600; font-size:11px;">
+                Converter para Paralelo (Three-Way)
+              </button>
+            </div>
+          ` : ''}
           <div style="margin: 8px 0 4px 0; font-size:10.5px; font-weight:700; color:#0284c7;">DIMENSIONAMENTO NBR 5410</div>
           <div class="prop-row"><span class="prop-label">Corrente Ib:</span><span class="prop-val">${sizing.currentIb} A</span></div>
           <div class="prop-row"><span class="prop-label">Bitola do Cabo:</span><span class="prop-val">#${sizing.gaugeMm2} mm²</span></div>
@@ -2046,7 +2058,29 @@
         document.getElementById('inspector-node-cmd')?.addEventListener('input', (e) => {
           node.command = e.target.value.toLowerCase();
           engine.saveSnapshot();
+          engine.recalculateWiring();
+          updateInspector();
           engine.render(ctx, canvas.width, canvas.height);
+        });
+
+        document.getElementById('btn-fix-to-three-way')?.addEventListener('click', () => {
+          engine.saveSnapshot();
+          const targetCmd = node.command || 'a';
+          for (const n of engine.nodes) {
+            if ((n.type === 'switch_simple' || n.type === 'switch') && n.command === targetCmd) {
+              n.type = 'switch_three_way';
+            } else if (Array.isArray(n.modules)) {
+              for (const m of n.modules) {
+                if ((m.type === 'switch_simple' || m.type === 'switch') && m.command === targetCmd) {
+                  m.type = 'switch_three_way';
+                }
+              }
+            }
+          }
+          engine.recalculateWiring();
+          updateInspector();
+          engine.render(ctx, canvas.width, canvas.height);
+          showToast(`Interruptores do comando '${targetCmd}' convertidos para Paralelo (Three-Way)!`);
         });
 
         document.getElementById('inspector-node-pwr')?.addEventListener('change', (e) => {
@@ -2526,8 +2560,6 @@
           });
 
           document.getElementById('btn-delete-element')?.addEventListener('click', deleteCurrentSelection);
-          return;
-        }
           return;
         }
       }
