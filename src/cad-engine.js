@@ -615,13 +615,40 @@ export class CadEngine {
       orientation: 'landscape',
       title: 'PROJETO DE INSTALAÇÕES ELÉTRICAS RESIDENCIAIS',
       owner: 'PROPRIETÁRIO EXEMPLO',
-      address: 'RUA DAS PALMEIRAS, Nº 100 — BAIRRO CENTRO',
+      address: 'RUA DAS PALMEIRAS, Nº 100, BAIRRO CENTRO',
       engineer: 'ENG. ELETRICISTA RESPONSÁVEL',
-      crea: 'CREA/CAU: 000000000-0',
+      crea: 'CREA-SP 5061234567/D',
       date: '05/11/2026',
       sheetNumber: '01/01',
       viewportItem: { x: 25, y: 20, w: 560, h: 420 },
       isMovingContent: false
+    };
+
+    this.circuits = [
+      { id: 1, desc: 'Iluminação Sala / Terraço', panel: 'QD1', v: 127, w: 200, type: 'light', phase: 'A', breaker: 10, dr: 'Geral 30mA' },
+      { id: 2, desc: 'TUGs Sala Comercial', panel: 'QD1', v: 127, w: 1200, type: 'outlet', phase: 'B', breaker: 20, dr: 'Geral 30mA' },
+      { id: 3, desc: 'TUE - Chuveiro Elétrico', panel: 'QD1', v: 220, w: 5500, type: 'outlet', phase: 'AB', breaker: 25, dr: 'DDR 30mA' },
+      { id: 4, desc: 'TUGs Cozinha / Área', panel: 'QD1', v: 127, w: 1800, type: 'outlet', phase: 'C', breaker: 20, dr: 'Geral 30mA' },
+      { id: 5, desc: 'Iluminação Circulação', panel: 'QD1', v: 127, w: 100, type: 'light', phase: 'B', breaker: 10, dr: 'Geral 30mA' }
+    ];
+
+    this.panels = [
+      { id: 'QD1', name: 'QD1 - Quadro Geral de Distribuição', location: 'Circulação', mainBreaker: 40, phases: 'Trifásico (3F+N+T)' }
+    ];
+
+    this.viewport.panX = 70;
+    this.viewport.panY = 40;
+    this.viewport.zoom = 52;
+
+    this.projectMeta = {
+      title: 'PROJETO ELÉTRICO RESIDENCIAL - UNIFAMILIAR',
+      owner: 'PROPRIETÁRIO EXEMPLO',
+      address: 'RUA DAS PALMEIRAS, Nº 100, BAIRRO CENTRO',
+      engineer: 'ENG. ELETRICISTA RESPONSÁVEL',
+      crea: 'CREA-SP 5061234567/D',
+      utilityCompany: 'Equatorial Energia',
+      date: '05/11/2026',
+      revision: '00'
     };
 
     // Snap e Guia Polar
@@ -724,6 +751,226 @@ export class CadEngine {
 
   notify() {
     for (const fn of this.listeners) fn();
+  }
+
+  // Serializa o estado completo do projeto conforme a Seção 2.2 das diretrizes
+  serializeProject() {
+    return {
+      version: '1.0.0',
+      generator: 'OpenElétrica CAD',
+      timestamp: new Date().toISOString(),
+      meta: {
+        title: this.projectMeta?.title || 'PROJETO ELÉTRICO RESIDENCIAL - UNIFAMILIAR',
+        owner: this.projectMeta?.owner || 'PROPRIETÁRIO EXEMPLO',
+        address: this.projectMeta?.address || 'RUA DAS PALMEIRAS, Nº 100, BAIRRO CENTRO',
+        engineer: this.projectMeta?.engineer || 'ENG. ELETRICISTA RESPONSÁVEL',
+        crea: this.projectMeta?.crea || 'CREA-SP 5061234567/D',
+        utilityCompany: this.projectMeta?.utilityCompany || 'Equatorial Energia',
+        date: this.projectMeta?.date || '05/11/2026',
+        revision: this.projectMeta?.revision || '00'
+      },
+      architecture: {
+        scale: 50,
+        walls: JSON.parse(JSON.stringify(this.walls)),
+        doors: JSON.parse(JSON.stringify(this.doors)),
+        windows: JSON.parse(JSON.stringify(this.windows || [])),
+        rooms: JSON.parse(JSON.stringify(this.rooms)),
+        roomDividers: JSON.parse(JSON.stringify(this.roomDividers || [])),
+        dimensions: JSON.parse(JSON.stringify(this.dimensions || []))
+      },
+      electricNodes: JSON.parse(JSON.stringify(this.nodes)),
+      conduits: JSON.parse(JSON.stringify(this.conduits)),
+      circuits: JSON.parse(JSON.stringify(this.circuits || [])),
+      panels: JSON.parse(JSON.stringify(this.panels || [])),
+      sldPosition: { ...this.sldPosition },
+      sheet: JSON.parse(JSON.stringify(this.layoutConfig || {})),
+      viewport: {
+        panX: this.viewport.panX,
+        panY: this.viewport.panY,
+        zoom: this.viewport.zoom
+      }
+    };
+  }
+
+  // Carrega e valida um projeto completo (.openelt ou .json)
+  loadProject(data) {
+    if (!data || typeof data !== 'object') {
+      throw new Error('Arquivo de projeto inválido: objeto JSON esperado.');
+    }
+
+    const arch = data.architecture || {};
+    this.walls = Array.isArray(arch.walls) ? JSON.parse(JSON.stringify(arch.walls)) : (Array.isArray(data.walls) ? JSON.parse(JSON.stringify(data.walls)) : []);
+    this.doors = Array.isArray(arch.doors) ? JSON.parse(JSON.stringify(arch.doors)) : (Array.isArray(data.doors) ? JSON.parse(JSON.stringify(data.doors)) : []);
+    this.windows = Array.isArray(arch.windows) ? JSON.parse(JSON.stringify(arch.windows)) : (Array.isArray(data.windows) ? JSON.parse(JSON.stringify(data.windows)) : []);
+    this.rooms = Array.isArray(arch.rooms) ? JSON.parse(JSON.stringify(arch.rooms)) : (Array.isArray(data.rooms) ? JSON.parse(JSON.stringify(data.rooms)) : []);
+    this.roomDividers = Array.isArray(arch.roomDividers) ? JSON.parse(JSON.stringify(arch.roomDividers)) : (Array.isArray(data.roomDividers) ? JSON.parse(JSON.stringify(data.roomDividers)) : []);
+    this.dimensions = Array.isArray(arch.dimensions) ? JSON.parse(JSON.stringify(arch.dimensions)) : (Array.isArray(data.dimensions) ? JSON.parse(JSON.stringify(data.dimensions)) : []);
+
+    this.nodes = Array.isArray(data.electricNodes) ? JSON.parse(JSON.stringify(data.electricNodes)) : (Array.isArray(data.nodes) ? JSON.parse(JSON.stringify(data.nodes)) : []);
+    this.conduits = Array.isArray(data.conduits) ? JSON.parse(JSON.stringify(data.conduits)) : [];
+    this.circuits = Array.isArray(data.circuits) ? JSON.parse(JSON.stringify(data.circuits)) : [];
+    this.panels = Array.isArray(data.panels) ? JSON.parse(JSON.stringify(data.panels)) : [];
+
+    if (data.sldPosition && typeof data.sldPosition.x === 'number') {
+      this.sldPosition = { ...data.sldPosition };
+    }
+
+    if (data.meta && typeof data.meta === 'object') {
+      this.projectMeta = { ...this.projectMeta, ...data.meta };
+    }
+
+    if (data.sheet && typeof data.sheet === 'object') {
+      this.layoutConfig = { ...this.layoutConfig, ...data.sheet };
+    }
+
+    if (data.viewport && typeof data.viewport.zoom === 'number') {
+      this.viewport.panX = data.viewport.panX ?? this.viewport.panX;
+      this.viewport.panY = data.viewport.panY ?? this.viewport.panY;
+      this.viewport.zoom = data.viewport.zoom ?? this.viewport.zoom;
+    }
+
+    this.selectedElement = null;
+    this.selectedElements = [];
+    this.selectedNodeId = null;
+    this.undoStack = [];
+    this.redoStack = [];
+    this.saveSnapshot();
+    this.recalculateWiring();
+    this.notify();
+    return true;
+  }
+
+  // Inicia um projeto em branco
+  clearProject() {
+    this.walls = [];
+    this.doors = [];
+    this.windows = [];
+    this.rooms = [];
+    this.roomDividers = [];
+    this.dimensions = [];
+    this.nodes = [];
+    this.conduits = [];
+    this.circuits = [];
+    this.panels = [];
+    this.projectMeta = {
+      title: 'NOVO PROJETO ELÉTRICO',
+      owner: '',
+      address: '',
+      engineer: '',
+      crea: '',
+      utilityCompany: 'Equatorial Energia',
+      date: new Date().toLocaleDateString('pt-BR'),
+      revision: '00'
+    };
+    this.selectedElement = null;
+    this.selectedElements = [];
+    this.selectedNodeId = null;
+    this.undoStack = [];
+    this.redoStack = [];
+    this.saveSnapshot();
+    this.recalculateWiring();
+    this.notify();
+  }
+
+  // Carrega o cenário residencial demonstrativo canônico
+  loadSampleProject() {
+    this.walls = [
+      { id: 'w1', a: { x: 1.0, y: 1.0 }, b: { x: 10.0, y: 1.0 }, thickness: 0.15 },
+      { id: 'w2', a: { x: 10.0, y: 1.0 }, b: { x: 10.0, y: 11.0 }, thickness: 0.15 },
+      { id: 'w3', a: { x: 10.0, y: 11.0 }, b: { x: 1.0, y: 11.0 }, thickness: 0.15 },
+      { id: 'w4', a: { x: 1.0, y: 11.0 }, b: { x: 1.0, y: 1.0 }, thickness: 0.15 },
+      { id: 'w5', a: { x: 1.0, y: 4.5 }, b: { x: 6.5, y: 4.5 }, thickness: 0.15 },
+      { id: 'w6', a: { x: 6.5, y: 1.0 }, b: { x: 6.5, y: 6.5 }, thickness: 0.15 },
+      { id: 'w7', a: { x: 6.5, y: 6.5 }, b: { x: 10.0, y: 6.5 }, thickness: 0.15 }
+    ];
+
+    this.rooms = [
+      { id: 'r1', name: 'TERRAÇO', pos: { x: 3.5, y: 2.8 }, areaM2: 18.2 },
+      { id: 'r2', name: 'SALA COMERCIAL', pos: { x: 3.5, y: 7.8 }, areaM2: 32.5 },
+      { id: 'r3', name: 'CIRCULAÇÃO / COZINHA', pos: { x: 8.2, y: 3.8 }, areaM2: 16.0 }
+    ];
+
+    this.doors = [
+      { id: 'd1', pos: { x: 5.2, y: 4.5 }, radius: 0.8, startAngle: 0, endAngle: Math.PI / 2, rotation: 0, orientationIndex: 0 },
+      { id: 'd2', pos: { x: 8.0, y: 6.5 }, radius: 0.8, startAngle: 0, endAngle: Math.PI / 2, rotation: 0, orientationIndex: 0 }
+    ];
+
+    this.windows = [
+      { id: 'win1', pos: { x: 3.5, y: 1.0 }, width: 1.5, rotation: 0 },
+      { id: 'win2', pos: { x: 10.0, y: 8.5 }, width: 1.2, rotation: Math.PI / 2 }
+    ];
+
+    this.dimensions = [
+      { id: 'dim1', a: { x: 1.0, y: 1.0 }, b: { x: 10.0, y: 1.0 }, dist: 9.0, offset: 0.8 },
+      { id: 'dim2', a: { x: 1.0, y: 1.0 }, b: { x: 1.0, y: 11.0 }, dist: 10.0, offset: -0.8 },
+      { id: 'dim3', a: { x: 1.0, y: 3.2 }, b: { x: 6.5, y: 3.2 }, dist: 5.5, offset: -0.5 }
+    ];
+
+    this.nodes = [];
+    const qd = this.addNode('distribution_board', { x: 1.15, y: 10.2 });
+    const lamp1 = this.addNode('light_ceiling', { x: 3.5, y: 2.8 }, 1, 'a');
+    const lamp2 = this.addNode('light_ceiling', { x: 3.5, y: 7.8 }, 1, 'b');
+    const lamp3 = this.addNode('light_ceiling', { x: 8.2, y: 3.8 }, 5, 'c');
+
+    const sw1 = this.addNode('switch_simple', { x: 1.15, y: 3.5 }, 1, 'a');
+    const sw2 = this.addNode('switch_simple', { x: 1.15, y: 6.5 }, 1, 'b');
+    const sw3 = this.addNode('switch_simple', { x: 6.65, y: 3.5 }, 5, 'c');
+
+    const t1 = this.addNode('outlet_medium', { x: 1.15, y: 2.0 }, 2);
+    const t2 = this.addNode('outlet_medium', { x: 5.8, y: 1.15 }, 2);
+    const t3 = this.addNode('outlet_medium', { x: 3.5, y: 10.85 }, 4);
+    const t4 = this.addNode('outlet_high', { x: 9.85, y: 2.5 }, 3);
+    t4.powerWatts = 5500;
+
+    this.conduits = [];
+    this.addConduit(qd.id, lamp2.id, 'ceiling', -1);
+    this.addConduit(lamp2.id, lamp1.id, 'ceiling', 1);
+    this.addConduit(lamp1.id, lamp3.id, 'ceiling', -1);
+
+    this.addConduit(lamp1.id, sw1.id, 'wall', 1);
+    this.addConduit(lamp2.id, sw2.id, 'wall', 1);
+    this.addConduit(lamp3.id, sw3.id, 'wall', -1);
+
+    this.addConduit(lamp1.id, t1.id, 'ceiling', -1);
+    this.addConduit(lamp1.id, t2.id, 'ceiling', 1);
+    this.addConduit(lamp2.id, t3.id, 'ceiling', 1);
+    this.addConduit(lamp3.id, t4.id, 'ceiling', 1);
+
+    this.circuits = [
+      { id: 1, desc: 'Iluminação Sala / Terraço', panel: 'QD1', v: 127, w: 200, type: 'light', phase: 'A', breaker: 10, dr: 'Geral 30mA' },
+      { id: 2, desc: 'TUGs Sala Comercial', panel: 'QD1', v: 127, w: 1200, type: 'outlet', phase: 'B', breaker: 20, dr: 'Geral 30mA' },
+      { id: 3, desc: 'TUE - Chuveiro Elétrico', panel: 'QD1', v: 220, w: 5500, type: 'outlet', phase: 'AB', breaker: 25, dr: 'DDR 30mA' },
+      { id: 4, desc: 'TUGs Cozinha / Área', panel: 'QD1', v: 127, w: 1800, type: 'outlet', phase: 'C', breaker: 20, dr: 'Geral 30mA' },
+      { id: 5, desc: 'Iluminação Circulação', panel: 'QD1', v: 127, w: 100, type: 'light', phase: 'B', breaker: 10, dr: 'Geral 30mA' }
+    ];
+
+    this.panels = [
+      { id: 'QD1', name: 'QD1 - Quadro Geral de Distribuição', location: 'Circulação', mainBreaker: 40, phases: 'Trifásico (3F+N+T)' }
+    ];
+
+    this.viewport.panX = 70;
+    this.viewport.panY = 40;
+    this.viewport.zoom = 52;
+
+    this.projectMeta = {
+      title: 'PROJETO ELÉTRICO RESIDENCIAL - UNIFAMILIAR',
+      owner: 'PROPRIETÁRIO EXEMPLO',
+      address: 'RUA DAS PALMEIRAS, Nº 100, BAIRRO CENTRO',
+      engineer: 'ENG. ELETRICISTA RESPONSÁVEL',
+      crea: 'CREA-SP 5061234567/D',
+      utilityCompany: 'Equatorial Energia',
+      date: '05/11/2026',
+      revision: '00'
+    };
+
+    this.selectedElement = null;
+    this.selectedElements = [];
+    this.selectedNodeId = null;
+    this.undoStack = [];
+    this.redoStack = [];
+    this.saveSnapshot();
+    this.recalculateWiring();
+    this.notify();
   }
 
   // Agrupa vértices de paredes coincidentes para movimentação articulada mantendo quinas fechadas

@@ -222,10 +222,29 @@
     </div>
 
     <div class="header-actions">
-      <!-- Salvar -->
-      <button class="icon-btn" title="Salvar Projeto JSON" id="btn-save">
+      <!-- Novo Projeto em Branco -->
+      <button class="icon-btn" title="Novo Projeto em Branco" id="btn-new-project">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>
+      </button>
+
+      <!-- Abrir Arquivo de Projeto (.openelt / .json) -->
+      <button class="icon-btn" title="Abrir Arquivo de Projeto (.openelt / .json)" id="btn-open-project">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2z"></path></svg>
+      </button>
+      <input type="file" id="file-open-project" accept=".openelt,.json" style="display:none;" />
+
+      <!-- Salvar / Exportar Projeto (.openelt) -->
+      <button class="icon-btn" title="Salvar / Exportar Projeto (.openelt)" id="btn-save">
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
       </button>
+
+      <!-- Recarregar Exemplo Residencial -->
+      <button class="icon-btn" title="Recarregar Projeto de Exemplo Residencial" id="btn-load-sample">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M8 16H3v5"></path></svg>
+      </button>
+
+      <div class="divider-v"></div>
+
       <!-- Configurar Prancha ABNT (A4 a A0) -->
       <button class="icon-btn" title="Configurar Parâmetros da Prancha (A4 a A0)" id="btn-layout">
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect width="18" height="14" x="3" y="5" rx="2"></rect><line x1="3" y1="15" x2="21" y2="15"></line><line x1="15" y1="15" x2="15" y2="19"></line></svg>
@@ -961,6 +980,37 @@
       toastTimeout = setTimeout(() => { toastEl.style.display = 'none'; }, 4000);
     }
 
+    let projectCircuits = [];
+
+    function syncProjectMetaUI() {
+      const meta = engine.projectMeta || {};
+      const title = meta.title || 'PROJETO ELÉTRICO RESIDENCIAL - UNIFAMILIAR';
+      const projectTitleEl = document.getElementById('project-title');
+      if (projectTitleEl) projectTitleEl.value = title;
+
+      const stampTitleEl = document.getElementById('stamp-title');
+      if (stampTitleEl) stampTitleEl.value = title;
+      const stampOwnerEl = document.getElementById('stamp-owner');
+      if (stampOwnerEl) stampOwnerEl.value = meta.owner || '';
+      const stampAddrEl = document.getElementById('stamp-address');
+      if (stampAddrEl) stampAddrEl.value = meta.address || '';
+      const stampEngEl = document.getElementById('stamp-engineer');
+      if (stampEngEl) stampEngEl.value = meta.engineer || '';
+      const stampCreaEl = document.getElementById('stamp-crea');
+      if (stampCreaEl) stampCreaEl.value = meta.crea || '';
+
+      const sheetTitleEl = document.getElementById('sheet-stamp-title');
+      if (sheetTitleEl) sheetTitleEl.textContent = title;
+      const sheetOwnerEl = document.getElementById('sheet-stamp-owner');
+      if (sheetOwnerEl) sheetOwnerEl.textContent = meta.owner || '';
+      const sheetAddrEl = document.getElementById('sheet-stamp-address');
+      if (sheetAddrEl) sheetAddrEl.textContent = meta.address || '';
+      const sheetEngEl = document.getElementById('sheet-stamp-engineer');
+      if (sheetEngEl) sheetEngEl.textContent = meta.engineer || '';
+      const sheetCreaEl = document.getElementById('sheet-stamp-crea');
+      if (sheetCreaEl) sheetCreaEl.textContent = meta.crea || '';
+    }
+
     function resize() {
       if (canvas.parentElement && canvas.parentElement.clientWidth) {
         canvas.width = canvas.parentElement.clientWidth;
@@ -970,78 +1020,163 @@
     }
     window.addEventListener('resize', resize);
 
-    // ==================== CENÁRIO DEMONSTRATIVO ====================
-    engine.walls = [
-      // Perímetro Externo
-      { id: 'w1', a: { x: 1.0, y: 1.0 }, b: { x: 10.0, y: 1.0 }, thickness: 0.15 },
-      { id: 'w2', a: { x: 10.0, y: 1.0 }, b: { x: 10.0, y: 11.0 }, thickness: 0.15 },
-      { id: 'w3', a: { x: 10.0, y: 11.0 }, b: { x: 1.0, y: 11.0 }, thickness: 0.15 },
-      { id: 'w4', a: { x: 1.0, y: 11.0 }, b: { x: 1.0, y: 1.0 }, thickness: 0.15 },
-      // Divisórias Internas
-      { id: 'w5', a: { x: 1.0, y: 4.5 }, b: { x: 6.5, y: 4.5 }, thickness: 0.15 },
-      { id: 'w6', a: { x: 6.5, y: 1.0 }, b: { x: 6.5, y: 6.5 }, thickness: 0.15 },
-      { id: 'w7', a: { x: 6.5, y: 6.5 }, b: { x: 10.0, y: 6.5 }, thickness: 0.15 }
-    ];
+    // ==================== MECANISMO DE PERSISTÊNCIA OFFLINE-FIRST ====================
+    const AUTOSAVE_STORAGE_KEY = 'openeletrica_project_autosave';
+    let autoSaveTimer = null;
 
-    engine.rooms = [
-      { id: 'r1', name: 'TERRAÇO', pos: { x: 3.5, y: 2.8 }, areaM2: 18.2 },
-      { id: 'r2', name: 'SALA COMERCIAL', pos: { x: 3.5, y: 7.8 }, areaM2: 32.5 },
-      { id: 'r3', name: 'CIRCULAÇÃO / COZINHA', pos: { x: 8.2, y: 3.8 }, areaM2: 16.0 }
-    ];
+    function scheduleAutoSave() {
+      if (autoSaveTimer) clearTimeout(autoSaveTimer);
+      autoSaveTimer = setTimeout(() => {
+        try {
+          if (Array.isArray(projectCircuits) && projectCircuits.length > 0) {
+            engine.circuits = projectCircuits;
+          }
+          const serialized = engine.serializeProject();
+          localStorage.setItem(AUTOSAVE_STORAGE_KEY, JSON.stringify(serialized));
+        } catch (err) {
+          console.warn('Erro ao salvar no armazenamento local:', err);
+        }
+      }, 1000);
+    }
 
-    engine.doors = [
-      { id: 'd1', pos: { x: 5.2, y: 4.5 }, radius: 0.8, startAngle: 0, endAngle: Math.PI / 2, rotation: 0, orientationIndex: 0 },
-      { id: 'd2', pos: { x: 8.0, y: 6.5 }, radius: 0.8, startAngle: 0, endAngle: Math.PI / 2, rotation: 0, orientationIndex: 0 }
-    ];
+    // Inicialização do projeto: restaura do localStorage ou carrega o demonstrativo canônico
+    let projectRestored = false;
+    try {
+      const rawStored = localStorage.getItem(AUTOSAVE_STORAGE_KEY);
+      if (rawStored) {
+        const parsed = JSON.parse(rawStored);
+        if (parsed && (parsed.architecture || parsed.walls || parsed.electricNodes || parsed.nodes)) {
+          engine.loadProject(parsed);
+          if (Array.isArray(engine.circuits) && engine.circuits.length > 0) {
+            projectCircuits = engine.circuits;
+          }
+          projectRestored = true;
+        }
+      }
+    } catch (e) {
+      console.warn('Falha ao restaurar projeto do armazenamento local:', e);
+    }
 
-    engine.windows = [
-      { id: 'win1', pos: { x: 3.5, y: 1.0 }, width: 1.5, rotation: 0 },
-      { id: 'win2', pos: { x: 10.0, y: 8.5 }, width: 1.2, rotation: Math.PI / 2 }
-    ];
+    if (!projectRestored) {
+      engine.loadSampleProject();
+      if (Array.isArray(engine.circuits) && engine.circuits.length > 0) {
+        projectCircuits = engine.circuits;
+      }
+    }
+    syncProjectMetaUI();
 
-    // Cotas Técnicas Iniciais (NBR 6492)
-    engine.dimensions = [
-      { id: 'dim1', a: { x: 1.0, y: 1.0 }, b: { x: 10.0, y: 1.0 }, dist: 9.0, offset: 0.8 },
-      { id: 'dim2', a: { x: 1.0, y: 1.0 }, b: { x: 1.0, y: 11.0 }, dist: 10.0, offset: -0.8 },
-      { id: 'dim3', a: { x: 1.0, y: 3.2 }, b: { x: 6.5, y: 3.2 }, dist: 5.5, offset: -0.5 }
-    ];
+    // Sincronização do título do projeto no cabeçalho
+    const headerTitleInput = document.getElementById('project-title');
+    if (headerTitleInput) {
+      headerTitleInput.addEventListener('input', (e) => {
+        if (!engine.projectMeta) engine.projectMeta = {};
+        engine.projectMeta.title = e.target.value;
+        const stampTitleEl = document.getElementById('stamp-title');
+        if (stampTitleEl) stampTitleEl.value = e.target.value;
+        const sheetTitleEl = document.getElementById('sheet-stamp-title');
+        if (sheetTitleEl) sheetTitleEl.textContent = e.target.value;
+        scheduleAutoSave();
+      });
+    }
 
-    // Pontos Elétricos Lançados
-    const qd = engine.addNode('distribution_board', { x: 1.15, y: 10.2 });
-    const lamp1 = engine.addNode('light_ceiling', { x: 3.5, y: 2.8 }, 1, 'a');
-    const lamp2 = engine.addNode('light_ceiling', { x: 3.5, y: 7.8 }, 1, 'b');
-    const lamp3 = engine.addNode('light_ceiling', { x: 8.2, y: 3.8 }, 5, 'c');
+    // Botão: Salvar / Exportar Projeto (.openelt)
+    const btnSave = document.getElementById('btn-save');
+    if (btnSave) {
+      btnSave.addEventListener('click', () => {
+        try {
+          if (Array.isArray(projectCircuits) && projectCircuits.length > 0) {
+            engine.circuits = projectCircuits;
+          }
+          const projectData = engine.serializeProject();
+          const jsonStr = JSON.stringify(projectData, null, 2);
+          const blob = new Blob([jsonStr], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          const safeName = (projectData.meta?.title || 'projeto-eletrico')
+            .toLowerCase()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '') || 'projeto-eletrico';
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `${safeName}.openelt`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+          showToast('Projeto exportado com sucesso (.openelt)');
+        } catch (err) {
+          alert('Erro ao exportar arquivo do projeto: ' + err.message);
+        }
+      });
+    }
 
-    const sw1 = engine.addNode('switch_simple', { x: 1.15, y: 3.5 }, 1, 'a');
-    const sw2 = engine.addNode('switch_simple', { x: 1.15, y: 6.5 }, 1, 'b');
-    const sw3 = engine.addNode('switch_simple', { x: 6.65, y: 3.5 }, 5, 'c');
+    // Botão: Abrir Arquivo de Projeto (.openelt / .json)
+    const btnOpenProject = document.getElementById('btn-open-project');
+    const fileOpenInput = document.getElementById('file-open-project');
+    if (btnOpenProject && fileOpenInput) {
+      btnOpenProject.addEventListener('click', () => {
+        fileOpenInput.value = '';
+        fileOpenInput.click();
+      });
+      fileOpenInput.addEventListener('change', (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          try {
+            const parsed = JSON.parse(ev.target.result);
+            engine.loadProject(parsed);
+            if (Array.isArray(engine.circuits) && engine.circuits.length > 0) {
+              projectCircuits = engine.circuits;
+            }
+            syncProjectMetaUI();
+            scheduleAutoSave();
+            engine.render(ctx, canvas.width, canvas.height);
+            showToast(`Projeto "${engine.projectMeta?.title || file.name}" carregado com sucesso.`);
+          } catch (err) {
+            alert('Falha ao abrir arquivo do projeto: ' + err.message);
+          }
+        };
+        reader.readAsText(file);
+      });
+    }
 
-    const t1 = engine.addNode('outlet_medium', { x: 1.15, y: 2.0 }, 2);
-    const t2 = engine.addNode('outlet_medium', { x: 5.8, y: 1.15 }, 2);
-    const t3 = engine.addNode('outlet_medium', { x: 3.5, y: 10.85 }, 4);
-    const t4 = engine.addNode('outlet_high', { x: 9.85, y: 2.5 }, 3); // Chuveiro 5500W
-    t4.powerWatts = 5500;
+    // Botão: Novo Projeto em Branco
+    const btnNewProject = document.getElementById('btn-new-project');
+    if (btnNewProject) {
+      btnNewProject.addEventListener('click', () => {
+        if (confirm('Deseja iniciar um Novo Projeto em branco? As alterações salvas no projeto atual permanecerão no seu arquivo salvo.')) {
+          engine.clearProject();
+          projectCircuits = [];
+          syncProjectMetaUI();
+          scheduleAutoSave();
+          engine.render(ctx, canvas.width, canvas.height);
+          showToast('Novo projeto em branco iniciado.');
+        }
+      });
+    }
 
-    // Eletrodutos Curvados
-    engine.addConduit(qd.id, lamp2.id, 'ceiling', -1);
-    engine.addConduit(lamp2.id, lamp1.id, 'ceiling', 1);
-    engine.addConduit(lamp1.id, lamp3.id, 'ceiling', -1);
+    // Botão: Recarregar Exemplo Residencial Padrão
+    const btnLoadSample = document.getElementById('btn-load-sample');
+    if (btnLoadSample) {
+      btnLoadSample.addEventListener('click', () => {
+        if (confirm('Deseja recarregar o Exemplo Residencial Padrão? Os elementos atuais serão substituídos pelo modelo canônico.')) {
+          engine.loadSampleProject();
+          if (Array.isArray(engine.circuits) && engine.circuits.length > 0) {
+            projectCircuits = engine.circuits;
+          }
+          syncProjectMetaUI();
+          scheduleAutoSave();
+          engine.render(ctx, canvas.width, canvas.height);
+          showToast('Exemplo Residencial Padrão recarregado.');
+        }
+      });
+    }
 
-    engine.addConduit(lamp1.id, sw1.id, 'wall', 1);
-    engine.addConduit(lamp2.id, sw2.id, 'wall', 1);
-    engine.addConduit(lamp3.id, sw3.id, 'wall', -1);
-
-    engine.addConduit(lamp1.id, t1.id, 'ceiling', -1);
-    engine.addConduit(lamp1.id, t2.id, 'ceiling', 1);
-    engine.addConduit(lamp2.id, t3.id, 'ceiling', -1);
-    engine.addConduit(lamp3.id, t4.id, 'ceiling', 1);
-
-    // Posição inicial agradável
-    engine.viewport.panX = 70;
-    engine.viewport.panY = 40;
-    engine.viewport.zoom = 52;
-    engine.recalculateWiring();
-    engine.saveSnapshot();
+    // Escuta alterações do motor CAD para acionar salvamento automático
+    engine.subscribe(() => {
+      scheduleAutoSave();
+    });
 
     // ==================== SUB-BARRA DE CONTEXTO DINÂMICA ====================
     const subtoolbarEl = document.getElementById('context-subtoolbar');
@@ -1955,14 +2090,16 @@
     });
 
     // ==================== GERENCIADOR DE CIRCUITOS & MULTI-QUADRO (QGBT / QD) ====================
-    let projectCircuits = [
-      { id: 1, desc: 'Iluminação Sala / Terraço', panel: 'QD1', v: 127, w: 200, type: 'light', phase: 'A', breaker: 10, dr: 'Geral 30mA' },
-      { id: 2, desc: 'TUGs Sala Comercial', panel: 'QD1', v: 127, w: 1200, type: 'outlet', phase: 'B', breaker: 20, dr: 'Geral 30mA' },
-      { id: 3, desc: 'TUE - Chuveiro Elétrico', panel: 'QD1', v: 220, w: 5500, type: 'outlet', phase: 'AB', breaker: 25, dr: 'DDR 30mA' },
-      { id: 4, desc: 'TUGs Cozinha / Área', panel: 'QD1', v: 127, w: 1800, type: 'outlet', phase: 'C', breaker: 20, dr: 'Geral 30mA' },
-      { id: 5, desc: 'Iluminação Circulação', panel: 'QD1', v: 127, w: 100, type: 'light', phase: 'B', breaker: 10, dr: 'Geral 30mA' },
-      { id: 6, desc: 'Alimentador QD1', panel: 'QGBT', v: 220, w: 8800, type: 'feed', phase: 'ABC', breaker: 40, dr: 'Geral 300mA' }
-    ];
+    if (!projectCircuits || projectCircuits.length === 0) {
+      projectCircuits = [
+        { id: 1, desc: 'Iluminação Sala / Terraço', panel: 'QD1', v: 127, w: 200, type: 'light', phase: 'A', breaker: 10, dr: 'Geral 30mA' },
+        { id: 2, desc: 'TUGs Sala Comercial', panel: 'QD1', v: 127, w: 1200, type: 'outlet', phase: 'B', breaker: 20, dr: 'Geral 30mA' },
+        { id: 3, desc: 'TUE - Chuveiro Elétrico', panel: 'QD1', v: 220, w: 5500, type: 'outlet', phase: 'AB', breaker: 25, dr: 'DDR 30mA' },
+        { id: 4, desc: 'TUGs Cozinha / Área', panel: 'QD1', v: 127, w: 1800, type: 'outlet', phase: 'C', breaker: 20, dr: 'Geral 30mA' },
+        { id: 5, desc: 'Iluminação Circulação', panel: 'QD1', v: 127, w: 100, type: 'light', phase: 'B', breaker: 10, dr: 'Geral 30mA' },
+        { id: 6, desc: 'Alimentador QD1', panel: 'QGBT', v: 220, w: 8800, type: 'feed', phase: 'ABC', breaker: 40, dr: 'Geral 300mA' }
+      ];
+    }
 
     function getCircuitsData(panelFilter = 'QD1') {
       if (panelFilter === 'ALL') return projectCircuits;
