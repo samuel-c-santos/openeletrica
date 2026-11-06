@@ -1147,6 +1147,38 @@ export class CadEngine {
     for (const fn of this.listeners) fn();
   }
 
+  // Calcula os limites (bounding box) e centro do projeto para enquadramento e pranchas
+  getProjectBounds() {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    let count = 0;
+
+    for (const w of this.walls) {
+      if (w.a) { minX = Math.min(minX, w.a.x); maxX = Math.max(maxX, w.a.x); minY = Math.min(minY, w.a.y); maxY = Math.max(maxY, w.a.y); count++; }
+      if (w.b) { minX = Math.min(minX, w.b.x); maxX = Math.max(maxX, w.b.x); minY = Math.min(minY, w.b.y); maxY = Math.max(maxY, w.b.y); count++; }
+    }
+    for (const n of this.nodes) {
+      if (n.position) { minX = Math.min(minX, n.position.x); maxX = Math.max(maxX, n.position.x); minY = Math.min(minY, n.position.y); maxY = Math.max(maxY, n.position.y); count++; }
+    }
+    for (const d of this.doors) {
+      if (d.pos) { minX = Math.min(minX, d.pos.x); maxX = Math.max(maxX, d.pos.x); minY = Math.min(minY, d.pos.y); maxY = Math.max(maxY, d.pos.y); count++; }
+    }
+    for (const win of this.windows) {
+      if (win.pos) { minX = Math.min(minX, win.pos.x); maxX = Math.max(maxX, win.pos.x); minY = Math.min(minY, win.pos.y); maxY = Math.max(maxY, win.pos.y); count++; }
+    }
+
+    if (count === 0) {
+      return { minX: 0, minY: 0, maxX: 10, maxY: 8, centerX: 5, centerY: 4, width: 10, height: 8 };
+    }
+
+    return {
+      minX, minY, maxX, maxY,
+      centerX: (minX + maxX) / 2,
+      centerY: (minY + maxY) / 2,
+      width: Math.max(1, maxX - minX),
+      height: Math.max(1, maxY - minY)
+    };
+  }
+
   // Serializa o estado completo do projeto conforme a Seção 2.2 das diretrizes
   serializeProject() {
     this.saveCurrentLevelState();

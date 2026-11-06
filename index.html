@@ -119,28 +119,28 @@
     .btn-micro { background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 4px; padding: 2px 7px; font-size: 10.5px; font-weight: 600; color: #334155; cursor: pointer; transition: all 0.1s; }
     .btn-micro:hover { background: #0284c7; border-color: #0284c7; color: #ffffff; }
 
-    /* Paper Space / Modo Layout (QGIS / ABNT) */
+    /* Paper Space / Modo Layout (ABNT NBR 10068 / NBR 16752) */
     #layout-paper-container { display: none; flex-direction: column; flex: 1; width: 100%; height: calc(100vh - 48px); position: relative; background: #334155; overflow: hidden; padding: 0; margin: 0; }
-    #layout-top-toolbar { width: 100%; height: 46px; flex-shrink: 0; background: #ffffff; border-bottom: 1px solid #cbd5e1; box-shadow: 0 2px 4px rgba(0,0,0,0.06); padding: 0 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; z-index: 30; box-sizing: border-box; }
-    .layout-sheet-wrap { flex: 1; width: 100%; height: calc(100% - 46px); overflow: auto; display: flex; justify-content: center; align-items: center; padding: 40px; box-sizing: border-box; }
-    .paper-sheet { background: #ffffff; box-shadow: 0 20px 40px rgba(0,0,0,0.4); position: relative; overflow: hidden; margin: auto; flex-shrink: 0; }
-    .paper-border-outer { position: absolute; inset: 0; border: 1px solid #000000; pointer-events: none; }
-    .paper-margin-inner { position: absolute; border: 2px solid #000000; pointer-events: none; }
+    #layout-top-toolbar { width: 100%; height: 46px; flex-shrink: 0; background: #ffffff; border-bottom: 1px solid #cbd5e1; box-shadow: 0 2px 4px rgba(0,0,0,0.06); padding: 0 16px; display: flex; align-items: center; justify-content: space-between; gap: 10px; z-index: 30; box-sizing: border-box; overflow-x: auto; }
+    .layout-sheet-wrap { flex: 1; width: 100%; height: calc(100% - 46px); overflow: auto; display: flex; justify-content: center; align-items: flex-start; padding: 40px; box-sizing: border-box; }
+    .paper-sheet { background: #ffffff; box-shadow: 0 20px 40px rgba(0,0,0,0.4); position: relative; overflow: hidden; margin: auto; flex-shrink: 0; box-sizing: border-box; transform-origin: top center; }
+    .paper-border-outer { position: absolute; inset: 0; border: 1.5px solid #000000; pointer-events: none; box-sizing: border-box; }
+    .paper-margin-inner { position: absolute; border: 2.5px solid #000000; pointer-events: none; box-sizing: border-box; }
     
-    /* Selo / Carimbo Técnico ABNT NBR 10068 / NBR 16752 (Alinhamento milimétrico com a margem interna) */
-    .paper-carimbo { position: absolute; bottom: 12px; right: 12px; width: 340px; height: 160px; border: 2px solid #000000; background: #ffffff; font-family: Arial, sans-serif; display: flex; flex-direction: column; z-index: 10; }
-    .carimbo-row { display: flex; border-bottom: 1px solid #000000; flex: 1; }
+    /* Selo / Carimbo Técnico ABNT NBR 10068 / NBR 16752 (Largura Normativa 178mm / 673px) */
+    .paper-carimbo { position: absolute; border: 2.5px solid #000000; background: #ffffff; font-family: Arial, sans-serif; display: flex; flex-direction: column; z-index: 10; box-sizing: border-box; }
+    .carimbo-row { display: flex; border-bottom: 1.5px solid #000000; flex: 1; }
     .carimbo-row:last-child { border-bottom: none; }
-    .carimbo-cell { padding: 4px 6px; font-size: 8.5px; border-right: 1px solid #000000; display: flex; flex-direction: column; justify-content: center; }
+    .carimbo-cell { padding: 4px 8px; font-size: 11px; border-right: 1.5px solid #000000; display: flex; flex-direction: column; justify-content: center; }
     .carimbo-cell:last-child { border-right: none; }
-    .carimbo-lbl { font-size: 7.5px; font-weight: 700; color: #475569; text-transform: uppercase; margin-bottom: 1px; }
-    .carimbo-val { font-size: 9.5px; font-weight: 700; color: #000000; }
+    .carimbo-lbl { font-size: 8.5px; font-weight: 700; color: #475569; text-transform: uppercase; margin-bottom: 2px; }
+    .carimbo-val { font-size: 12.5px; font-weight: 700; color: #000000; }
 
     /* Itens dentro da Folha de Layout */
-    .layout-item { position: absolute; background: #ffffff; border: 1.5px solid #0284c7; box-shadow: 0 4px 12px rgba(0,0,0,0.08); z-index: 5; }
+    .layout-item { position: absolute; background: #ffffff; border: 1.5px solid #0284c7; box-shadow: 0 4px 12px rgba(0,0,0,0.08); z-index: 5; box-sizing: border-box; }
     .layout-item.active { border-color: #0284c7; box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.25); }
-    .layout-item-header { height: 24px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; padding: 0 8px; font-size: 10px; font-weight: 700; color: #475569; cursor: move; }
-    .layout-item-content { width: 100%; height: calc(100% - 24px); position: relative; overflow: hidden; }
+    .layout-item-header { height: 26px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; padding: 0 10px; font-size: 11px; font-weight: 700; color: #475569; cursor: move; }
+    .layout-item-content { width: 100%; height: calc(100% - 26px); position: relative; overflow: hidden; }
 
     /* Alça de Redimensionamento e Guias Magnéticas de Alinhamento (Estilo QGIS) */
     .layout-resize-handle {
@@ -180,17 +180,70 @@
     #toast-notification.warning { border-left-color: #ea580c; }
     #toast-notification.info { border-left-color: #0284c7; }
 
-    /* Estilos de Impressão Direta (Vector PDF) */
+    /* Estilos de Impressão Direta em Alta Definição (Vector PDF ABNT) */
     @media print {
-      body { background: white !important; overflow: visible !important; height: auto !important; }
-      #header, #ribbon, #context-subtoolbar, #viewport-container, #inspector-drawer, .floating-bottom-left, .floating-right, .modal-overlay, #layout-top-toolbar { display: none !important; }
-      #layout-paper-container { display: block !important; padding: 0 !important; margin: 0 !important; background: white !important; }
-      .layout-sheet-wrap { padding: 0 !important; margin: 0 !important; min-height: 0 !important; }
-      .paper-sheet { box-shadow: none !important; margin: 0 !important; border: none !important; }
-      .layout-item { border-color: #000000 !important; box-shadow: none !important; }
-      .layout-item-header { display: none !important; }
-      .layout-item-content { height: 100% !important; }
-      @page { size: landscape; margin: 0; }
+      html, body {
+        background: #ffffff !important;
+        overflow: visible !important;
+        height: auto !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      #header, #ribbon, #context-subtoolbar, #viewport-container, #inspector-drawer, .floating-bottom-left, .floating-right, .modal-overlay, #layout-top-toolbar, .layout-resize-handle, .layout-align-guide-x, .layout-align-guide-y {
+        display: none !important;
+      }
+      #layout-paper-container {
+        display: block !important;
+        position: absolute !important;
+        left: 0 !important;
+        top: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #ffffff !important;
+        width: 100% !important;
+        height: 100% !important;
+        overflow: visible !important;
+      }
+      .layout-sheet-wrap {
+        display: block !important;
+        position: absolute !important;
+        left: 0 !important;
+        top: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #ffffff !important;
+        width: 100% !important;
+        height: 100% !important;
+        overflow: visible !important;
+        min-height: 0 !important;
+      }
+      .paper-sheet {
+        position: absolute !important;
+        left: 0 !important;
+        top: 0 !important;
+        box-shadow: none !important;
+        margin: 0 !important;
+        border: none !important;
+        zoom: 1 !important;
+        transform: none !important;
+        page-break-after: avoid !important;
+        page-break-inside: avoid !important;
+      }
+      .layout-item {
+        border: 1.5px solid #000000 !important;
+        box-shadow: none !important;
+      }
+      .layout-item-header {
+        display: none !important;
+      }
+      .layout-item-content {
+        height: 100% !important;
+      }
+      @page {
+        margin: 0;
+      }
     }
   </style>
 </head>
@@ -518,13 +571,32 @@
         </select>
 
         <span class="context-title">Escala:</span>
-        <select class="form-control" id="layout-select-scale" style="width:110px; padding:4px 8px; font-size:11.5px;">
+        <select class="form-control" id="layout-select-scale" style="width:95px; padding:4px 8px; font-size:11.5px;">
+          <option value="20">1:20</option>
+          <option value="25">1:25</option>
           <option value="50" selected>1:50</option>
           <option value="75">1:75</option>
           <option value="100">1:100</option>
           <option value="125">1:125</option>
           <option value="200">1:200</option>
         </select>
+
+        <div class="divider-v"></div>
+
+        <span class="context-title">Zoom:</span>
+        <button class="btn-micro" id="btn-sheet-zoom-out" title="Diminuir Zoom da Prancha" style="padding:2px 8px; font-weight:700;">-</button>
+        <select class="form-control" id="layout-sheet-zoom-select" style="width:115px; padding:4px 6px; font-size:11.5px;">
+          <option value="fit" selected>Ajustar à Tela</option>
+          <option value="0.20">20%</option>
+          <option value="0.25">25%</option>
+          <option value="0.33">33%</option>
+          <option value="0.50">50%</option>
+          <option value="0.75">75%</option>
+          <option value="1.00">100%</option>
+        </select>
+        <button class="btn-micro" id="btn-sheet-zoom-in" title="Aumentar Zoom da Prancha" style="padding:2px 8px; font-weight:700;">+</button>
+        <button class="btn-micro" id="btn-sheet-fit" title="Ajustar Prancha à Tela" style="padding:2px 8px;">⛶ Ajustar</button>
+        <button class="btn-micro" id="btn-recenter-viewport" title="Centralizar Planta na Viewport" style="padding:2px 8px;">⌖ Centralizar</button>
       </div>
 
       <div style="display:flex; align-items:center; gap:6px;">
@@ -587,7 +659,10 @@
         <div class="layout-item" id="item-viewport" style="left:34px; top:18px; width:680px; height:520px;">
           <div class="layout-item-header" id="viewport-drag-handle">
             <span>📐 VIEWPORT PLANTA BAIXA ELÉTRICA — ESCALA <span id="label-scale-display">1:50</span></span>
-            <span style="font-size:10px; color:#64748b;" title="Redimensionável pela quina inferior direita">⤡</span>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <button class="btn-micro" id="btn-viewport-recenter" title="Centralizar Planta na Viewport" style="padding:1px 6px; font-size:10px;">⌖ Centralizar</button>
+              <span style="font-size:10px; color:#64748b;" title="Redimensionável pela quina inferior direita">⤡</span>
+            </div>
           </div>
           <div class="layout-item-content">
             <canvas id="canvas-layout-viewport" style="width:100%; height:100%; display:block;"></canvas>
@@ -882,9 +957,12 @@
           <div class="form-group">
             <label>Escala Gráfica</label>
             <select class="form-control" id="sheet-scale">
+              <option value="20">1:20 (Detalhamento)</option>
+              <option value="25">1:25 (Detalhamento)</option>
               <option value="50" selected>1:50 (Padrão Predial)</option>
               <option value="75">1:75</option>
               <option value="100">1:100</option>
+              <option value="125">1:125</option>
               <option value="200">1:200</option>
             </select>
           </div>
@@ -3121,7 +3199,7 @@
         subtoolbarEl.style.display = 'none';
         if (headerEngButtons) headerEngButtons.style.display = 'none';
         layoutContainer.style.display = 'flex';
-        renderPaperSheet();
+        applySheetFormat(document.getElementById('layout-select-sheet')?.value || 'A1', false);
       }
     }
 
@@ -3154,6 +3232,8 @@
 
       document.getElementById('modal-layout-sheet').style.display = 'none';
       setAppMode('layout');
+      applySheetFormat(sheet, true);
+      centerProjectInViewport(parseInt(scale));
       showToast('Prancha ABNT configurada com sucesso!');
     });
 
@@ -3165,13 +3245,190 @@
     const canvasLayout3D = document.getElementById('canvas-layout-3d');
     const ctxLayout3D = canvasLayout3D ? canvasLayout3D.getContext('2d') : null;
 
+    // Fator de conversão milímetro -> pixel CSS (96 DPI / 25.4 mm = 3.779528 px/mm)
+    const MM_TO_PX = 96 / 25.4;
+
+    // Definição Normativa Rigorosa dos Formatos Série A (ABNT NBR 10068 / NBR 16752)
     const sheetDims = {
-      A4: { w: 840, h: 594 },
-      A3: { w: 960, h: 680 },
-      A2: { w: 1040, h: 735 },
-      A1: { w: 1120, h: 792 },
-      A0: { w: 1240, h: 876 }
+      A0: {
+        key: 'A0',
+        name: 'A0 (1189 x 841 mm)',
+        w_mm: 1189,
+        h_mm: 841,
+        w_px: Math.round(1189 * MM_TO_PX), // 4494
+        h_px: Math.round(841 * MM_TO_PX),  // 3179
+        marginL_mm: 25,
+        marginOther_mm: 10,
+        marginL_px: Math.round(25 * MM_TO_PX), // 94
+        marginOther_px: Math.round(10 * MM_TO_PX), // 38
+        stampW_px: Math.round(178 * MM_TO_PX), // 673 (178 mm normativo)
+        stampH_px: 240,
+        defaultItems: {
+          viewport: { left: 110, top: 50, width: 2950, height: 2150 },
+          cargas:   { left: 110, top: 2230, width: 2950, height: 860 },
+          unifilar: { left: 3100, top: 50, width: 1320, height: 950 },
+          legenda:  { left: 3100, top: 1030, width: 1320, height: 950 },
+          viewport3d: { left: 3100, top: 2010, width: 1320, height: 840 }
+        }
+      },
+      A1: {
+        key: 'A1',
+        name: 'A1 (841 x 594 mm)',
+        w_mm: 841,
+        h_mm: 594,
+        w_px: Math.round(841 * MM_TO_PX), // 3179
+        h_px: Math.round(594 * MM_TO_PX), // 2245
+        marginL_mm: 25,
+        marginOther_mm: 10,
+        marginL_px: Math.round(25 * MM_TO_PX), // 94
+        marginOther_px: Math.round(10 * MM_TO_PX), // 38
+        stampW_px: Math.round(178 * MM_TO_PX), // 673
+        stampH_px: 210,
+        defaultItems: {
+          viewport: { left: 110, top: 50, width: 2050, height: 1480 },
+          cargas:   { left: 110, top: 1560, width: 2050, height: 600 },
+          unifilar: { left: 2190, top: 50, width: 940, height: 680 },
+          legenda:  { left: 2190, top: 760, width: 940, height: 680 },
+          viewport3d: { left: 2190, top: 1470, width: 940, height: 500 }
+        }
+      },
+      A2: {
+        key: 'A2',
+        name: 'A2 (594 x 420 mm)',
+        w_mm: 594,
+        h_mm: 420,
+        w_px: Math.round(594 * MM_TO_PX), // 2245
+        h_px: Math.round(420 * MM_TO_PX), // 1587
+        marginL_mm: 25,
+        marginOther_mm: 7,
+        marginL_px: Math.round(25 * MM_TO_PX), // 94
+        marginOther_px: Math.round(7 * MM_TO_PX), // 26
+        stampW_px: Math.round(178 * MM_TO_PX), // 673
+        stampH_px: 190,
+        defaultItems: {
+          viewport: { left: 105, top: 38, width: 1400, height: 1020 },
+          cargas:   { left: 105, top: 1080, width: 1400, height: 470 },
+          unifilar: { left: 1530, top: 38, width: 680, height: 500 },
+          legenda:  { left: 1530, top: 560, width: 680, height: 500 },
+          viewport3d: { left: 1530, top: 1080, width: 680, height: 300 }
+        }
+      },
+      A3: {
+        key: 'A3',
+        name: 'A3 (420 x 297 mm)',
+        w_mm: 420,
+        h_mm: 297,
+        w_px: Math.round(420 * MM_TO_PX), // 1587
+        h_px: Math.round(297 * MM_TO_PX), // 1123
+        marginL_mm: 25,
+        marginOther_mm: 7,
+        marginL_px: Math.round(25 * MM_TO_PX), // 94
+        marginOther_px: Math.round(7 * MM_TO_PX), // 26
+        stampW_px: Math.round(178 * MM_TO_PX), // 673
+        stampH_px: 180,
+        defaultItems: {
+          viewport: { left: 105, top: 38, width: 960, height: 700 },
+          cargas:   { left: 105, top: 760, width: 770, height: 320 },
+          unifilar: { left: 1090, top: 38, width: 460, height: 380 },
+          legenda:  { left: 1090, top: 435, width: 460, height: 380 },
+          viewport3d: { left: 1090, top: 830, width: 460, height: 250 }
+        }
+      },
+      A4: {
+        key: 'A4',
+        name: 'A4 (297 x 210 mm)',
+        w_mm: 297,
+        h_mm: 210,
+        w_px: Math.round(297 * MM_TO_PX), // 1123
+        h_px: Math.round(210 * MM_TO_PX), // 794
+        marginL_mm: 25,
+        marginOther_mm: 7,
+        marginL_px: Math.round(25 * MM_TO_PX), // 94
+        marginOther_px: Math.round(7 * MM_TO_PX), // 26
+        stampW_px: Math.round(178 * MM_TO_PX), // 673
+        stampH_px: 170,
+        defaultItems: {
+          viewport: { left: 105, top: 38, width: 980, height: 540 },
+          cargas:   { left: 105, top: 590, width: 320, height: 175 },
+          unifilar: { left: 440, top: 590, width: 320, height: 175 },
+          legenda:  { left: 770, top: 590, width: 320, height: 175 },
+          viewport3d: { left: 770, top: 38, width: 320, height: 200 }
+        }
+      }
     };
+
+    // Estilo dinâmico para impressão direta (@page size exato da folha)
+    function updatePrintPageStyle(sheetKey) {
+      const sheet = sheetDims[sheetKey] || sheetDims.A1;
+      let styleEl = document.getElementById('dynamic-print-page-style');
+      if (!styleEl) {
+        styleEl = document.createElement('style');
+        styleEl.id = 'dynamic-print-page-style';
+        document.head.appendChild(styleEl);
+      }
+      styleEl.textContent = `
+        @page {
+          size: ${sheet.w_mm}mm ${sheet.h_mm}mm !important;
+          margin: 0 !important;
+        }
+        @media print {
+          .paper-sheet {
+            width: ${sheet.w_mm}mm !important;
+            height: ${sheet.h_mm}mm !important;
+            min-width: ${sheet.w_mm}mm !important;
+            min-height: ${sheet.h_mm}mm !important;
+            max-width: ${sheet.w_mm}mm !important;
+            max-height: ${sheet.h_mm}mm !important;
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            zoom: 1 !important;
+            transform: none !important;
+            box-shadow: none !important;
+            border: none !important;
+          }
+        }
+      `;
+    }
+
+    let currentSheetZoom = 1.0;
+    let sheetZoomMode = 'fit';
+
+    function applySheetZoom(zoomVal) {
+      const wrap = document.querySelector('.layout-sheet-wrap');
+      const sheetEl = document.getElementById('paper-sheet');
+      const curFormat = document.getElementById('layout-select-sheet')?.value || 'A1';
+      const dim = sheetDims[curFormat] || sheetDims.A1;
+      if (!wrap || !sheetEl) return;
+
+      if (zoomVal === 'fit') {
+        sheetZoomMode = 'fit';
+        const availW = wrap.clientWidth - 70;
+        const availH = wrap.clientHeight - 70;
+        const scale = Math.min(availW / dim.w_px, availH / dim.h_px);
+        currentSheetZoom = Math.max(0.12, Math.min(1.5, scale));
+      } else {
+        sheetZoomMode = 'fixed';
+        currentSheetZoom = parseFloat(zoomVal) || 1.0;
+      }
+
+      sheetEl.style.zoom = currentSheetZoom;
+      const sel = document.getElementById('layout-sheet-zoom-select');
+      if (sel) {
+        if (sheetZoomMode === 'fit') sel.value = 'fit';
+        else sel.value = currentSheetZoom.toFixed(2);
+      }
+    }
+
+    function fitSheetToScreen() {
+      applySheetZoom('fit');
+    }
+
+    window.addEventListener('resize', () => {
+      if (sheetZoomMode === 'fit' && layoutContainer && layoutContainer.style.display !== 'none') {
+        fitSheetToScreen();
+      }
+    });
 
     let layoutTool = 'item'; // 'item' (Mover Item) ou 'content' (Navegar Conteúdo da Viewport)
     let isMovingViewportContent = false;
@@ -3201,21 +3458,89 @@
       showToast('Modo: Navegar conteúdo (pan/zoom dentro da planta).');
     });
 
+    // Aplicação Integral do Formato da Folha Normativa
+    function applySheetFormat(sheetKey, resetItems = false) {
+      const dim = sheetDims[sheetKey] || sheetDims.A1;
+      const sheetEl = document.getElementById('paper-sheet');
+      const marginEl = document.getElementById('paper-margin');
+      const carimboEl = document.getElementById('paper-carimbo');
+
+      sheetEl.style.width = `${dim.w_px}px`;
+      sheetEl.style.height = `${dim.h_px}px`;
+
+      if (marginEl) {
+        marginEl.style.left = `${dim.marginL_px}px`;
+        marginEl.style.top = `${dim.marginOther_px}px`;
+        marginEl.style.right = `${dim.marginOther_px}px`;
+        marginEl.style.bottom = `${dim.marginOther_px}px`;
+      }
+
+      if (carimboEl) {
+        carimboEl.style.width = `${dim.stampW_px}px`;
+        carimboEl.style.height = `${dim.stampH_px}px`;
+        carimboEl.style.right = `${dim.marginOther_px}px`;
+        carimboEl.style.bottom = `${dim.marginOther_px}px`;
+      }
+
+      if (resetItems && dim.defaultItems) {
+        const itemMap = {
+          'item-viewport': dim.defaultItems.viewport,
+          'item-cargas': dim.defaultItems.cargas,
+          'item-unifilar': dim.defaultItems.unifilar,
+          'item-legenda': dim.defaultItems.legenda,
+          'item-viewport-3d': dim.defaultItems.viewport3d
+        };
+        for (const [id, def] of Object.entries(itemMap)) {
+          const el = document.getElementById(id);
+          if (el && def) {
+            el.style.left = `${def.left}px`;
+            el.style.top = `${def.top}px`;
+            el.style.width = `${def.width}px`;
+            el.style.height = `${def.height}px`;
+          }
+        }
+      }
+
+      updatePrintPageStyle(sheetKey);
+      fitSheetToScreen();
+      centerProjectInViewport();
+      renderPaperSheet();
+    }
+
     // Seletores de Formato e Escala da Prancha
     document.getElementById('layout-select-sheet').addEventListener('change', (e) => {
-      const dim = sheetDims[e.target.value] || sheetDims.A1;
-      const sheetEl = document.getElementById('paper-sheet');
-      sheetEl.style.width = `${dim.w}px`;
-      sheetEl.style.height = `${dim.h}px`;
-      renderPaperSheet();
+      applySheetFormat(e.target.value, true);
     });
 
     document.getElementById('layout-select-scale').addEventListener('change', (e) => {
       const scale = parseInt(e.target.value) || 50;
       document.getElementById('sheet-stamp-scale').textContent = `1:${scale}`;
       document.getElementById('label-scale-display').textContent = `1:${scale}`;
-      layoutZoom = (50 / scale) * 42;
-      renderPaperSheet();
+      centerProjectInViewport(scale);
+    });
+
+    // Controles de Zoom e Enquadramento da Folha
+    document.getElementById('btn-sheet-zoom-out')?.addEventListener('click', () => {
+      const newZoom = Math.max(0.15, currentSheetZoom - 0.10);
+      applySheetZoom(newZoom);
+    });
+    document.getElementById('btn-sheet-zoom-in')?.addEventListener('click', () => {
+      const newZoom = Math.min(1.5, currentSheetZoom + 0.10);
+      applySheetZoom(newZoom);
+    });
+    document.getElementById('btn-sheet-fit')?.addEventListener('click', () => {
+      fitSheetToScreen();
+    });
+    document.getElementById('layout-sheet-zoom-select')?.addEventListener('change', (e) => {
+      applySheetZoom(e.target.value);
+    });
+    document.getElementById('btn-recenter-viewport')?.addEventListener('click', () => {
+      centerProjectInViewport();
+      showToast('Planta centralizada na viewport.');
+    });
+    document.getElementById('btn-viewport-recenter')?.addEventListener('click', () => {
+      centerProjectInViewport();
+      showToast('Planta centralizada na viewport.');
     });
 
     // Alternadores dos Blocos na Folha com Rótulos Dinâmicos (+ / -)
@@ -3294,8 +3619,8 @@
 
     window.addEventListener('mousemove', (e) => {
       if (isMovingViewportContent) {
-        const dx = e.clientX - contentPanStart.x;
-        const dy = e.clientY - contentPanStart.y;
+        const dx = (e.clientX - contentPanStart.x) / currentSheetZoom;
+        const dy = (e.clientY - contentPanStart.y) / currentSheetZoom;
         layoutPanX += dx;
         layoutPanY += dy;
         contentPanStart = { x: e.clientX, y: e.clientY };
@@ -3325,8 +3650,8 @@
       });
       window.addEventListener('mousemove', (e) => {
         if (isMoving3DContent) {
-          const dx = e.clientX - content3DStart.x;
-          const dy = e.clientY - content3DStart.y;
+          const dx = (e.clientX - content3DStart.x) / currentSheetZoom;
+          const dy = (e.clientY - content3DStart.y) / currentSheetZoom;
           rotAngle += dx * 0.01;
           tiltAngle = Math.max(0.1, Math.min(1.4, tiltAngle - dy * 0.01));
           content3DStart = { x: e.clientX, y: e.clientY };
@@ -3351,7 +3676,7 @@
     canvasViewport.addEventListener('wheel', (e) => {
       if (layoutTool === 'content') {
         e.preventDefault();
-        layoutZoom = Math.max(15, Math.min(180, layoutZoom * (e.deltaY < 0 ? 1.12 : 0.88)));
+        layoutZoom = Math.max(15, Math.min(300, layoutZoom * (e.deltaY < 0 ? 1.12 : 0.88)));
         renderLayoutViewport();
       }
     });
@@ -3365,17 +3690,18 @@
       let snapTop = rawTop;
       let snappedX = false;
       let snappedY = false;
-      const SNAP_TOL = 8;
+      const SNAP_TOL = Math.max(8, 14 / currentSheetZoom);
       const w = itemEl.offsetWidth;
       const h = itemEl.offsetHeight;
 
-      const sheet = document.getElementById('paper-sheet');
-      const sheetW = sheet ? sheet.offsetWidth : 1050;
-      const sheetH = sheet ? sheet.offsetHeight : 742;
+      const curFormat = document.getElementById('layout-select-sheet')?.value || 'A1';
+      const dim = sheetDims[curFormat] || sheetDims.A1;
+      const sheetW = dim.w_px;
+      const sheetH = dim.h_px;
 
-      // Alvos de snap: margens internas da folha ABNT (28px esq, 12px topo, dir e base)
-      const targetsX = [28, sheetW - 12 - w];
-      const targetsY = [18, sheetH - 12 - h];
+      // Alvos de snap: margens internas da folha ABNT
+      const targetsX = [dim.marginL_px, sheetW - dim.marginOther_px - w];
+      const targetsY = [dim.marginOther_px, sheetH - dim.marginOther_px - h];
 
       // Alvos dos outros quadros na folha
       const items = document.querySelectorAll('.layout-item');
@@ -3383,13 +3709,13 @@
         if (other === itemEl || other.style.display === 'none') return;
         targetsX.push(other.offsetLeft);
         targetsX.push(other.offsetLeft + other.offsetWidth);
-        targetsX.push(other.offsetLeft + other.offsetWidth + 8);
-        targetsX.push(other.offsetLeft - w - 8);
+        targetsX.push(other.offsetLeft + other.offsetWidth + 12);
+        targetsX.push(other.offsetLeft - w - 12);
 
         targetsY.push(other.offsetTop);
         targetsY.push(other.offsetTop + other.offsetHeight);
-        targetsY.push(other.offsetTop + other.offsetHeight + 8);
-        targetsY.push(other.offsetTop - h - 8);
+        targetsY.push(other.offsetTop + other.offsetHeight + 12);
+        targetsY.push(other.offsetTop - h - 12);
       });
 
       for (const tx of targetsX) {
@@ -3442,8 +3768,8 @@
 
       window.addEventListener('mousemove', (e) => {
         if (!isDraggingItem) return;
-        const dx = e.clientX - startMouse.x;
-        const dy = e.clientY - startMouse.y;
+        const dx = (e.clientX - startMouse.x) / currentSheetZoom;
+        const dy = (e.clientY - startMouse.y) / currentSheetZoom;
         const rawLeft = startPos.x + dx;
         const rawTop = startPos.y + dy;
         const snapped = checkAlignmentSnap(itemEl, rawLeft, rawTop);
@@ -3477,10 +3803,10 @@
 
       window.addEventListener('mousemove', (e) => {
         if (!isResizing) return;
-        const dw = e.clientX - startMouse.x;
-        const dh = e.clientY - startMouse.y;
-        const newW = Math.max(180, startDim.w + dw);
-        const newH = Math.max(110, startDim.h + dh);
+        const dw = (e.clientX - startMouse.x) / currentSheetZoom;
+        const dh = (e.clientY - startMouse.y) / currentSheetZoom;
+        const newW = Math.max(220, startDim.w + dw);
+        const newH = Math.max(140, startDim.h + dh);
         itemEl.style.width = `${newW}px`;
         itemEl.style.height = `${newH}px`;
         if (onResizeCallback) onResizeCallback();
@@ -3510,13 +3836,30 @@
 
     let layoutPanX = 110;
     let layoutPanY = -10;
-    let layoutZoom = 42;
+    let layoutZoom = 75.59; // 1:50 normativo
+
+    // Centraliza a planta e calcula enquadramento normativo preciso na viewport
+    function centerProjectInViewport(customScale) {
+      const box = document.getElementById('item-viewport');
+      if (!box || box.style.display === 'none') return;
+      const vpW = box.clientWidth;
+      const vpH = box.clientHeight - 26;
+
+      const scale = customScale || parseInt(document.getElementById('layout-select-scale')?.value) || 50;
+      layoutZoom = (1000 / scale) * MM_TO_PX;
+
+      const bounds = engine.getProjectBounds();
+      layoutPanX = (vpW / 2) - (bounds.centerX * layoutZoom);
+      layoutPanY = (vpH / 2) - (bounds.centerY * layoutZoom);
+
+      renderLayoutViewport();
+    }
 
     function renderLayoutViewport() {
       const box = document.getElementById('item-viewport');
       if (!box || box.style.display === 'none') return;
       canvasViewport.width = box.clientWidth;
-      canvasViewport.height = box.clientHeight - 24;
+      canvasViewport.height = box.clientHeight - 26;
 
       const origPanX = engine.viewport.panX;
       const origPanY = engine.viewport.panY;
@@ -3545,12 +3888,12 @@
       const uniBox = document.getElementById('item-unifilar');
       if (uniBox && uniBox.style.display !== 'none') {
         canvasUnifilar.width = uniBox.clientWidth;
-        canvasUnifilar.height = uniBox.clientHeight - 24;
+        canvasUnifilar.height = uniBox.clientHeight - 26;
         ctxUnifilar.clearRect(0, 0, canvasUnifilar.width, canvasUnifilar.height);
         ctxUnifilar.save();
         ctxUnifilar.fillStyle = '#ffffff';
         ctxUnifilar.fillRect(0, 0, canvasUnifilar.width, canvasUnifilar.height);
-        engine.renderUnifilarDiagram(ctxUnifilar, 15, 32, true);
+        engine.renderUnifilarDiagram(ctxUnifilar, 20, 40, true);
         ctxUnifilar.restore();
       }
 
@@ -3563,24 +3906,24 @@
         for (const c of circuits) {
           const sz = sizeCircuit({ powerWatts: c.w, voltage: c.v, circuitType: c.type, nPhases: c.phase.length });
           rows += `
-            <tr style="border-bottom:1px solid #e2e8f0; font-size:9px;">
-              <td style="padding:3px;"><strong>C${c.id}</strong></td>
-              <td style="padding:3px;">${c.desc}</td>
-              <td style="padding:3px;">${c.v}V</td>
-              <td style="padding:3px;">${c.w}W</td>
-              <td style="padding:3px;">${sz.currentIb}A</td>
-              <td style="padding:3px;">#${sz.gaugeMm2}mm²</td>
-              <td style="padding:3px;">${c.breaker || sz.breakerAmperes}A</td>
-              <td style="padding:3px;">${sz.voltageDropPercent}%</td>
-              <td style="padding:3px;">DN${sz.conduitDiameterMm}</td>
+            <tr style="border-bottom:1px solid #e2e8f0; font-size:11px;">
+              <td style="padding:5px 6px;"><strong>C${c.id}</strong></td>
+              <td style="padding:5px 6px;">${c.desc}</td>
+              <td style="padding:5px 6px;">${c.v}V</td>
+              <td style="padding:5px 6px;">${c.w}W</td>
+              <td style="padding:5px 6px;">${sz.currentIb}A</td>
+              <td style="padding:5px 6px;">#${sz.gaugeMm2}mm²</td>
+              <td style="padding:5px 6px;">${c.breaker || sz.breakerAmperes}A</td>
+              <td style="padding:5px 6px;">${sz.voltageDropPercent}%</td>
+              <td style="padding:5px 6px;">DN${sz.conduitDiameterMm}</td>
             </tr>
           `;
         }
         wrap.innerHTML = `
           <table style="width:100%; border-collapse:collapse; text-align:left;">
             <thead>
-              <tr style="background:#f1f5f9; border-bottom:1.5px solid #cbd5e1; font-size:8.5px; color:#475569;">
-                <th style="padding:3px;">Circ.</th><th>Carga</th><th>Tensão</th><th>Potência</th><th>Ib</th><th>Condutor</th><th>Disj.</th><th>ΔV</th><th>Eletroduto</th>
+              <tr style="background:#f1f5f9; border-bottom:1.5px solid #cbd5e1; font-size:10.5px; color:#475569;">
+                <th style="padding:6px;">Circ.</th><th>Carga</th><th>Tensão</th><th>Potência</th><th>Ib</th><th>Condutor</th><th>Disj.</th><th>ΔV</th><th>Eletroduto</th>
               </tr>
             </thead>
             <tbody>${rows}</tbody>
@@ -3593,29 +3936,29 @@
       if (legBox && legBox.style.display !== 'none') {
         const wrap = document.getElementById('layout-legenda-content');
         wrap.innerHTML = `
-          <div style="display:flex; flex-direction:column; gap:6px; font-size:8.5px;">
-            <div style="display:flex; align-items:center; gap:8px;">
-              <svg width="18" height="18" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="#000" stroke-width="1.8"/><line x1="3" y1="12" x2="21" y2="12" stroke="#000" stroke-width="1.8"/><line x1="12" y1="12" x2="12" y2="21" stroke="#000" stroke-width="1.8"/></svg>
+          <div style="display:flex; flex-direction:column; gap:8px; font-size:11px;">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <svg width="22" height="22" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="#000" stroke-width="1.8"/><line x1="3" y1="12" x2="21" y2="12" stroke="#000" stroke-width="1.8"/><line x1="12" y1="12" x2="12" y2="21" stroke="#000" stroke-width="1.8"/></svg>
               <span><strong>Ponto de Luz no Teto (2,80m)</strong> — NBR 5444</span>
             </div>
-            <div style="display:flex; align-items:center; gap:8px;">
-              <svg width="18" height="18" viewBox="0 0 24 24"><polygon points="12 4 4 19 20 19" fill="none" stroke="#000" stroke-width="2"/></svg>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <svg width="22" height="22" viewBox="0 0 24 24"><polygon points="12 4 4 19 20 19" fill="none" stroke="#000" stroke-width="2"/></svg>
               <span><strong>Tomada Baixa TUG (h=0,30m)</strong></span>
             </div>
-            <div style="display:flex; align-items:center; gap:8px;">
-              <svg width="18" height="18" viewBox="0 0 24 24"><polygon points="12 4 4 19 20 19" fill="none" stroke="#000" stroke-width="2"/><polygon points="12 4 4 19 12 19" fill="#000"/></svg>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <svg width="22" height="22" viewBox="0 0 24 24"><polygon points="12 4 4 19 20 19" fill="none" stroke="#000" stroke-width="2"/><polygon points="12 4 4 19 12 19" fill="#000"/></svg>
               <span><strong>Tomada Média TUG (h=1,20m)</strong></span>
             </div>
-            <div style="display:flex; align-items:center; gap:8px;">
-              <svg width="18" height="18" viewBox="0 0 24 24"><polygon points="12 4 4 19 20 19" fill="#000" stroke="#000" stroke-width="2"/></svg>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <svg width="22" height="22" viewBox="0 0 24 24"><polygon points="12 4 4 19 20 19" fill="#000" stroke="#000" stroke-width="2"/></svg>
               <span><strong>Tomada Alta TUE (h=2,20m) — Chuveiro</strong></span>
             </div>
-            <div style="display:flex; align-items:center; gap:8px;">
-              <svg width="18" height="18" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" fill="none" stroke="#000" stroke-width="2"/><line x1="12" y1="5" x2="12" y2="1" stroke="#000" stroke-width="2"/></svg>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <svg width="22" height="22" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" fill="none" stroke="#000" stroke-width="2"/><line x1="12" y1="5" x2="12" y2="1" stroke="#000" stroke-width="2"/></svg>
               <span><strong>Interruptor Simples (h=1,20m)</strong></span>
             </div>
-            <div style="display:flex; align-items:center; gap:8px;">
-              <svg width="22" height="14" viewBox="0 0 32 18"><rect x="2" y="2" width="28" height="14" fill="#fff" stroke="#000" stroke-width="1.8"/><polygon points="2 2 30 2 2 16" fill="#000"/></svg>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <svg width="26" height="16" viewBox="0 0 32 18"><rect x="2" y="2" width="28" height="14" fill="#fff" stroke="#000" stroke-width="1.8"/><polygon points="2 2 30 2 2 16" fill="#000"/></svg>
               <span><strong>Quadro de Distribuição (QDC)</strong></span>
             </div>
           </div>
@@ -3626,14 +3969,30 @@
       const box3D = document.getElementById('item-viewport-3d');
       if (box3D && box3D.style.display !== 'none' && canvasLayout3D && ctxLayout3D) {
         canvasLayout3D.width = box3D.clientWidth;
-        canvasLayout3D.height = box3D.clientHeight - 24;
+        canvasLayout3D.height = box3D.clientHeight - 26;
         render3D(canvasLayout3D, ctxLayout3D);
       }
     }
 
     // Exportação em Alta Definição / Impressão de PDF
     document.getElementById('btn-print-layout').addEventListener('click', () => {
-      window.print();
+      const sheetKey = document.getElementById('layout-select-sheet')?.value || 'A1';
+      updatePrintPageStyle(sheetKey);
+      renderPaperSheet();
+      setTimeout(() => {
+        window.print();
+      }, 60);
+    });
+
+    window.addEventListener('beforeprint', () => {
+      const sheetKey = document.getElementById('layout-select-sheet')?.value || 'A1';
+      updatePrintPageStyle(sheetKey);
+      renderPaperSheet();
+    });
+
+    window.addEventListener('afterprint', () => {
+      fitSheetToScreen();
+      renderPaperSheet();
     });
 
     document.getElementById('sheet-3d-filter')?.addEventListener('change', () => {
