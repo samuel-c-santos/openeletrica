@@ -122,8 +122,12 @@
     /* Paper Space / Modo Layout (ABNT NBR 10068 / NBR 16752) */
     #layout-paper-container { display: none; flex-direction: column; flex: 1; width: 100%; height: calc(100vh - 48px); position: relative; background: #334155; overflow: hidden; padding: 0; margin: 0; }
     #layout-top-toolbar { width: 100%; height: 46px; flex-shrink: 0; background: #ffffff; border-bottom: 1px solid #cbd5e1; box-shadow: 0 2px 4px rgba(0,0,0,0.06); padding: 0 16px; display: flex; align-items: center; justify-content: space-between; gap: 10px; z-index: 30; box-sizing: border-box; overflow-x: auto; }
-    .layout-sheet-wrap { flex: 1; width: 100%; height: calc(100% - 46px); overflow: auto; display: flex; justify-content: center; align-items: flex-start; padding: 40px; box-sizing: border-box; }
-    .paper-sheet { background: #ffffff; box-shadow: 0 20px 40px rgba(0,0,0,0.4); position: relative; overflow: hidden; margin: auto; flex-shrink: 0; box-sizing: border-box; transform-origin: top center; }
+    #layout-workspace { display: flex; flex-direction: column; flex: 1; width: 100%; height: calc(100vh - 48px - 46px); position: relative; overflow: hidden; box-sizing: border-box; }
+    #layout-ruler-top-bar { height: 20px; width: 100%; background: #1e293b; border-bottom: 1px solid #475569; display: flex; align-items: center; z-index: 20; flex-shrink: 0; box-sizing: border-box; overflow: hidden; }
+    #layout-ruler-corner { width: 20px; height: 20px; background: #0f172a; border-right: 1px solid #475569; color: #94a3b8; font-size: 8px; font-weight: 700; display: flex; align-items: center; justify-content: center; user-select: none; flex-shrink: 0; box-sizing: border-box; }
+    #layout-ruler-left-bar { width: 20px; height: 100%; background: #1e293b; border-right: 1px solid #475569; z-index: 20; flex-shrink: 0; box-sizing: border-box; overflow: hidden; }
+    .layout-sheet-wrap { flex: 1; width: calc(100% - 20px); height: 100%; overflow: auto; display: flex; justify-content: center; align-items: flex-start; padding: 40px; box-sizing: border-box; position: relative; }
+    .paper-sheet { background: #ffffff; box-shadow: 0 20px 40px rgba(0,0,0,0.4); position: relative; overflow: hidden; margin: 0 auto; flex-shrink: 0; box-sizing: border-box; transform-origin: top center; }
     .paper-border-outer { position: absolute; inset: 0; border: 1.5px solid #000000; pointer-events: none; box-sizing: border-box; }
     .paper-margin-inner { position: absolute; border: 2.5px solid #000000; pointer-events: none; box-sizing: border-box; }
     
@@ -3475,6 +3479,40 @@
 
     let currentSheetZoom = 1.0;
     let sheetZoomMode = 'fit';
+    let cachedSheetRect = null;
+    let cachedRulerHRect = null;
+    let cachedRulerVRect = null;
+
+    function updateCachedRulerRects() {
+      const sheetEl = document.getElementById('paper-sheet');
+      if (sheetEl) cachedSheetRect = sheetEl.getBoundingClientRect();
+      if (canvasRulerH) cachedRulerHRect = canvasRulerH.getBoundingClientRect();
+      if (canvasRulerV) cachedRulerVRect = canvasRulerV.getBoundingClientRect();
+    }
+
+    function resizeRulerCanvases() {
+      if (!canvasRulerH || !canvasRulerV) return;
+      const wrap = document.getElementById('layout-sheet-wrap');
+      if (!wrap || !layoutContainer || layoutContainer.style.display === 'none') return;
+
+      const topBar = document.getElementById('layout-ruler-top-bar');
+      const wH = topBar ? (topBar.clientWidth - 20) : wrap.clientWidth;
+      const hH = 20;
+      if (canvasRulerH.width !== wH || canvasRulerH.height !== hH) {
+        canvasRulerH.width = Math.max(10, wH);
+        canvasRulerH.height = hH;
+      }
+
+      const leftBar = document.getElementById('layout-ruler-left-bar');
+      const wV = 20;
+      const hV = leftBar ? leftBar.clientHeight : wrap.clientHeight;
+      if (canvasRulerV.width !== wV || canvasRulerV.height !== hV) {
+        canvasRulerV.width = wV;
+        canvasRulerV.height = Math.max(10, hV);
+      }
+
+      updateCachedRulerRects();
+    }
 
     // ==================== RÉGUAS MILIMETRADAS (ESTILO QGIS PRINT LAYOUT) ====================
     function renderRulers() {
@@ -3483,23 +3521,17 @@
       const sheetEl = document.getElementById('paper-sheet');
       if (!wrap || !sheetEl || !layoutContainer || layoutContainer.style.display === 'none') return;
 
-      const wH = canvasRulerH.parentElement ? (canvasRulerH.parentElement.clientWidth - 20) : wrap.clientWidth;
+      if (!cachedSheetRect || !cachedRulerHRect || !cachedRulerVRect || canvasRulerH.width <= 10) {
+        resizeRulerCanvases();
+      }
+
+      const sheetRect = cachedSheetRect;
+      const rulerHRect = cachedRulerHRect;
+      const rulerVRect = cachedRulerVRect;
+      if (!sheetRect || !rulerHRect || !rulerVRect) return;
+
       const hH = 20;
-      if (canvasRulerH.width !== wH || canvasRulerH.height !== hH) {
-        canvasRulerH.width = Math.max(10, wH);
-        canvasRulerH.height = hH;
-      }
-
       const wV = 20;
-      const hV = canvasRulerV.parentElement ? canvasRulerV.parentElement.clientHeight : wrap.clientHeight;
-      if (canvasRulerV.width !== wV || canvasRulerV.height !== hV) {
-        canvasRulerV.width = wV;
-        canvasRulerV.height = Math.max(10, hV);
-      }
-
-      const sheetRect = sheetEl.getBoundingClientRect();
-      const rulerHRect = canvasRulerH.getBoundingClientRect();
-      const rulerVRect = canvasRulerV.getBoundingClientRect();
 
       // 1. Régua Superior Horizontal
       ctxRulerH.fillStyle = '#1e293b';
@@ -3629,6 +3661,7 @@
         if (sheetZoomMode === 'fit') sel.value = 'fit';
         else sel.value = currentSheetZoom.toFixed(2);
       }
+      resizeRulerCanvases();
       renderRulers();
     }
 
@@ -3638,6 +3671,7 @@
 
     window.addEventListener('resize', () => {
       if (layoutContainer && layoutContainer.style.display !== 'none') {
+        resizeRulerCanvases();
         if (sheetZoomMode === 'fit') fitSheetToScreen();
         else renderRulers();
       }
@@ -3666,14 +3700,22 @@
       }
     });
 
+    window.addEventListener('blur', () => {
+      isPanningSheet = false;
+      isSpacePressedInLayout = false;
+      if (layoutSheetWrap) layoutSheetWrap.style.cursor = 'default';
+    });
+
     if (layoutSheetWrap) {
       layoutSheetWrap.addEventListener('mousemove', (e) => {
-        if (!canvasRulerH || !canvasRulerV) return;
-        const rH = canvasRulerH.getBoundingClientRect();
-        const rV = canvasRulerV.getBoundingClientRect();
-        rulerMousePos.x = e.clientX - rH.left;
-        rulerMousePos.y = e.clientY - rV.top;
-        renderRulers();
+        if (!cachedRulerHRect || !cachedRulerVRect) {
+          updateCachedRulerRects();
+        }
+        if (cachedRulerHRect && cachedRulerVRect) {
+          rulerMousePos.x = e.clientX - cachedRulerHRect.left;
+          rulerMousePos.y = e.clientY - cachedRulerVRect.top;
+          renderRulers();
+        }
       });
 
       layoutSheetWrap.addEventListener('mouseleave', () => {
@@ -3683,6 +3725,7 @@
       });
 
       layoutSheetWrap.addEventListener('scroll', () => {
+        updateCachedRulerRects();
         renderRulers();
       });
 
@@ -3702,6 +3745,7 @@
           const dy = e.clientY - sheetPanStart.y;
           layoutSheetWrap.scrollLeft = sheetScrollStart.left - dx;
           layoutSheetWrap.scrollTop = sheetScrollStart.top - dy;
+          updateCachedRulerRects();
           renderRulers();
         }
       });
