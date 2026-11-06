@@ -67,13 +67,18 @@ A aplicação opera inteiramente no cliente via navegador web (arquitetura offli
 │   ├── nbr5410-engine.md      Critérios e equacionamento normativo da NBR 5410
 │   ├── wiring-routing-graph.md Algoritmos de roteamento e resolução topológica
 │   ├── cad-and-dxf.md         Motor de renderização 2D e especificação DXF
-│   └── backlog-and-roadmap.md Registro de etapas concluídas e planejamento técnico
 └── src/                       Código-fonte do sistema
 ```
 
 ---
 
-## 4. Procedimento de Instalação e Execução
+## 4. Palavras-Chave e Tópicos Técnicos
+
+`cad-eletrico` `nbr-5410` `nbr-6492` `nbr-5444` `diagrama-unifilar` `engenharia-eletrica` `projetos-eletricos` `instalacoes-eletricas` `dimensionamento-eletrico` `quadro-de-cargas` `dxf-export` `autocad` `webcad` `offline-first` `single-line-diagram` `circuit-breaker` `conduit-routing` `electrical-engineering` `open-source`
+
+---
+
+## 5. Procedimento de Instalação e Execução
 
 ### Pré-requisitos
 * Node.js versão 18 ou superior.
@@ -96,6 +101,6 @@ npm run build
 
 ---
 
-## 5. Licença
+## 6. Licença
 
 O projeto está disponível sob a licença MIT. Maiores detalhes constam no arquivo LICENSE na raiz do repositório.

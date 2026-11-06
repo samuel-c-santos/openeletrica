@@ -3,7 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>OpenElétrica — CAD Elétrico Predial ABNT NBR 5410</title>
+  <meta name="description" content="OpenElétrica: Sistema CAD para projetos de instalações elétricas prediais em baixa tensão conforme ABNT NBR 5410 e ABNT NBR 6492. Execução offline-first no navegador web com dimensionamento normativo, diagrama unifilar e exportação DXF.">
+  <meta name="keywords" content="CAD elétrico, NBR 5410, NBR 6492, NBR 5444, projetos elétricos prediais, diagrama unifilar, dimensionamento elétrico, quadro de cargas, exportação DXF, AutoCAD, instalações elétricas, WebCAD, offline-first, OpenElétrica">
+  <meta name="author" content="OpenElétrica">
+  <title>OpenElétrica: CAD Elétrico Predial ABNT NBR 5410</title>
   <!-- Favicon oficial OpenElétrica conforme identidade visual de engenharia -->
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23000000'/%3E%3Cpath d='M 71.8 79.1 A 38 38 0 1 0 28.2 79.1 L 37.4 66.0 A 22 22 0 1 1 62.6 66.0 Z' fill='%23ffffff'/%3E%3Cpolygon points='56,30 38,53 51,53 41,77 64,45 51,45' fill='%23fab816'/%3E%3C/svg%3E">
   <style>
@@ -11,32 +14,37 @@
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; background: #ffffff; color: #1e293b; overflow: hidden; display: flex; flex-direction: column; height: 100vh; }
     
     /* Top Header Bar (Estilo CAD Engenharia) */
-    #header { height: 48px; background: #ffffff; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; z-index: 20; box-sizing: border-box; }
-    .header-left { display: flex; align-items: center; gap: 10px; flex-shrink: 1; min-width: 0; }
-    .logo { display: flex; align-items: center; gap: 9px; font-weight: 800; font-size: 15px; color: #0f172a; letter-spacing: -0.4px; flex-shrink: 0; }
-    .logo-badge { width: 30px; height: 30px; background: #000000; border-radius: 7px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+    #header { height: 48px; background: #ffffff; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; z-index: 20; box-sizing: border-box; gap: 8px; overflow-x: auto; scrollbar-width: none; }
+    #header::-webkit-scrollbar { display: none; }
+    .header-left { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+    .logo { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 14px; color: #0f172a; letter-spacing: -0.3px; flex-shrink: 0; }
+    .logo-badge { width: 28px; height: 28px; background: #000000; border-radius: 6px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
     
-    .project-input { border: 1px solid #cbd5e1; border-radius: 4px; padding: 5px 10px; font-size: 12.5px; font-weight: 600; color: #334155; width: 190px; max-width: 220px; text-transform: uppercase; outline: none; flex-shrink: 1; }
+    .project-input { border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px 8px; font-size: 11.5px; font-weight: 600; color: #334155; width: 140px; min-width: 80px; max-width: 170px; text-transform: uppercase; outline: none; flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .project-input:focus { border-color: #0284c7; box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.15); }
 
-    .header-actions { display: flex; align-items: center; gap: 3px; flex-shrink: 0; }
-    .icon-btn { width: 32px; height: 32px; border: 1px solid transparent; border-radius: 6px; background: transparent; display: flex; align-items: center; justify-content: center; color: #475569; cursor: pointer; transition: all 0.12s; flex-shrink: 0; }
+    .header-actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; margin-left: auto; }
+    .icon-btn { width: 30px; height: 30px; border: 1px solid transparent; border-radius: 6px; background: transparent; display: flex; align-items: center; justify-content: center; color: #475569; cursor: pointer; transition: all 0.12s; flex-shrink: 0; }
     .icon-btn:hover { background: #f1f5f9; color: #0f172a; border-color: #e2e8f0; }
-    .icon-btn svg { width: 17px; height: 17px; stroke-width: 1.8; }
-    .divider-v { width: 1px; height: 22px; background: #e2e8f0; margin: 0 5px; flex-shrink: 0; }
+    .icon-btn svg { width: 16px; height: 16px; stroke-width: 1.8; }
+    .divider-v { width: 1px; height: 18px; background: #e2e8f0; margin: 0 2px; flex-shrink: 0; }
 
     .btn-ai-regenerate { background: #ea580c; color: white; border: none; padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 1px 3px rgba(234, 88, 12, 0.3); transition: background 0.15s; }
     .btn-ai-regenerate:hover { background: #c2410c; }
     .btn-ai-regenerate svg { width: 15px; height: 15px; }
 
     /* Ribbon Toolbar (Segunda linha de ferramentas - Compacta e Sem Rolagem) */
-    #ribbon { height: 42px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; padding: 0 10px; gap: 3px; z-index: 15; overflow-x: hidden; }
+    #ribbon { height: 38px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; padding: 0 12px 0 6px; gap: 2px; z-index: 15; overflow-x: auto; scrollbar-width: none; }
+    #ribbon::-webkit-scrollbar { display: none; }
     .ribbon-group { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
-    .ribbon-btn { min-width: 30px; height: 32px; padding: 0 6px; border: 1px solid transparent; border-radius: 4px; background: transparent; color: #334155; font-size: 11.5px; font-weight: 500; display: flex; align-items: center; gap: 4px; cursor: pointer; transition: all 0.12s; white-space: nowrap; flex-shrink: 0; }
+    .ribbon-btn { min-width: 26px; height: 28px; padding: 0 4px; border: 1px solid transparent; border-radius: 4px; background: transparent; color: #334155; font-size: 11px; font-weight: 500; display: flex; align-items: center; gap: 3px; cursor: pointer; transition: all 0.12s; white-space: nowrap; flex-shrink: 0; }
     .ribbon-btn:hover { background: #e2e8f0; color: #0f172a; }
     .ribbon-btn.active { background: #e0f2fe; color: #0284c7; border-color: #bae6fd; font-weight: 600; }
-    .ribbon-btn svg { width: 15px; height: 15px; stroke-width: 1.8; }
-    .ribbon-btn .badge-sub { font-size: 8.5px; font-weight: 700; background: #0284c7; color: white; border-radius: 2px; padding: 0 3px; margin-left: 1px; }
+    .ribbon-btn svg { width: 14px; height: 14px; stroke-width: 1.8; }
+    .ribbon-btn .badge-sub { font-size: 8px; font-weight: 700; background: #0284c7; color: white; border-radius: 2px; padding: 0 2px; margin-left: 1px; }
+    .ribbon-btn-eng { border: 1px solid #cbd5e1; background: #ffffff; font-weight: 600; }
+    .ribbon-btn-eng:hover { background: #f1f5f9; border-color: #0284c7; color: #0284c7; }
+    .ribbon-btn-eng.active-eng { background: #e0f2fe; border-color: #0284c7; color: #0284c7; font-weight: 700; }
 
     .thickness-select { border: 1px solid #cbd5e1; border-radius: 4px; padding: 4px 6px; font-size: 11px; font-weight: 600; color: #334155; background: #ffffff; outline: none; margin-left: 2px; }
 
@@ -93,11 +101,11 @@
     .form-control:focus { border-color: #0284c7; box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.15); }
 
     /* Segmented View Switcher in Header */
-    .view-tabs { display: flex; background: #f1f5f9; border-radius: 6px; padding: 2px; gap: 2px; margin-left: 8px; }
-    .view-tab { padding: 5px 12px; font-size: 11.5px; font-weight: 600; color: #64748b; background: transparent; border: none; border-radius: 4px; cursor: pointer; transition: all 0.12s; display: flex; align-items: center; gap: 6px; }
+    .view-tabs { display: flex; background: #f1f5f9; border-radius: 6px; padding: 2px; gap: 2px; margin-left: 2px; flex-shrink: 0; }
+    .view-tab { padding: 4px 8px; font-size: 11px; font-weight: 600; color: #64748b; background: transparent; border: none; border-radius: 4px; cursor: pointer; transition: all 0.12s; display: flex; align-items: center; gap: 4px; white-space: nowrap; }
     .view-tab:hover { color: #0f172a; }
     .view-tab.active { background: #ffffff; color: #0284c7; box-shadow: 0 1px 3px rgba(0,0,0,0.1); font-weight: 700; }
-    .view-tab svg { width: 15px; height: 15px; }
+    .view-tab svg { width: 14px; height: 14px; }
 
     /* Dynamic Contextual Sub-Toolbar */
     #context-subtoolbar { min-height: 40px; background: #ffffff; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; padding: 0 16px; gap: 8px; z-index: 14; font-size: 12px; overflow-x: auto; }
@@ -283,20 +291,20 @@
       </div>
 
       <!-- Seletor de Pavimento & Pavimento Subjacente (Multi-pavimentos) -->
-      <div class="level-controls-bar" style="display:flex; align-items:center; gap:6px; margin-left:8px;">
-        <div style="display:flex; align-items:center; gap:4px; background:#f1f5f9; padding:2px 8px; border-radius:6px; border:1px solid #cbd5e1;">
-          <span style="font-size:11px; font-weight:600; color:#334155;">Pavimento:</span>
-          <select id="select-active-level" style="font-size:12px; font-weight:600; color:#0f172a; background:transparent; border:none; outline:none; cursor:pointer;">
-            <option value="level_terreo">Pavimento Térreo (0.00m)</option>
+      <div class="level-controls-bar" style="display:flex; align-items:center; gap:4px; margin-left:4px; flex-shrink:0;">
+        <div style="display:flex; align-items:center; gap:3px; background:#f1f5f9; padding:2px 6px; border-radius:6px; border:1px solid #cbd5e1; flex-shrink:0;">
+          <span style="font-size:11px; font-weight:600; color:#334155; white-space:nowrap;">Pav:</span>
+          <select id="select-active-level" style="font-size:11.5px; font-weight:600; color:#0f172a; background:transparent; border:none; outline:none; cursor:pointer; max-width:130px;">
+            <option value="level_terreo">Térreo (0.00m)</option>
           </select>
-          <button id="btn-manage-levels" title="Gerenciar Pavimentos e Níveis" style="background:transparent; border:none; cursor:pointer; color:#0284c7; padding:2px; display:flex; align-items:center;">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:14px;height:14px;"><path d="M12 5v14M5 12h14"></path></svg>
+          <button id="btn-manage-levels" title="Gerenciar Pavimentos e Níveis" style="background:transparent; border:none; cursor:pointer; color:#0284c7; padding:1px; display:flex; align-items:center;">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:13px;height:13px;"><path d="M12 5v14M5 12h14"></path></svg>
           </button>
         </div>
 
-        <div style="display:flex; align-items:center; gap:4px; background:#f8fafc; padding:2px 8px; border-radius:6px; border:1px solid #e2e8f0;">
-          <span style="font-size:11px; font-weight:500; color:#64748b;">Subjacente:</span>
-          <select id="select-underlay-level" style="font-size:11px; color:#475569; background:transparent; border:none; outline:none; cursor:pointer;">
+        <div style="display:flex; align-items:center; gap:3px; background:#f8fafc; padding:2px 6px; border-radius:6px; border:1px solid #e2e8f0; flex-shrink:0;">
+          <span style="font-size:11px; font-weight:500; color:#64748b; white-space:nowrap;">Subjacente:</span>
+          <select id="select-underlay-level" style="font-size:11px; color:#475569; background:transparent; border:none; outline:none; cursor:pointer; max-width:90px;">
             <option value="">Nenhum</option>
           </select>
         </div>
@@ -351,6 +359,10 @@
       <button class="icon-btn" title="Gerenciar Camadas / Layers" id="btn-open-layers">
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
       </button>
+      <!-- Planta de Referência (Imagem / Underlay) -->
+      <button class="icon-btn" title="Planta Baixa de Referência (Imagem Raster / Calibração por 2 Cliques)" id="btn-open-bg-image">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><path d="m21 15-5-5L5 21"></path></svg>
+      </button>
       <!-- Legenda -->
       <button class="icon-btn" title="Legenda de Símbolos ABNT" id="btn-open-legenda">
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
@@ -374,7 +386,7 @@
     <div class="ribbon-group">
       <button class="ribbon-btn active" data-tool="select" title="Selecionar / Mover Elemento (Portas e Janelas têm prioridade sobre paredes)">
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="m3 3 7 18 3-7 7-3L3 3Z"></path></svg>
-        Selecionar
+        Seleção
       </button>
       <button class="ribbon-btn" data-tool="pan" title="Mover Visualização da Planta (Pan)">
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"></path><path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"></path><path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"></path><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"></path></svg>
@@ -386,11 +398,11 @@
 
     <!-- Grupo Arquitetura (Paredes Paralelas, Portas, Janelas, Ambientes) -->
     <div class="ribbon-group">
-      <button class="ribbon-btn" data-tool="wall" title="Parede Dupla Paralela com Snap Perpendicular Exato (90°)">
+      <button class="ribbon-btn" data-tool="wall" title="Parede Dupla Paralela e Ferramentas de Alvenaria [W]">
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><line x1="3" y1="8" x2="21" y2="8"></line><line x1="3" y1="16" x2="21" y2="16"></line><line x1="7" y1="8" x2="7" y2="16"></line><line x1="17" y1="8" x2="17" y2="16"></line></svg>
         Parede
       </button>
-      <button class="ribbon-btn" data-tool="door" title="Inserir Porta — Snap a 10cm do Canto (Boneca) e Espaço para Girar">
+      <button class="ribbon-btn" data-tool="door" title="Inserir Porta ABNT [Espaço: Girar]">
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 20h16"></path><path d="M7 20V4h10v16"></path><path d="M7 4a10 10 0 0 1 10 10"></path></svg>
         Porta
       </button>
@@ -414,51 +426,24 @@
 
     <div class="divider-v"></div>
 
-    <!-- Grupo Lançamento Elétrico ABNT -->
+    <!-- Grupo Lançamento Elétrico ABNT (Consolidado e Compacto) -->
     <div class="ribbon-group">
       <button class="ribbon-btn" data-tool="add_node" data-type="distribution_board" title="Quadro de Distribuição (QDC)">
         <svg fill="currentColor" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2" fill="#0f172a"></rect><rect x="5" y="6" width="6" height="12" fill="#ffffff"></rect><line x1="15" y1="8" x2="17" y2="8" stroke="#ffffff" stroke-width="2"></line><line x1="15" y1="12" x2="17" y2="12" stroke="#ffffff" stroke-width="2"></line></svg>
         QDC
       </button>
-      <!-- Símbolo Canônico ABNT: horizontal no meio, vertical apenas na metade inferior -->
       <button class="ribbon-btn" data-tool="add_node" data-type="light_ceiling" title="Luminária de Teto ABNT (Metade superior: Potência; Metade inferior: Circuito/Comando)">
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><line x1="3" y1="12" x2="21" y2="12"></line><line x1="12" y1="12" x2="12" y2="21"></line></svg>
-        Luz Teto <span class="badge-sub">A</span>
+        Luz <span class="badge-sub">A</span>
       </button>
-      <button class="ribbon-btn" data-tool="add_node" data-type="outlet_low" title="Tomada Baixa (0,30m)">
-        <svg stroke="currentColor" viewBox="0 0 24 24"><polygon points="12 4 4 19 20 19" fill="none"></polygon></svg>
-        Baixa
-      </button>
-      <button class="ribbon-btn" data-tool="add_node" data-type="outlet_medium" title="Tomada Média (1,20m - 600W)">
+      <button class="ribbon-btn" data-tool="add_node" data-type="outlet_medium" data-family="outlet" title="Tomadas NBR 5410 (Baixa 0,30m, Média 1,20m e Alta 2,20m / TUE)">
         <svg stroke="currentColor" viewBox="0 0 24 24"><polygon points="12 4 4 19 20 19" fill="none"></polygon><polygon points="12 4 4 19 12 19" fill="currentColor"></polygon></svg>
-        Média
+        Tomada
       </button>
-      <button class="ribbon-btn" data-tool="add_node" data-type="outlet_high" title="Tomada Alta (Chuveiro / TUE 5500W)">
-        <svg fill="currentColor" stroke="currentColor" viewBox="0 0 24 24"><polygon points="12 4 4 19 20 19"></polygon></svg>
-        Alta
-      </button>
-      <button class="ribbon-btn" data-tool="add_node" data-type="switch_simple" title="Interruptor Simples">
+      <button class="ribbon-btn" data-tool="add_node" data-type="switch_simple" data-family="switch" title="Interruptores NBR 5410 (Simples, Paralelo, Conjugado e 2 Seções)">
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"></circle><line x1="12" y1="5" x2="12" y2="1"></line></svg>
-        Simples
+        Interruptor
       </button>
-      <button class="ribbon-btn" data-tool="add_node" data-type="switch_three_way" title="Interruptor Paralelo (Three-Way)">
-        <svg stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" fill="none"></circle><path d="M12 5 A 7 7 0 0 1 12 19 Z" fill="currentColor"></path><line x1="12" y1="5" x2="12" y2="1"></line></svg>
-        Paralelo
-      </button>
-      <button class="ribbon-btn" data-tool="add_node" data-type="combo_switch_outlet" title="Conjugado 4x2 (Interruptor + Tomada Média 1,20m)">
-        <svg stroke="currentColor" viewBox="0 0 24 24"><circle cx="7" cy="12" r="5" fill="none"></circle><polygon points="17 7 12 17 22 17" fill="none"></polygon><polygon points="17 7 12 17 17 17" fill="currentColor"></polygon></svg>
-        Conjugado
-      </button>
-      <button class="ribbon-btn" data-tool="add_node" data-type="combo_switch_switch" title="Interruptor 2 Seções (2 Teclas 1,20m)">
-        <svg stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" fill="none"></circle><line x1="12" y1="5" x2="12" y2="19"></line></svg>
-        2 Seções
-      </button>
-    </div>
-
-    <div class="divider-v"></div>
-
-    <!-- Grupo Infraestrutura & Fiação Automática -->
-    <div class="ribbon-group">
       <button class="ribbon-btn" data-tool="conduit" title="Eletroduto Curvado no Teto (Conectar dois pontos)">
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 16 Q 12 4, 21 16"></path></svg>
         Eletroduto <span class="badge-sub">A</span>
@@ -467,29 +452,29 @@
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"></circle><path d="m9 10 3-3 3 3M12 7v10M9 14l3 3 3-3"></path></svg>
         Prumada
       </button>
-      <button class="ribbon-btn" id="btn-auto-wire" title="Passar Fiação Automática (Dijkstra NBR 5410)">
-        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><line x1="2" y1="12" x2="22" y2="12"></line><line x1="7" y1="6" x2="7" y2="18"></line><line x1="12" y1="6" x2="12" y2="18"></line><line x1="12" y1="6" x2="15" y2="6"></line><line x1="17" y1="6" x2="17" y2="12"></line></svg>
-        Fiação
-      </button>
     </div>
 
     <div class="divider-v"></div>
 
-    <!-- Grupo Automação & Engenharia NBR 5410 -->
+    <!-- Grupo Automação & Engenharia NBR 5410 (Fluxo Sequencial Destacado) -->
     <div class="ribbon-group" id="header-eng-buttons">
-      <button class="ribbon-btn" id="btn-auto-room-points" title="Lançar automaticamente Luz de Teto, Interruptores e TUGs por Cômodo">
+      <button class="ribbon-btn ribbon-btn-eng" id="btn-auto-room-points" title="1. Lançar automaticamente Luz de Teto, Interruptores e TUGs por Cômodo">
+        <span class="badge-sub" style="background:#0284c7;">1</span>
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"></circle><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line></svg>
-        Lançar Pontos
+        Pontos
       </button>
-      <button class="ribbon-btn" id="btn-auto-conduits" title="Traçar Eletrodutos Automáticos ligando chaves, tomadas e lâmpadas ao QDC">
+      <button class="ribbon-btn ribbon-btn-eng" id="btn-auto-conduits" title="2. Traçar Eletrodutos Automáticos ligando chaves, tomadas e lâmpadas ao QDC">
+        <span class="badge-sub" style="background:#0284c7;">2</span>
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 16 Q 12 4, 21 16"></path></svg>
-        Lançar Tubulação
+        Tubos
       </button>
-      <button class="ribbon-btn" id="btn-auto-wire-top" title="Calcular Fiação e Dimensionar Circuitos (Dijkstra + NBR 5410)" style="color:#0284c7; font-weight:700;">
+      <button class="ribbon-btn ribbon-btn-eng active-eng" id="btn-auto-wire-top" title="3. Calcular Fiação e Dimensionar Circuitos (Dijkstra + NBR 5410)">
+        <span class="badge-sub" style="background:#0284c7;">3</span>
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
         Dimensionar
       </button>
-      <button class="ribbon-btn" id="btn-materials" title="Lista Quantitativa de Materiais de Instalação (NBR 5410)">
+      <button class="ribbon-btn ribbon-btn-eng" id="btn-materials" title="4. Lista Quantitativa de Materiais de Instalação (NBR 5410)">
+        <span class="badge-sub" style="background:#059669;">4</span>
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2m-6 9 2 2 4-4"></path></svg>
         Materiais
       </button>
@@ -532,6 +517,10 @@
       <button class="circle-tool-btn" id="btn-toggle-layers-floating" title="Gerenciar Camadas">
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
         <span>Layers</span>
+      </button>
+      <button class="circle-tool-btn" id="btn-toggle-unifilar-floating" title="Exibir / Ocultar Quadro Geral QD1 (Atalho U)">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"></rect><line x1="8" y1="4" x2="8" y2="20"></line><line x1="13" y1="9" x2="19" y2="9"></line><line x1="13" y1="15" x2="19" y2="15"></line></svg>
+        <span>QD1</span>
       </button>
     </div>
 
@@ -1197,6 +1186,89 @@
     </div>
   </div>
 
+  <!-- Modal H: Planta Baixa de Referência (Imagem Raster / Decalque) -->
+  <div class="modal-overlay" id="modal-bg-image">
+    <div class="modal-box" style="max-width: 540px;">
+      <div class="modal-header">
+        <div class="modal-title">
+          <svg width="18" height="18" fill="none" stroke="#0284c7" stroke-width="2" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><path d="m21 15-5-5L5 21"></path></svg>
+          Planta Baixa de Referência (Imagem / Calibração Métrica)
+        </div>
+        <button class="modal-close" data-close="modal-bg-image">✕</button>
+      </div>
+      <div class="modal-body" style="padding: 16px;">
+        <div style="font-size: 11.5px; color: #475569; line-height: 1.5; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 14px; margin-bottom: 16px;">
+          Importe uma foto, imagem ou planta escaneada (JPG, PNG ou WebP) para servir como guia de fundo no pavimento ativo. Após o carregamento, use a calibração por 2 cliques para ajustar a escala proporcional exata do desenho.
+        </div>
+
+        <input type="file" id="input-file-bg-image" accept="image/png,image/jpeg,image/webp" style="display:none;" />
+
+        <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+          <button class="btn-eng-action primary" id="btn-upload-bg-image" style="flex: 1; padding: 8px 12px; font-weight: 600;">
+            Selecionar Imagem da Planta...
+          </button>
+          <button class="btn-eng-action" id="btn-trigger-calib" style="padding: 8px 12px; font-weight: 600; border-color: #0284c7; color: #0284c7;">
+            Calibrar Escala (2 Cliques)
+          </button>
+        </div>
+
+        <div id="bg-image-controls" style="display: flex; flex-direction: column; gap: 12px; padding: 12px; border: 1px solid #e2e8f0; border-radius: 6px; background: #ffffff;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <label style="font-size: 12px; font-weight: 600; color: #1e293b;">Opacidade da Imagem:</label>
+            <span id="lbl-bg-opacity" style="font-size: 12px; font-weight: 600; color: #0284c7;">50%</span>
+          </div>
+          <input type="range" id="slider-bg-opacity" min="5" max="100" value="50" style="width: 100%; accent-color: #0284c7;" />
+
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
+            <label style="font-size: 12px; font-weight: 500; color: #334155; display: flex; align-items: center; gap: 6px; cursor: pointer;">
+              <input type="checkbox" id="chk-bg-locked" style="accent-color: #0284c7;" checked />
+              Travar posição da imagem (evita arrastar durante o desenho)
+            </label>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <label style="font-size: 12px; font-weight: 500; color: #334155; display: flex; align-items: center; gap: 6px; cursor: pointer;">
+              <input type="checkbox" id="chk-bg-visible" style="accent-color: #0284c7;" checked />
+              Exibir imagem de fundo no Canvas
+            </label>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="padding: 10px 16px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+        <button class="btn-eng-action" id="btn-remove-bg-image" style="color: #ef4444; border-color: #fca5a5;">Remover Imagem</button>
+        <button class="btn-eng-action primary" data-close="modal-bg-image">Concluir</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal I: Entrada da Cota Real na Calibração Métrica -->
+  <div class="modal-overlay" id="modal-calib-input">
+    <div class="modal-box" style="max-width: 440px;">
+      <div class="modal-header">
+        <div class="modal-title">
+          <svg width="18" height="18" fill="none" stroke="#0284c7" stroke-width="2" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
+          Calibração Métrica da Imagem
+        </div>
+        <button class="modal-close" id="btn-close-calib-modal">✕</button>
+      </div>
+      <div class="modal-body" style="padding: 16px;">
+        <div style="font-size: 12px; color: #475569; margin-bottom: 12px; line-height: 1.5;">
+          Distância medida graficamente no desenho: <strong id="lbl-calib-measured" style="color:#0284c7;">0.00 m</strong>.
+          <br />
+          Digite o comprimento real correspondente a este segmento:
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <input type="number" id="input-calib-real-meters" step="0.01" min="0.05" max="500" placeholder="Ex: 3.50" style="flex: 1; padding: 8px 12px; border: 1.5px solid #0284c7; border-radius: 6px; font-size: 14px; font-weight: 600;" />
+          <span style="font-size: 14px; font-weight: 600; color: #64748b;">metros</span>
+        </div>
+      </div>
+      <div class="modal-footer" style="padding: 10px 16px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 8px;">
+        <button class="btn-eng-action" id="btn-cancel-calib">Cancelar</button>
+        <button class="btn-eng-action primary" id="btn-apply-calib">Aplicar Escala e Travar</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 5. Lógica da Aplicação -->
   <script type="module">
     import { CadEngine, sizeCircuit, Vector2D } from './src/cad-engine.js';
@@ -1270,17 +1342,18 @@
       const levels = engine.levels || [];
       const curId = engine.activeLevelId;
       const underId = engine.underlayLevelId;
+      const shortName = (name) => (name || '').replace(/^Pavimento\s+/i, '');
 
       // Seletor de Pavimento Ativo
       selectActiveLevel.innerHTML = levels.map(l => 
-        `<option value="${l.id}" ${l.id === curId ? 'selected' : ''}>${l.name} (${Number(l.elevation).toFixed(2)}m)</option>`
+        `<option value="${l.id}" ${l.id === curId ? 'selected' : ''}>${shortName(l.name)} (${Number(l.elevation).toFixed(2)}m)</option>`
       ).join('');
 
       // Seletor de Pavimento Subjacente (Underlay)
       const underlayOptions = [`<option value="">Nenhum</option>`];
       for (const l of levels) {
         if (l.id !== curId) {
-          underlayOptions.push(`<option value="${l.id}" ${l.id === underId ? 'selected' : ''}>${l.name} (${Number(l.elevation).toFixed(2)}m)</option>`);
+          underlayOptions.push(`<option value="${l.id}" ${l.id === underId ? 'selected' : ''}>${shortName(l.name)} (${Number(l.elevation).toFixed(2)}m)</option>`);
         }
       }
       selectUnderlayLevel.innerHTML = underlayOptions.join('');
@@ -1540,6 +1613,36 @@
       });
     }
 
+    // Botão: Exportar CAD DXF R12 Normatizado (NBR 5410 / NBR 6492)
+    const btnExportDxf = document.getElementById('btn-export-dxf');
+    if (btnExportDxf) {
+      btnExportDxf.addEventListener('click', () => {
+        try {
+          if (Array.isArray(projectCircuits) && projectCircuits.length > 0) {
+            engine.circuits = projectCircuits;
+          }
+          const dxfContent = engine.exportToDxf();
+          const blob = new Blob([dxfContent], { type: 'application/dxf;charset=utf-8' });
+          const url = URL.createObjectURL(blob);
+          const safeName = (engine.projectMeta?.title || 'projeto-eletrico-nbr5410')
+            .toLowerCase()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '') || 'projeto-eletrico-nbr5410';
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `${safeName}.dxf`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+          showToast('Arquivo AutoCAD DXF R12 exportado com sucesso (17 camadas ABNT)!', 'info');
+        } catch (err) {
+          alert('Erro ao exportar arquivo DXF: ' + err.message);
+        }
+      });
+    }
+
     // Botão: Abrir Arquivo de Projeto (.openelt / .json)
     const btnOpenProject = document.getElementById('btn-open-project');
     const fileOpenInput = document.getElementById('file-open-project');
@@ -1615,34 +1718,116 @@
       if (!subtoolbarEl) return;
       const tool = engine.activeTool;
 
-      if (tool === 'wall') {
+      if (tool === 'wall' || tool === 'trim_corner' || tool === 'trim_extend_multi') {
         const curTh = engine.currentWallThickness || 0.15;
+        const isWall = tool === 'wall';
+        const isTrimCorner = tool === 'trim_corner';
+        const isTrimMulti = tool === 'trim_extend_multi';
+        const hasFirst = !!engine.trimCornerWall1;
+        const hasRef = !!engine.trimMultiRefWall;
+
         subtoolbarEl.innerHTML = `
-          <span class="context-title">Espessura da Parede:</span>
-          <button class="context-chip ${curTh === 0.10 ? 'active' : ''}" data-wall-th="0.10">0.10 m (Drywall)</button>
-          <button class="context-chip ${curTh === 0.15 ? 'active' : ''}" data-wall-th="0.15">0.15 m (Padrão)</button>
-          <button class="context-chip ${curTh === 0.20 ? 'active' : ''}" data-wall-th="0.20">0.20 m (Estrutural)</button>
-          <span style="color:#94a3b8; font-size:11px; margin-left:4px;">Personalizada:</span>
-          <input type="number" step="0.01" class="context-input" id="input-custom-wall-th" value="${curTh}" /> m
-          <div class="context-badge-info">
-            <span>⟂ Snap Perpendicular (90°) e Ortho 45° ativados para fechamento de cômodos</span>
-          </div>
+          <!-- Modos de Trabalho de Parede e Alvenaria -->
+          <span class="context-title">Alvenaria:</span>
+          <button class="context-chip ${isWall ? 'active' : ''}" id="sub-mode-wall" title="Desenhar paredes paralelas contínuas [W]">
+            <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="vertical-align:middle; margin-right:2px;"><line x1="3" y1="8" x2="21" y2="8"></line><line x1="3" y1="16" x2="21" y2="16"></line></svg>
+            Parede [W]
+          </button>
+          <button class="context-chip ${isTrimCorner ? 'active' : ''}" id="sub-mode-trim-corner" title="Unir duas paredes em quina fechada (canto em L) [T]">
+            <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="vertical-align:middle; margin-right:2px;"><path d="M5 20V7a2 2 0 0 1 2-2h13" stroke-width="2.2"></path><circle cx="6" cy="6" r="2" fill="currentColor"></circle></svg>
+            Unir Canto [T]
+          </button>
+          <button class="context-chip ${isTrimMulti ? 'active' : ''}" id="sub-mode-trim-multi" title="Ajustar múltiplas paredes concorrentes até uma parede limite [E]">
+            <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="vertical-align:middle; margin-right:2px;"><line x1="19" y1="3" x2="19" y2="21" stroke-width="2.4"></line><path d="M4 8h11M11 5l4 3-4 3"></path><path d="M4 16h11M11 13l4 3-4 3"></path></svg>
+            Estender [E]
+          </button>
+
+          <div class="divider-v"></div>
+
+          ${isWall ? `
+            <span class="context-title">Espessura:</span>
+            <button class="context-chip ${curTh === 0.10 ? 'active' : ''}" data-wall-th="0.10">0.10 m (Drywall)</button>
+            <button class="context-chip ${curTh === 0.15 ? 'active' : ''}" data-wall-th="0.15">0.15 m (Padrão)</button>
+            <button class="context-chip ${curTh === 0.20 ? 'active' : ''}" data-wall-th="0.20">0.20 m (Estrutural)</button>
+            <span style="color:#94a3b8; font-size:11px; margin-left:4px;">Personalizada:</span>
+            <input type="number" step="0.01" class="context-input" id="input-custom-wall-th" value="${curTh}" /> m
+            <div class="context-badge-info">
+              <span>⟂ Snap Perpendicular (90°) e Ortho ativados para fechamento de cômodos</span>
+            </div>
+          ` : isTrimCorner ? `
+            <span style="color:${hasFirst ? '#0284c7' : '#475569'}; font-size:11.5px; font-weight:${hasFirst ? '600' : '400'};">
+              ${hasFirst ? '1ª parede fixada. Clique na 2ª parede para fechar o canto em L.' : 'Clique na 1ª parede a ser unida em canto.'}
+            </span>
+            <button class="context-chip" id="btn-cancel-trim" style="margin-left:8px;">Voltar à Parede [Esc]</button>
+            <div class="context-badge-info">
+              <span>Clique do lado do segmento que deseja manter.</span>
+            </div>
+          ` : `
+            <span style="color:${hasRef ? '#059669' : '#475569'}; font-size:11.5px; font-weight:${hasRef ? '600' : '400'};">
+              ${hasRef ? 'Parede limite fixada (verde). Clique em paredes concorrentes para ajustá-las.' : 'Clique na parede de DESTINO (limite de corte/prolongamento).'}
+            </span>
+            ${hasRef ? '<button class="context-chip" id="btn-reset-ref-wall" style="margin-left:8px;">Trocar Limite</button>' : ''}
+            <button class="context-chip" id="btn-cancel-trim-multi" style="margin-left:4px;">Voltar à Parede [Esc]</button>
+            <div class="context-badge-info">
+              <span>Ajusta e prolonga paredes até a reta limite.</span>
+            </div>
+          `}
         `;
 
-        subtoolbarEl.querySelectorAll('[data-wall-th]').forEach(btn => {
-          btn.addEventListener('click', () => {
-            engine.currentWallThickness = parseFloat(btn.dataset.wallTh);
-            updateContextSubtoolbar();
-          });
+        document.getElementById('sub-mode-wall')?.addEventListener('click', () => {
+          engine.resetTrimState();
+          engine.activeTool = 'wall';
+          updateContextSubtoolbar();
+          engine.render(ctx, canvas.width, canvas.height);
         });
-        const inp = document.getElementById('input-custom-wall-th');
-        if (inp) {
-          inp.addEventListener('change', (e) => {
-            const val = parseFloat(e.target.value);
-            if (val > 0.04 && val < 1.0) {
-              engine.currentWallThickness = val;
+        document.getElementById('sub-mode-trim-corner')?.addEventListener('click', () => {
+          engine.resetTrimState();
+          engine.activeTool = 'trim_corner';
+          updateContextSubtoolbar();
+          engine.render(ctx, canvas.width, canvas.height);
+        });
+        document.getElementById('sub-mode-trim-multi')?.addEventListener('click', () => {
+          engine.resetTrimState();
+          engine.activeTool = 'trim_extend_multi';
+          updateContextSubtoolbar();
+          engine.render(ctx, canvas.width, canvas.height);
+        });
+
+        if (isWall) {
+          subtoolbarEl.querySelectorAll('[data-wall-th]').forEach(btn => {
+            btn.addEventListener('click', () => {
+              engine.currentWallThickness = parseFloat(btn.dataset.wallTh);
               updateContextSubtoolbar();
-            }
+            });
+          });
+          const inp = document.getElementById('input-custom-wall-th');
+          if (inp) {
+            inp.addEventListener('change', (e) => {
+              const val = parseFloat(e.target.value);
+              if (val > 0.04 && val < 1.0) {
+                engine.currentWallThickness = val;
+                updateContextSubtoolbar();
+              }
+            });
+          }
+        } else if (isTrimCorner) {
+          document.getElementById('btn-cancel-trim')?.addEventListener('click', () => {
+            engine.resetTrimState();
+            engine.activeTool = 'wall';
+            updateContextSubtoolbar();
+            engine.render(ctx, canvas.width, canvas.height);
+          });
+        } else if (isTrimMulti) {
+          document.getElementById('btn-reset-ref-wall')?.addEventListener('click', () => {
+            engine.trimMultiRefWall = null;
+            updateContextSubtoolbar();
+            engine.render(ctx, canvas.width, canvas.height);
+          });
+          document.getElementById('btn-cancel-trim-multi')?.addEventListener('click', () => {
+            engine.resetTrimState();
+            engine.activeTool = 'wall';
+            updateContextSubtoolbar();
+            engine.render(ctx, canvas.width, canvas.height);
           });
         }
       } else if (tool === 'door') {
@@ -1688,10 +1873,6 @@
             <button class="context-chip ${curOrient === 3 ? 'active' : ''}" data-door-orient="3" title="Sentido 4: Dobradiça à Esquerda / Abre para Fora" style="padding:2px 6px;">
               <svg width="22" height="22" viewBox="0 0 24 24"><line x1="2" y1="6" x2="22" y2="6" stroke="#475569" stroke-width="2"/><line x1="6" y1="6" x2="6" y2="18" stroke="#0284c7" stroke-width="2.2"/><path d="M 18 6 A 12 12 0 0 1 6 18" fill="none" stroke="#94a3b8" stroke-dasharray="2 2" stroke-width="1.2"/><circle cx="6" cy="6" r="2" fill="#0284c7"/></svg>
             </button>
-          </div>
-
-          <div class="context-badge-info">
-            <span>📏 Atracamento automático a 10cm da quina (Boneca)</span>
           </div>
         `;
 
@@ -1806,22 +1987,76 @@
           });
         });
       } else if (tool === 'add_node') {
-        subtoolbarEl.innerHTML = `
-          <span class="context-title">Lançamento Elétrico:</span>
-          <span style="color:#475569; font-size:11.5px;">Elemento: <strong>${engine.pendingNodeType || 'Ponto'}</strong></span>
-          <div class="divider-v"></div>
-          <span style="color:#94a3b8; font-size:11px;">Circuito:</span>
-          <select class="form-control" id="select-active-circ" style="width:100px; padding:3px 6px; font-size:11.5px;">
-            <option value="1" selected>Circuito 1</option>
-            <option value="2">Circuito 2</option>
-            <option value="3">Circuito 3</option>
-            <option value="4">Circuito 4</option>
-            <option value="5">Circuito 5</option>
-          </select>
-          <div class="context-badge-info">
-            <span>Clique no ponto desejado para posicionar. Aderência automática a eletrodutos e paredes.</span>
-          </div>
-        `;
+        const curType = engine.pendingNodeType || 'outlet_medium';
+        const isOutlet = curType.startsWith('outlet');
+        const isSwitch = curType.startsWith('switch') || curType.startsWith('combo');
+
+        if (isOutlet) {
+          subtoolbarEl.innerHTML = `
+            <span class="context-title">Tomadas (NBR 5410):</span>
+            <button class="context-chip ${curType === 'outlet_low' ? 'active' : ''}" data-outlet-type="outlet_low" title="Tomada Baixa a 0,30 m do piso acabado">
+              <svg width="14" height="14" stroke="currentColor" viewBox="0 0 24 24" style="vertical-align:middle;margin-right:3px;"><polygon points="12 4 4 19 20 19" fill="none"></polygon></svg>
+              Baixa (0,30 m)
+            </button>
+            <button class="context-chip ${curType === 'outlet_medium' ? 'active' : ''}" data-outlet-type="outlet_medium" title="Tomada Média a 1,20 m do piso acabado (TUG 600W / 100W)">
+              <svg width="14" height="14" stroke="currentColor" viewBox="0 0 24 24" style="vertical-align:middle;margin-right:3px;"><polygon points="12 4 4 19 20 19" fill="none"></polygon><polygon points="12 4 4 19 12 19" fill="currentColor"></polygon></svg>
+              Média (1,20 m)
+            </button>
+            <button class="context-chip ${curType === 'outlet_high' ? 'active' : ''}" data-outlet-type="outlet_high" title="Tomada Alta a 2,20 m do piso acabado (Chuveiro / TUE 5500W)">
+              <svg width="14" height="14" fill="currentColor" stroke="currentColor" viewBox="0 0 24 24" style="vertical-align:middle;margin-right:3px;"><polygon points="12 4 4 19 20 19"></polygon></svg>
+              Alta (2,20 m / TUE)
+            </button>
+            <div class="divider-v"></div>
+            <div class="context-badge-info">
+              <span>Aproxime o cursor da face da parede para vincular a tomada automaticamente.</span>
+            </div>
+          `;
+          subtoolbarEl.querySelectorAll('[data-outlet-type]').forEach(btn => {
+            btn.addEventListener('click', () => {
+              engine.pendingNodeType = btn.dataset.outletType;
+              updateContextSubtoolbar();
+            });
+          });
+        } else if (isSwitch) {
+          subtoolbarEl.innerHTML = `
+            <span class="context-title">Interruptores (NBR 5410):</span>
+            <button class="context-chip ${curType === 'switch_simple' ? 'active' : ''}" data-switch-type="switch_simple" title="Interruptor Simples (1 Tecla 1,20m)">
+              <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="vertical-align:middle;margin-right:3px;"><circle cx="12" cy="12" r="7"></circle><line x1="12" y1="5" x2="12" y2="1"></line></svg>
+              Simples
+            </button>
+            <button class="context-chip ${curType === 'switch_three_way' ? 'active' : ''}" data-switch-type="switch_three_way" title="Interruptor Paralelo Three-Way (Comando de 2 pontos)">
+              <svg width="14" height="14" stroke="currentColor" viewBox="0 0 24 24" style="vertical-align:middle;margin-right:3px;"><circle cx="12" cy="12" r="7" fill="none"></circle><path d="M12 5 A 7 7 0 0 1 12 19 Z" fill="currentColor"></path><line x1="12" y1="5" x2="12" y2="1"></line></svg>
+              Paralelo (Three-Way)
+            </button>
+            <button class="context-chip ${curType === 'combo_switch_outlet' ? 'active' : ''}" data-switch-type="combo_switch_outlet" title="Conjugado 4x2 (Interruptor + Tomada Média 1,20m)">
+              <svg width="14" height="14" stroke="currentColor" viewBox="0 0 24 24" style="vertical-align:middle;margin-right:3px;"><circle cx="7" cy="12" r="5" fill="none"></circle><polygon points="17 7 12 17 22 17" fill="none"></polygon><polygon points="17 7 12 17 17 17" fill="currentColor"></polygon></svg>
+              Conjugado (Chave + Tomada)
+            </button>
+            <button class="context-chip ${curType === 'combo_switch_switch' ? 'active' : ''}" data-switch-type="combo_switch_switch" title="Interruptor 2 Seções (2 Teclas no mesmo espelho 4x2)">
+              <svg width="14" height="14" stroke="currentColor" viewBox="0 0 24 24" style="vertical-align:middle;margin-right:3px;"><circle cx="12" cy="12" r="7" fill="none"></circle><line x1="12" y1="5" x2="12" y2="19"></line></svg>
+              2 Seções
+            </button>
+            <div class="divider-v"></div>
+            <div class="context-badge-info">
+              <span>Aproxime da parede hospedeira para fixação. Letra de comando configurável no inspetor.</span>
+            </div>
+          `;
+          subtoolbarEl.querySelectorAll('[data-switch-type]').forEach(btn => {
+            btn.addEventListener('click', () => {
+              engine.pendingNodeType = btn.dataset.switchType;
+              updateContextSubtoolbar();
+            });
+          });
+        } else {
+          subtoolbarEl.innerHTML = `
+            <span class="context-title">Lançamento Elétrico:</span>
+            <span style="color:#475569; font-size:11.5px;">Elemento ativo: <strong>${curType === 'light_ceiling' ? 'Luminária de Teto ABNT' : curType === 'distribution_board' ? 'Quadro de Distribuição (QDC)' : curType}</strong></span>
+            <div class="divider-v"></div>
+            <div class="context-badge-info">
+              <span>Clique na planta para posicionar o ponto. Aderência automática a eixos e centros de cômodo.</span>
+            </div>
+          `;
+        }
       } else if (tool === 'conduit') {
         const curType = engine.currentConduitType || 'ceiling';
         const curDiam = engine.currentConduitDiameter || 20;
@@ -1856,14 +2091,29 @@
           });
         }
       } else {
-        // Modo Seleção ou Geral
+        // Modo Seleção ou Geral: Pipeline de Engenharia NBR 5410 com acesso permanente
         subtoolbarEl.innerHTML = `
-          <span class="context-title">Modo Seleção:</span>
-          <span style="color:#475569; font-size:11.5px;">Pressione <kbd style="background:#f1f5f9;padding:2px 5px;border-radius:3px;border:1px solid #cbd5e1;font-weight:700;">Tab ⇥</kbd> para alternar entre elementos sob o cursor e clique para selecionar. Arraste para mover ou pressione <kbd style="background:#f1f5f9;padding:2px 5px;border-radius:3px;border:1px solid #cbd5e1;font-weight:700;">Del</kbd> para excluir.</span>
-          <div class="context-badge-info">
-            <span>Status da rede: ${engine.conduits.length} eletrodutos, ${engine.wireAllocations.size} trechos alimentados</span>
-          </div>
+          <span class="context-title">Automação NBR 5410:</span>
+          <button class="context-chip" id="sub-btn-auto-points" style="font-weight:600; color:#0284c7;" title="Lançar automaticamente Luz de Teto, Interruptores e TUGs por Cômodo">① Lançar Pontos</button>
+          <button class="context-chip" id="sub-btn-auto-conduits" style="font-weight:600; color:#0284c7;" title="Traçar Eletrodutos Automáticos ligando chaves, tomadas e lâmpadas ao QDC">② Lançar Tubulação</button>
+          <button class="context-chip" id="sub-btn-auto-wire" style="font-weight:700; background:#e0f2fe; color:#0284c7; border-color:#bae6fd;" title="Calcular Fiação e Dimensionar Circuitos (Dijkstra + NBR 5410)">③ Dimensionar</button>
+          <button class="context-chip" id="sub-btn-materials" style="font-weight:600; color:#059669;" title="Lista Quantitativa de Materiais de Instalação">④ Materiais</button>
+          <div class="divider-v"></div>
+          <span style="color:#64748b; font-size:11.5px;">Atalhos: <kbd style="background:#f1f5f9;padding:1px 4px;border:1px solid #cbd5e1;border-radius:2px;">W</kbd> Parede | <kbd style="background:#f1f5f9;padding:1px 4px;border:1px solid #cbd5e1;border-radius:2px;">T</kbd> Canto | <kbd style="background:#f1f5f9;padding:1px 4px;border:1px solid #cbd5e1;border-radius:2px;">E</kbd> Estender | <kbd style="background:#f1f5f9;padding:1px 4px;border:1px solid #cbd5e1;border-radius:2px;">U</kbd> QD1</span>
         `;
+
+        document.getElementById('sub-btn-auto-points')?.addEventListener('click', () => {
+          document.getElementById('btn-auto-room-points')?.click();
+        });
+        document.getElementById('sub-btn-auto-conduits')?.addEventListener('click', () => {
+          document.getElementById('btn-auto-conduits')?.click();
+        });
+        document.getElementById('sub-btn-auto-wire')?.addEventListener('click', () => {
+          document.getElementById('btn-auto-wire-top')?.click();
+        });
+        document.getElementById('sub-btn-materials')?.addEventListener('click', () => {
+          document.getElementById('btn-materials')?.click();
+        });
       }
     }
     updateContextSubtoolbar();
@@ -2807,8 +3057,33 @@
       content.innerHTML = '<p style="font-size:12px;color:#94a3b8;">Nenhum elemento selecionado.<br><br>Clique em um ponto elétrico, tomada ou parede para ver os parâmetros normativos.</p>';
     }
 
+
+
+    const btnToggleUnifilarFloating = document.getElementById('btn-toggle-unifilar-floating');
+    function updateUnifilarBtnState() {
+      if (!btnToggleUnifilarFloating) return;
+      const isVisible = engine.layers.unifilar !== false;
+      if (isVisible) {
+        btnToggleUnifilarFloating.style.borderColor = '#0284c7';
+        btnToggleUnifilarFloating.style.color = '#0284c7';
+        btnToggleUnifilarFloating.style.background = '#e0f2fe';
+      } else {
+        btnToggleUnifilarFloating.style.borderColor = '#cbd5e1';
+        btnToggleUnifilarFloating.style.color = '#94a3b8';
+        btnToggleUnifilarFloating.style.background = '#ffffff';
+      }
+    }
+    btnToggleUnifilarFloating?.addEventListener('click', () => {
+      engine.layers.unifilar = !engine.layers.unifilar;
+      updateUnifilarBtnState();
+      engine.render(ctx, canvas.width, canvas.height);
+      showToast(`Quadro Geral QD1: ${engine.layers.unifilar ? 'Exibido' : 'Ocultado'}`);
+    });
+    updateUnifilarBtnState();
+
     engine.subscribe(() => {
       updateInspector();
+      updateUnifilarBtnState();
       if (engine.mode === 'model') {
         engine.render(ctx, canvas.width, canvas.height);
       } else {
@@ -2965,11 +3240,38 @@
         engine.dimEndPoint = null;
         engine.dimStage = 0;
         engine.conduitStartNodeId = null;
+        engine.resetTrimState();
         engine.activeTool = 'select';
         document.querySelectorAll('.ribbon-btn[data-tool]').forEach(b => b.classList.remove('active'));
         document.querySelector('.ribbon-btn[data-tool="select"]')?.classList.add('active');
         updateContextSubtoolbar();
         engine.render(ctx, canvas.width, canvas.height);
+      } else if (!isInputFocused && !e.ctrlKey && !e.altKey && !e.metaKey && e.key.toLowerCase() === 'w') {
+        engine.resetTrimState();
+        engine.activeTool = 'wall';
+        document.querySelectorAll('.ribbon-btn[data-tool]').forEach(b => b.classList.remove('active'));
+        document.querySelector('.ribbon-btn[data-tool="wall"]')?.classList.add('active');
+        updateContextSubtoolbar();
+        engine.render(ctx, canvas.width, canvas.height);
+      } else if (!isInputFocused && !e.ctrlKey && !e.altKey && !e.metaKey && e.key.toLowerCase() === 't') {
+        engine.resetTrimState();
+        engine.activeTool = 'trim_corner';
+        document.querySelectorAll('.ribbon-btn[data-tool]').forEach(b => b.classList.remove('active'));
+        document.querySelector('.ribbon-btn[data-tool="wall"]')?.classList.add('active');
+        updateContextSubtoolbar();
+        engine.render(ctx, canvas.width, canvas.height);
+      } else if (!isInputFocused && !e.ctrlKey && !e.altKey && !e.metaKey && e.key.toLowerCase() === 'e') {
+        engine.resetTrimState();
+        engine.activeTool = 'trim_extend_multi';
+        document.querySelectorAll('.ribbon-btn[data-tool]').forEach(b => b.classList.remove('active'));
+        document.querySelector('.ribbon-btn[data-tool="wall"]')?.classList.add('active');
+        updateContextSubtoolbar();
+        engine.render(ctx, canvas.width, canvas.height);
+      } else if (!isInputFocused && !e.ctrlKey && !e.altKey && !e.metaKey && e.key.toLowerCase() === 'u') {
+        engine.layers.unifilar = !engine.layers.unifilar;
+        updateUnifilarBtnState();
+        engine.render(ctx, canvas.width, canvas.height);
+        showToast(`Quadro Geral QD1: ${engine.layers.unifilar ? 'Exibido' : 'Ocultado'}`);
       } else if (!isInputFocused && (e.key === 'Delete' || e.key === 'Backspace')) {
         deleteCurrentSelection();
       } else if (e.ctrlKey && e.key.toLowerCase() === 'z') {
@@ -2987,6 +3289,7 @@
         document.querySelectorAll('.ribbon-btn[data-tool]').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
 
+        engine.resetTrimState();
         const tool = btn.dataset.tool;
         engine.activeTool = tool;
         if (engine.mode === 'layout' && tool === 'pan' && typeof setLayoutTool === 'function') {
@@ -3072,8 +3375,8 @@
         showToast('⚡ Fiação calculada com sucesso! Todos os eletrodutos atendem a NBR 5410 Tabela 48.');
       }
     }
-    document.getElementById('btn-auto-wire-top').addEventListener('click', triggerWiringCalc);
-    document.getElementById('btn-auto-wire').addEventListener('click', triggerWiringCalc);
+    document.getElementById('btn-auto-wire-top')?.addEventListener('click', triggerWiringCalc);
+    document.getElementById('btn-auto-wire')?.addEventListener('click', triggerWiringCalc);
 
     // Drawer Inspector
     document.getElementById('btn-toggle-inspector').addEventListener('click', () => {
@@ -3089,6 +3392,142 @@
         const modalId = btn.dataset.close;
         document.getElementById(modalId).style.display = 'none';
       });
+    });
+
+    // ==================== PLANTA BAIXA DE REFERÊNCIA & CALIBRAÇÃO MÉTRICA ====================
+    const modalBgImage = document.getElementById('modal-bg-image');
+    const modalCalibInput = document.getElementById('modal-calib-input');
+    const btnOpenBgImage = document.getElementById('btn-open-bg-image');
+    const btnUploadBgImage = document.getElementById('btn-upload-bg-image');
+    const inputFileBgImage = document.getElementById('input-file-bg-image');
+    const btnTriggerCalib = document.getElementById('btn-trigger-calib');
+    const sliderBgOpacity = document.getElementById('slider-bg-opacity');
+    const lblBgOpacity = document.getElementById('lbl-bg-opacity');
+    const chkBgLocked = document.getElementById('chk-bg-locked');
+    const chkBgVisible = document.getElementById('chk-bg-visible');
+    const btnRemoveBgImage = document.getElementById('btn-remove-bg-image');
+
+    const lblCalibMeasured = document.getElementById('lbl-calib-measured');
+    const inputCalibRealMeters = document.getElementById('input-calib-real-meters');
+    const btnApplyCalib = document.getElementById('btn-apply-calib');
+    const btnCancelCalib = document.getElementById('btn-cancel-calib');
+    const btnCloseCalibModal = document.getElementById('btn-close-calib-modal');
+
+    function syncBgImageModalState() {
+      const bg = engine.backgroundImage;
+      if (bg) {
+        sliderBgOpacity.value = Math.round((bg.opacity ?? 0.5) * 100);
+        lblBgOpacity.textContent = sliderBgOpacity.value + '%';
+        chkBgLocked.checked = Boolean(bg.locked);
+        chkBgVisible.checked = bg.visible !== false;
+        btnTriggerCalib.disabled = false;
+        btnRemoveBgImage.disabled = false;
+        btnTriggerCalib.style.opacity = '1';
+        btnRemoveBgImage.style.opacity = '1';
+      } else {
+        btnTriggerCalib.disabled = true;
+        btnRemoveBgImage.disabled = true;
+        btnTriggerCalib.style.opacity = '0.5';
+        btnRemoveBgImage.style.opacity = '0.5';
+      }
+    }
+
+    btnOpenBgImage?.addEventListener('click', () => {
+      syncBgImageModalState();
+      modalBgImage.style.display = 'flex';
+    });
+
+    btnUploadBgImage?.addEventListener('click', () => {
+      inputFileBgImage.value = '';
+      inputFileBgImage.click();
+    });
+
+    inputFileBgImage?.addEventListener('change', (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const dataUrl = ev.target.result;
+        engine.setBackgroundImage(dataUrl, { width: 16.0, opacity: 0.5, locked: false });
+        modalBgImage.style.display = 'none';
+        showToast('Planta de referência carregada! Acione o botão Calibrar Escala para definir a metragem real.', 'info');
+      };
+      reader.readAsDataURL(file);
+    });
+
+    btnTriggerCalib?.addEventListener('click', () => {
+      if (!engine.backgroundImage) {
+        showToast('Carregue uma imagem antes de calibrar a escala.', 'warning');
+        return;
+      }
+      modalBgImage.style.display = 'none';
+      engine.startImageCalibration();
+      showToast('Modo de Calibração: Clique no PONTO 1 de uma medida conhecida (ex: vão de porta ou parede).', 'info');
+    });
+
+    sliderBgOpacity?.addEventListener('input', () => {
+      lblBgOpacity.textContent = sliderBgOpacity.value + '%';
+      engine.setImageOpacity(sliderBgOpacity.value / 100);
+    });
+
+    chkBgLocked?.addEventListener('change', () => {
+      engine.setImageLocked(chkBgLocked.checked);
+    });
+
+    chkBgVisible?.addEventListener('change', () => {
+      engine.setImageVisible(chkBgVisible.checked);
+    });
+
+    btnRemoveBgImage?.addEventListener('click', () => {
+      if (confirm('Deseja realmente remover a imagem de planta deste pavimento?')) {
+        engine.clearBackgroundImage();
+        syncBgImageModalState();
+        showToast('Planta de referência removida.');
+      }
+    });
+
+    // Callback disparado quando o usuário clica nos 2 pontos no Canvas
+    engine.onCalibrationRequested = (measuredM, p1, p2) => {
+      lblCalibMeasured.textContent = `${measuredM.toFixed(2)} m`;
+      inputCalibRealMeters.value = measuredM.toFixed(2);
+      modalCalibInput.style.display = 'flex';
+      setTimeout(() => {
+        inputCalibRealMeters.focus();
+        inputCalibRealMeters.select();
+      }, 50);
+    };
+
+    function confirmCalibration() {
+      const real = parseFloat(inputCalibRealMeters.value);
+      if (isNaN(real) || real <= 0) {
+        alert('Informe uma metragem válida maior que zero (ex: 3.50).');
+        return;
+      }
+      const ok = engine.applyImageCalibration(real);
+      if (ok) {
+        modalCalibInput.style.display = 'none';
+        showToast(`Imagem calibrada com sucesso para ${real.toFixed(2)} m e travada para decalque!`, 'info');
+      } else {
+        alert('Erro ao aplicar calibração.');
+      }
+    }
+
+    btnApplyCalib?.addEventListener('click', confirmCalibration);
+    inputCalibRealMeters?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') confirmCalibration();
+      if (e.key === 'Escape') {
+        engine.cancelImageCalibration();
+        modalCalibInput.style.display = 'none';
+      }
+    });
+
+    btnCancelCalib?.addEventListener('click', () => {
+      engine.cancelImageCalibration();
+      modalCalibInput.style.display = 'none';
+    });
+    btnCloseCalibModal?.addEventListener('click', () => {
+      engine.cancelImageCalibration();
+      modalCalibInput.style.display = 'none';
     });
 
     // ==================== GERENCIADOR DE CIRCUITOS & MULTI-QUADRO (QGBT / QD) ====================
@@ -3152,6 +3591,7 @@
       { key: 'conduits', name: 'Eletrodutos', color: '#475569' },
       { key: 'wiring', name: 'Fiação NBR 5410', color: '#0284c7' },
       { key: 'dimensions', name: 'Cotas Técnicas NBR 6492', color: '#ea580c' },
+      { key: 'unifilar', name: 'Quadro Geral QD1 (Diagrama Unifilar)', color: '#0284c7' },
       { key: 'grid', name: 'Grid & Eixos CAD', color: '#94a3b8' }
     ];
 
@@ -3193,6 +3633,8 @@
       renderLayersModal();
       modalLayers.style.display = 'flex';
     });
+
+
 
     // Modal Gerenciador Completo de Circuitos & Quadros
     const modalCircuitsManage = document.getElementById('modal-circuits');

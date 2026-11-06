@@ -90,6 +90,53 @@ export function lineIntersect(p1, d1, p2, d2) {
   return new Vector2D(p1.x + t * d1.x, p1.y + t * d1.y);
 }
 
+/**
+ * Calcula os novos pontos extremos de uma parede ao ser aparada ou estendida ate um ponto de intersecao.
+ * Preserva o segmento situado no lado em que o usuario realizou o clique no elemento.
+ * @param {{ a: { x: number, y: number }, b: { x: number, y: number } }} wall Objeto de parede existente
+ * @param {{ x: number, y: number }} pInt Coordenadas do ponto de intersecao calculado
+ * @param {{ x: number, y: number }} clickPt Coordenadas do clique de selecao do usuario
+ * @returns {{ a: { x: number, y: number }, b: { x: number, y: number } } | null}
+ */
+export function computeTrimmedWallEndpoints(wall, pInt, clickPt) {
+  if (!wall || !pInt || !clickPt) return null;
+  const dx = wall.b.x - wall.a.x;
+  const dy = wall.b.y - wall.a.y;
+  const len = Math.hypot(dx, dy);
+  if (len < 1e-6) return null;
+  const dir = { x: dx / len, y: dy / len };
+
+  // Projecoes escalares com origem no ponto de intersecao
+  const sa = (wall.a.x - pInt.x) * dir.x + (wall.a.y - pInt.y) * dir.y;
+  const sb = (wall.b.x - pInt.x) * dir.x + (wall.b.y - pInt.y) * dir.y;
+  const sc = (clickPt.x - pInt.x) * dir.x + (clickPt.y - pInt.y) * dir.y;
+
+  let keepPoint;
+  if (sc >= 0) {
+    keepPoint = sa >= sb ? { ...wall.a } : { ...wall.b };
+  } else {
+    keepPoint = sa <= sb ? { ...wall.a } : { ...wall.b };
+  }
+
+  const roundP = {
+    x: Math.round(pInt.x * 100) / 100,
+    y: Math.round(pInt.y * 100) / 100
+  };
+
+  const isKeepA = (keepPoint.x === wall.a.x && keepPoint.y === wall.a.y);
+  if (isKeepA) {
+    return {
+      a: { x: Math.round(keepPoint.x * 100) / 100, y: Math.round(keepPoint.y * 100) / 100 },
+      b: roundP
+    };
+  } else {
+    return {
+      a: roundP,
+      b: { x: Math.round(keepPoint.x * 100) / 100, y: Math.round(keepPoint.y * 100) / 100 }
+    };
+  }
+}
+
 // ==================== TABELAS & DIMENSIONAMENTO NBR 5410 ====================
 export const STANDARD_GAUGES = [1.5, 2.5, 4.0, 6.0, 10.0, 16.0, 25.0, 35.0, 50.0];
 export const STANDARD_BREAKERS = [6, 10, 16, 20, 25, 32, 40, 50, 63, 70, 80];
@@ -958,6 +1005,9 @@ export class CadEngine {
     this.selectionBoxStart = null;
     this.selectionBoxCurrent = null;
     this.wallStartPoint = null; // Início de parede contínua
+    this.trimCornerWall1 = null; // 1ª parede selecionada para unir canto
+    this.trimCornerPt1 = null;   // Ponto de clique na 1ª parede
+    this.trimMultiRefWall = null; // Parede limite de referência para aparar/estender múltiplos elementos
     this.currentWallThickness = 0.15; // 15cm padrão
     this.currentDoorWidth = 0.80; // 0.80m padrão
     this.currentDoorType = 'abrir'; // 'abrir' | 'pivotante' | 'embutida' | 'correr' | 'articulada' | 'sanfonada' (NBR 6492)
@@ -1028,13 +1078,20 @@ export class CadEngine {
         roomDividers: [],
         dimensions: [],
         nodes: [],
-        conduits: []
+        conduits: [],
+        backgroundImage: null
       }
     ];
     this.activeLevelId = 'level_terreo';
     this.underlayLevelId = null; // ID do nível exibido em plano fantasma / subjacente
     this.risers = []; // Prumadas verticais interligando pavimentos
-    this.risers = []; // Prumadas verticais interligando pavimentos
+
+    // Imagem de Fundo Calibrada (Planta Baixa de Referência / Underlay Raster)
+    this.backgroundImage = null; // { dataUrl, imgElement, x, y, width, height, aspectRatio, opacity, locked, visible, rotation }
+    this.calibStage = 0; // 0: inativo, 1: aguardando P1, 2: aguardando P2
+    this.calibP1 = null; // Ponto inicial no mundo (m)
+    this.calibP2 = null; // Ponto final no mundo (m)
+    this.onCalibrationRequested = null; // Callback fn(measuredMeters, p1, p2) para a UI abrir modal de entrada
 
     // Snap e Guia Polar
     this.snapSettings = {
@@ -1379,6 +1436,12 @@ export class CadEngine {
       this.dimensions = Array.isArray(currentLvl.dimensions) ? JSON.parse(JSON.stringify(currentLvl.dimensions)) : [];
       this.nodes = Array.isArray(currentLvl.nodes) ? JSON.parse(JSON.stringify(currentLvl.nodes)) : (Array.isArray(currentLvl.electricNodes) ? JSON.parse(JSON.stringify(currentLvl.electricNodes)) : []);
       this.conduits = Array.isArray(currentLvl.conduits) ? JSON.parse(JSON.stringify(currentLvl.conduits)) : [];
+
+      if (currentLvl.backgroundImage && currentLvl.backgroundImage.dataUrl) {
+        this.setBackgroundImage(currentLvl.backgroundImage.dataUrl, currentLvl.backgroundImage);
+      } else {
+        this.backgroundImage = null;
+      }
     } else {
       const arch = data.architecture || {};
       this.walls = Array.isArray(arch.walls) ? JSON.parse(JSON.stringify(arch.walls)) : (Array.isArray(data.walls) ? JSON.parse(JSON.stringify(data.walls)) : []);
@@ -1506,6 +1569,22 @@ export class CadEngine {
       lvl.dimensions = JSON.parse(JSON.stringify(this.dimensions || []));
       lvl.nodes = JSON.parse(JSON.stringify(this.nodes));
       lvl.conduits = JSON.parse(JSON.stringify(this.conduits));
+      if (this.backgroundImage) {
+        lvl.backgroundImage = {
+          dataUrl: this.backgroundImage.dataUrl,
+          x: this.backgroundImage.x,
+          y: this.backgroundImage.y,
+          width: this.backgroundImage.width,
+          height: this.backgroundImage.height,
+          aspectRatio: this.backgroundImage.aspectRatio,
+          opacity: this.backgroundImage.opacity,
+          locked: this.backgroundImage.locked,
+          visible: this.backgroundImage.visible,
+          rotation: this.backgroundImage.rotation || 0
+        };
+      } else {
+        lvl.backgroundImage = null;
+      }
     }
   }
 
@@ -1525,6 +1604,12 @@ export class CadEngine {
     this.dimensions = Array.isArray(target.dimensions) ? JSON.parse(JSON.stringify(target.dimensions)) : [];
     this.nodes = Array.isArray(target.nodes) ? JSON.parse(JSON.stringify(target.nodes)) : [];
     this.conduits = Array.isArray(target.conduits) ? JSON.parse(JSON.stringify(target.conduits)) : [];
+
+    if (target.backgroundImage && target.backgroundImage.dataUrl) {
+      this.setBackgroundImage(target.backgroundImage.dataUrl, target.backgroundImage);
+    } else {
+      this.backgroundImage = null;
+    }
 
     this.selectedElement = null;
     this.selectedElements = [];
@@ -1639,144 +1724,409 @@ export class CadEngine {
     this.notify();
   }
 
+  // ==================== MÓDULO DE IMAGEM DE FUNDO (PLANTA DE REFERÊNCIA / UNDERLAY RASTER) ====================
+  setBackgroundImage(dataUrl, config = {}) {
+    if (!dataUrl) return;
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const aspect = (img.naturalWidth || 1000) / (img.naturalHeight || 750);
+      const width = typeof config.width === 'number' && config.width > 0 ? config.width : 16.0;
+      const height = typeof config.height === 'number' && config.height > 0 ? config.height : (width / aspect);
+      const x = typeof config.x === 'number' ? config.x : 1.0;
+      const y = typeof config.y === 'number' ? config.y : 1.0;
+      const opacity = typeof config.opacity === 'number' ? config.opacity : 0.50;
+      const locked = config.locked !== undefined ? Boolean(config.locked) : false;
+      const visible = config.visible !== undefined ? Boolean(config.visible) : true;
+      const rotation = typeof config.rotation === 'number' ? config.rotation : 0;
+
+      this.backgroundImage = {
+        dataUrl,
+        imgElement: img,
+        x,
+        y,
+        width,
+        height,
+        aspectRatio: aspect,
+        opacity,
+        locked,
+        visible,
+        rotation
+      };
+
+      this.saveCurrentLevelState();
+      this.notify();
+    };
+    img.src = dataUrl;
+  }
+
+  clearBackgroundImage() {
+    this.backgroundImage = null;
+    this.calibStage = 0;
+    this.calibP1 = null;
+    this.calibP2 = null;
+    if (this.activeTool === 'calibrate_image') {
+      this.activeTool = 'select';
+    }
+    this.saveCurrentLevelState();
+    this.notify();
+  }
+
+  setImageOpacity(val) {
+    if (!this.backgroundImage) return;
+    this.backgroundImage.opacity = Math.max(0.05, Math.min(1.0, Number(val)));
+    this.saveCurrentLevelState();
+    this.notify();
+  }
+
+  setImageLocked(bool) {
+    if (!this.backgroundImage) return;
+    this.backgroundImage.locked = Boolean(bool);
+    this.saveCurrentLevelState();
+    this.notify();
+  }
+
+  setImageVisible(bool) {
+    if (!this.backgroundImage) return;
+    this.backgroundImage.visible = Boolean(bool);
+    this.notify();
+  }
+
+  setImageRotation(deg) {
+    if (!this.backgroundImage) return;
+    this.backgroundImage.rotation = Number(deg) || 0;
+    this.saveCurrentLevelState();
+    this.notify();
+  }
+
+  startImageCalibration() {
+    if (!this.backgroundImage) {
+      alert('Carregue primeiro uma imagem de planta antes de iniciar a calibração.');
+      return;
+    }
+    this.activeTool = 'calibrate_image';
+    this.calibStage = 1;
+    this.calibP1 = null;
+    this.calibP2 = null;
+    this.notify();
+  }
+
+  cancelImageCalibration() {
+    this.activeTool = 'select';
+    this.calibStage = 0;
+    this.calibP1 = null;
+    this.calibP2 = null;
+    this.notify();
+  }
+
+  applyImageCalibration(realDistanceMeters) {
+    if (!this.backgroundImage || !this.calibP1 || !this.calibP2) return false;
+    const realDist = Number(realDistanceMeters);
+    if (isNaN(realDist) || realDist <= 0) return false;
+
+    const measuredDist = Math.hypot(this.calibP2.x - this.calibP1.x, this.calibP2.y - this.calibP1.y);
+    if (measuredDist <= 0.001) return false;
+
+    const scaleFactor = realDist / measuredDist;
+    const bg = this.backgroundImage;
+
+    // Preserva o primeiro ponto de clique (P1) como âncora fixa no mundo
+    const relX = (this.calibP1.x - bg.x) / bg.width;
+    const relY = (this.calibP1.y - bg.y) / bg.height;
+
+    bg.width *= scaleFactor;
+    bg.height *= scaleFactor;
+    bg.x = this.calibP1.x - relX * bg.width;
+    bg.y = this.calibP1.y - relY * bg.height;
+    bg.locked = true; // Trava a imagem automaticamente para proteger o decalque de alvenarias
+
+    this.activeTool = 'select';
+    this.calibStage = 0;
+    this.calibP1 = null;
+    this.calibP2 = null;
+
+    this.saveCurrentLevelState();
+    this.saveSnapshot();
+    this.notify();
+    return true;
+  }
+
+  renderBackgroundImage(ctx) {
+    const bg = this.backgroundImage;
+    if (!bg || !bg.visible || !bg.dataUrl) return;
+
+    if (!bg.imgElement) {
+      bg.imgElement = new Image();
+      bg.imgElement.crossOrigin = 'anonymous';
+      bg.imgElement.onload = () => {
+        const aspect = (bg.imgElement.naturalWidth || 1000) / (bg.imgElement.naturalHeight || 750);
+        if (!bg.width || !bg.height) {
+          bg.width = 16.0;
+          bg.height = 16.0 / aspect;
+        }
+        bg.aspectRatio = aspect;
+        this.notify();
+      };
+      bg.imgElement.src = bg.dataUrl;
+      return;
+    }
+
+    if (!bg.imgElement.complete || bg.imgElement.naturalWidth === 0) return;
+
+    const sPos = this.viewport.worldToScreen({ x: bg.x, y: bg.y });
+    const sWidth = bg.width * this.viewport.zoom;
+    const sHeight = bg.height * this.viewport.zoom;
+
+    ctx.save();
+    ctx.globalAlpha = Math.max(0.05, Math.min(1.0, bg.opacity ?? 0.50));
+    ctx.translate(sPos.x, sPos.y);
+    if (bg.rotation) {
+      ctx.rotate((bg.rotation * Math.PI) / 180);
+    }
+
+    ctx.drawImage(bg.imgElement, 0, 0, sWidth, sHeight);
+
+    // Contorno pontilhado suave indicando underlay destravado
+    if (!bg.locked && !this.isPaperSpace) {
+      ctx.strokeStyle = '#0284c7';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 4]);
+      ctx.strokeRect(0, 0, sWidth, sHeight);
+    }
+
+    ctx.restore();
+  }
+
   getAllLevelsWithData() {
     this.saveCurrentLevelState();
     return JSON.parse(JSON.stringify(this.levels));
   }
 
-  // Carrega o cenário residencial demonstrativo canônico
+  // Carrega o cenário demonstrativo canônico oficial: Sobrado Residencial Unifamiliar (10x20 m)
   loadSampleProject() {
-    this.walls = [
-      { id: 'w1', a: { x: 1.0, y: 1.0 }, b: { x: 10.0, y: 1.0 }, thickness: 0.15 },
-      { id: 'w2', a: { x: 10.0, y: 1.0 }, b: { x: 10.0, y: 11.0 }, thickness: 0.15 },
-      { id: 'w3', a: { x: 10.0, y: 11.0 }, b: { x: 1.0, y: 11.0 }, thickness: 0.15 },
-      { id: 'w4', a: { x: 1.0, y: 11.0 }, b: { x: 1.0, y: 1.0 }, thickness: 0.15 },
-      { id: 'w5', a: { x: 1.0, y: 4.5 }, b: { x: 6.5, y: 4.5 }, thickness: 0.15 },
-      { id: 'w6', a: { x: 6.5, y: 1.0 }, b: { x: 6.5, y: 6.5 }, thickness: 0.15 },
-      { id: 'w7', a: { x: 6.5, y: 6.5 }, b: { x: 10.0, y: 6.5 }, thickness: 0.15 }
-    ];
-
-    this.rooms = [
-      { id: 'r1', name: 'TERRAÇO', pos: { x: 3.5, y: 2.8 }, areaM2: 18.2 },
-      { id: 'r2', name: 'SALA COMERCIAL', pos: { x: 3.5, y: 7.8 }, areaM2: 32.5 },
-      { id: 'r3', name: 'CIRCULAÇÃO / COZINHA', pos: { x: 8.2, y: 3.8 }, areaM2: 16.0 }
-    ];
-
-    this.doors = [
-      { id: 'd1', pos: { x: 5.2, y: 4.5 }, radius: 0.8, startAngle: 0, endAngle: Math.PI / 2, rotation: 0, orientationIndex: 0 },
-      { id: 'd2', pos: { x: 8.0, y: 6.5 }, radius: 0.8, startAngle: 0, endAngle: Math.PI / 2, rotation: 0, orientationIndex: 0 }
-    ];
-
-    this.windows = [
-      { id: 'win1', pos: { x: 3.5, y: 1.0 }, width: 1.5, rotation: 0 },
-      { id: 'win2', pos: { x: 10.0, y: 8.5 }, width: 1.2, rotation: Math.PI / 2 }
-    ];
-
-    this.dimensions = [
-      { id: 'dim1', a: { x: 1.0, y: 1.0 }, b: { x: 10.0, y: 1.0 }, dist: 9.0, offset: 0.8 },
-      { id: 'dim2', a: { x: 1.0, y: 1.0 }, b: { x: 1.0, y: 11.0 }, dist: 10.0, offset: -0.8 },
-      { id: 'dim3', a: { x: 1.0, y: 3.2 }, b: { x: 6.5, y: 3.2 }, dist: 5.5, offset: -0.5 }
-    ];
-
-    this.nodes = [];
-    const qd = this.addNode('distribution_board', { x: 1.15, y: 10.2 });
-    const lamp1 = this.addNode('light_ceiling', { x: 3.5, y: 2.8 }, 1, 'a');
-    const lamp2 = this.addNode('light_ceiling', { x: 3.5, y: 7.8 }, 1, 'b');
-    const lamp3 = this.addNode('light_ceiling', { x: 8.2, y: 3.8 }, 5, 'c');
-
-    const sw1 = this.addNode('switch_simple', { x: 1.15, y: 3.5 }, 1, 'a');
-    const sw2 = this.addNode('switch_simple', { x: 1.15, y: 6.5 }, 1, 'b');
-    const sw3 = this.addNode('switch_simple', { x: 6.65, y: 3.5 }, 5, 'c');
-
-    const t1 = this.addNode('outlet_medium', { x: 1.15, y: 2.0 }, 2);
-    const t2 = this.addNode('outlet_medium', { x: 5.8, y: 1.15 }, 2);
-    const t3 = this.addNode('outlet_medium', { x: 3.5, y: 10.85 }, 4);
-    const t4 = this.addNode('outlet_high', { x: 9.85, y: 2.5 }, 3);
-    t4.powerWatts = 5500;
-
-    this.conduits = [];
-    this.addConduit(qd.id, lamp2.id, 'ceiling', -1);
-    this.addConduit(lamp2.id, lamp1.id, 'ceiling', 1);
-    this.addConduit(lamp1.id, lamp3.id, 'ceiling', -1);
-
-    this.addConduit(lamp1.id, sw1.id, 'wall', 1);
-    this.addConduit(lamp2.id, sw2.id, 'wall', 1);
-    this.addConduit(lamp3.id, sw3.id, 'wall', -1);
-
-    this.addConduit(lamp1.id, t1.id, 'ceiling', -1);
-    this.addConduit(lamp1.id, t2.id, 'ceiling', 1);
-    this.addConduit(lamp2.id, t3.id, 'ceiling', 1);
-    this.addConduit(lamp3.id, t4.id, 'ceiling', 1);
-
-    this.circuits = [
-      { id: 1, desc: 'Iluminação Sala / Terraço', panel: 'QD1', v: 127, w: 200, type: 'light', phase: 'A', breaker: 10, dr: 'Geral 30mA' },
-      { id: 2, desc: 'TUGs Sala Comercial', panel: 'QD1', v: 127, w: 1200, type: 'outlet', phase: 'B', breaker: 20, dr: 'Geral 30mA' },
-      { id: 3, desc: 'TUE - Chuveiro Elétrico', panel: 'QD1', v: 220, w: 5500, type: 'outlet', phase: 'AB', breaker: 25, dr: 'DDR 30mA' },
-      { id: 4, desc: 'TUGs Cozinha / Área', panel: 'QD1', v: 127, w: 1800, type: 'outlet', phase: 'C', breaker: 20, dr: 'Geral 30mA' },
-      { id: 5, desc: 'Iluminação Circulação', panel: 'QD1', v: 127, w: 100, type: 'light', phase: 'B', breaker: 10, dr: 'Geral 30mA' }
-    ];
-
-    this.panels = [
-      { id: 'QD1', name: 'QD1 - Quadro Geral de Distribuição', location: 'Circulação', mainBreaker: 40, phases: 'Trifásico (3F+N+T)' }
-    ];
-
-    this.viewport.panX = 70;
-    this.viewport.panY = 40;
-    this.viewport.zoom = 52;
-
     this.projectMeta = {
-      title: 'PROJETO ELÉTRICO RESIDENCIAL - UNIFAMILIAR',
+      title: 'SOBRADO RESIDENCIAL UNIFAMILIAR (10x20 m)',
       owner: 'PROPRIETÁRIO EXEMPLO',
-      address: 'RUA DAS PALMEIRAS, Nº 100, BAIRRO CENTRO',
+      address: 'RUA DAS PALMEIRAS, Nº 100, LOTEAMENTO FLORENÇA',
       engineer: 'ENG. ELETRICISTA RESPONSÁVEL',
       crea: 'CREA-SP 5061234567/D',
       utilityCompany: 'Equatorial Energia',
-      date: '05/11/2026',
-      revision: '00'
+      date: '06/11/2026',
+      revision: '01'
     };
 
-    // Configuração dos pavimentos do modelo demonstrativo
-    const terreoWalls = JSON.parse(JSON.stringify(this.walls));
-    const terreoRooms = JSON.parse(JSON.stringify(this.rooms));
-    const terreoDoors = JSON.parse(JSON.stringify(this.doors));
-    const terreoWindows = JSON.parse(JSON.stringify(this.windows));
-    const terreoDimensions = JSON.parse(JSON.stringify(this.dimensions));
-    const terreoNodes = JSON.parse(JSON.stringify(this.nodes));
-    const terreoConduits = JSON.parse(JSON.stringify(this.conduits));
+    // ==================== 1. PAVIMENTO TÉRREO ====================
+    const terreoWalls = [
+      // Perímetro Externo Térreo
+      { id: 'tw1', a: { x: 0.0, y: 0.0 }, b: { x: 4.8, y: 0.0 }, thickness: 0.15 },
+      { id: 'tw2', a: { x: 4.8, y: 0.0 }, b: { x: 4.8, y: 2.0 }, thickness: 0.15 },
+      { id: 'tw3', a: { x: 4.8, y: 2.0 }, b: { x: 9.7, y: 2.0 }, thickness: 0.15 },
+      { id: 'tw4', a: { x: 9.7, y: 2.0 }, b: { x: 9.7, y: 15.5 }, thickness: 0.15 },
+      { id: 'tw5', a: { x: 9.7, y: 15.5 }, b: { x: 0.0, y: 15.5 }, thickness: 0.15 },
+      { id: 'tw6', a: { x: 0.0, y: 15.5 }, b: { x: 0.0, y: 0.0 }, thickness: 0.15 },
 
-    // Pavimento Superior de exemplo (1º Pavimento)
+      // Divisórias Internas Térreo
+      { id: 'tw7', a: { x: 0.0, y: 5.5 }, b: { x: 4.8, y: 5.5 }, thickness: 0.15 }, // Frente Sala TV / Garagem
+      { id: 'tw8', a: { x: 4.8, y: 4.4 }, b: { x: 9.7, y: 4.4 }, thickness: 0.15 }, // Hall / Dorm Térreo
+      { id: 'tw9', a: { x: 5.9, y: 4.4 }, b: { x: 5.9, y: 7.4 }, thickness: 0.15 }, // Escada / Dorm Térreo
+      { id: 'tw10', a: { x: 4.8, y: 7.4 }, b: { x: 9.7, y: 7.4 }, thickness: 0.15 }, // Fundo Escada e Dorm
+      { id: 'tw11', a: { x: 7.0, y: 7.4 }, b: { x: 7.0, y: 15.5 }, thickness: 0.15 }, // Divisão Sala Jantar / Cozinha
+      { id: 'tw12', a: { x: 7.0, y: 13.6 }, b: { x: 9.7, y: 13.6 }, thickness: 0.15 }, // Cozinha / Despensa e Serviço
+      { id: 'tw13', a: { x: 8.2, y: 13.6 }, b: { x: 8.2, y: 15.5 }, thickness: 0.15 }, // Despensa / Lavanderia
+      { id: 'tw14', a: { x: 6.7, y: 2.0 }, b: { x: 6.7, y: 3.3 }, thickness: 0.15 }, // Banho Social
+      { id: 'tw15', a: { x: 6.7, y: 3.3 }, b: { x: 9.0, y: 3.3 }, thickness: 0.15 }  // Banho Social Fechamento
+    ];
+
+    const terreoRooms = [
+      { id: 'tr1', name: 'GARAGEM COBERTA', pos: { x: 2.4, y: 2.7 }, areaM2: 26.4 },
+      { id: 'tr2', name: 'HALL DE ENTRADA', pos: { x: 5.7, y: 3.2 }, areaM2: 4.56 },
+      { id: 'tr3', name: 'SALA DE ESTAR / TV', pos: { x: 2.4, y: 9.5 }, areaM2: 38.8 },
+      { id: 'tr4', name: 'SALA DE JANTAR', pos: { x: 5.9, y: 11.5 }, areaM2: 17.0 },
+      { id: 'tr5', name: 'COZINHA GOURMET', pos: { x: 8.35, y: 10.5 }, areaM2: 21.87 },
+      { id: 'tr6', name: 'DESPENSA', pos: { x: 7.6, y: 14.55 }, areaM2: 1.92 },
+      { id: 'tr7', name: 'LAVANDERIA', pos: { x: 8.95, y: 14.55 }, areaM2: 3.44 },
+      { id: 'tr8', name: 'DORMITÓRIO TÉRREO', pos: { x: 7.8, y: 5.9 }, areaM2: 10.5 },
+      { id: 'tr9', name: 'BANHO SOCIAL', pos: { x: 7.85, y: 2.65 }, areaM2: 2.99 },
+      { id: 'tr10', name: 'ESCADA', pos: { x: 5.35, y: 5.9 }, areaM2: 3.3 }
+    ];
+
+    const terreoDoors = [
+      { id: 'td1', pos: { x: 4.8, y: 3.2 }, radius: 0.90, startAngle: 0, endAngle: Math.PI / 2, rotation: 0, orientationIndex: 0 },
+      { id: 'td2', pos: { x: 6.7, y: 2.5 }, radius: 0.70, startAngle: 0, endAngle: Math.PI / 2, rotation: 0, orientationIndex: 0 },
+      { id: 'td3', pos: { x: 6.5, y: 4.4 }, radius: 0.80, startAngle: 0, endAngle: Math.PI / 2, rotation: 0, orientationIndex: 0 },
+      { id: 'td4', pos: { x: 7.4, y: 13.6 }, radius: 0.70, startAngle: 0, endAngle: Math.PI / 2, rotation: 0, orientationIndex: 0 },
+      { id: 'td5', pos: { x: 8.6, y: 13.6 }, radius: 0.80, startAngle: 0, endAngle: Math.PI / 2, rotation: 0, orientationIndex: 0 }
+    ];
+
+    const terreoWindows = [
+      { id: 'twin1', pos: { x: 2.4, y: 15.5 }, width: 2.4, rotation: 0 },
+      { id: 'twin2', pos: { x: 8.35, y: 2.0 }, width: 1.2, rotation: 0 },
+      { id: 'twin3', pos: { x: 9.7, y: 5.9 }, width: 1.5, rotation: Math.PI / 2 }
+    ];
+
+    const terreoDimensions = [
+      { id: 'tdim1', a: { x: 0.0, y: 0.0 }, b: { x: 4.8, y: 0.0 }, dist: 4.8, offset: -0.8 },
+      { id: 'tdim2', a: { x: 0.0, y: 0.0 }, b: { x: 0.0, y: 5.5 }, dist: 5.5, offset: -0.8 },
+      { id: 'tdim3', a: { x: 0.0, y: 5.5 }, b: { x: 0.0, y: 15.5 }, dist: 10.0, offset: -0.8 },
+      { id: 'tdim4', a: { x: 0.0, y: 15.5 }, b: { x: 9.7, y: 15.5 }, dist: 9.7, offset: 0.8 }
+    ];
+
+    const terreoNodes = [
+      // QGBT Geral no centro de carga do serviço
+      { id: 'tn_qgbt', type: 'distribution_board', position: { x: 7.15, y: 13.4 }, circuit: 1, powerWatts: 0, label: 'QGBT GERAL' },
+
+      // Iluminação Térreo
+      { id: 'tn_l1', type: 'light_ceiling', position: { x: 2.4, y: 2.7 }, circuitId: 1, command: 'a', powerWatts: 100 },
+      { id: 'tn_l2', type: 'light_ceiling', position: { x: 5.7, y: 3.2 }, circuitId: 1, command: 'b', powerWatts: 60 },
+      { id: 'tn_l3', type: 'light_ceiling', position: { x: 2.4, y: 8.0 }, circuitId: 1, command: 'c', powerWatts: 160 },
+      { id: 'tn_l4', type: 'light_ceiling', position: { x: 2.4, y: 12.0 }, circuitId: 1, command: 'd', powerWatts: 160 },
+      { id: 'tn_l5', type: 'light_ceiling', position: { x: 8.35, y: 10.5 }, circuitId: 1, command: 'e', powerWatts: 160 },
+      { id: 'tn_l6', type: 'light_ceiling', position: { x: 7.8, y: 5.9 }, circuitId: 1, command: 'f', powerWatts: 100 },
+      { id: 'tn_l7', type: 'light_ceiling', position: { x: 7.85, y: 2.65 }, circuitId: 1, command: 'g', powerWatts: 60 },
+
+      // Interruptores
+      { id: 'tn_sw1', type: 'switch_simple', position: { x: 4.65, y: 2.2 }, circuitId: 1, command: 'a' },
+      { id: 'tn_sw2', type: 'switch_simple', position: { x: 4.95, y: 2.2 }, circuitId: 1, command: 'b' },
+      { id: 'tn_sw3', type: 'switch_simple', position: { x: 0.15, y: 6.0 }, circuitId: 1, command: 'c' },
+      { id: 'tn_sw4', type: 'switch_simple', position: { x: 6.85, y: 8.0 }, circuitId: 1, command: 'e' },
+      { id: 'tn_sw5', type: 'switch_simple', position: { x: 6.65, y: 4.6 }, circuitId: 1, command: 'f' },
+      { id: 'tn_sw6', type: 'switch_simple', position: { x: 6.85, y: 2.2 }, circuitId: 1, command: 'g' },
+
+      // Tomadas TUGs
+      { id: 'tn_t1', type: 'outlet_medium', position: { x: 0.15, y: 8.0 }, circuitId: 2, powerWatts: 200 },
+      { id: 'tn_t2', type: 'outlet_medium', position: { x: 0.15, y: 11.0 }, circuitId: 2, powerWatts: 200 },
+      { id: 'tn_t3', type: 'outlet_medium', position: { x: 9.55, y: 9.0 }, circuitId: 3, powerWatts: 600 },
+      { id: 'tn_t4', type: 'outlet_medium', position: { x: 9.55, y: 11.5 }, circuitId: 3, powerWatts: 600 },
+      { id: 'tn_t5', type: 'outlet_medium', position: { x: 9.55, y: 5.0 }, circuitId: 2, powerWatts: 200 },
+
+      // TUEs
+      { id: 'tn_tue1', type: 'outlet_high', position: { x: 7.85, y: 2.15 }, circuitId: 7, powerWatts: 7500 }, // Chuveiro Banho Social
+      { id: 'tn_tue2', type: 'outlet_high', position: { x: 9.55, y: 10.2 }, circuitId: 4, powerWatts: 5000 }, // Torneira Cozinha
+      { id: 'tn_tue3', type: 'outlet_high', position: { x: 7.15, y: 11.0 }, circuitId: 5, powerWatts: 4400 }, // Cooktop Indução
+      { id: 'tn_tue4', type: 'outlet_high', position: { x: 9.55, y: 14.8 }, circuitId: 6, powerWatts: 2000 }  // Máquina Lavar/Secar
+    ];
+
+    const terreoConduits = [
+      { id: 'tc1', nodeAId: 'tn_qgbt', nodeBId: 'tn_l5', installationType: 'ceiling', curveDirection: 1 },
+      { id: 'tc2', nodeAId: 'tn_l5', nodeBId: 'tn_l4', installationType: 'ceiling', curveDirection: -1 },
+      { id: 'tc3', nodeAId: 'tn_l4', nodeBId: 'tn_l3', installationType: 'ceiling', curveDirection: 1 },
+      { id: 'tc4', nodeAId: 'tn_l3', nodeBId: 'tn_l2', installationType: 'ceiling', curveDirection: -1 },
+      { id: 'tc5', nodeAId: 'tn_l2', nodeBId: 'tn_l1', installationType: 'ceiling', curveDirection: 1 },
+      { id: 'tc6', nodeAId: 'tn_l2', nodeBId: 'tn_l6', installationType: 'ceiling', curveDirection: 1 },
+      { id: 'tc7', nodeAId: 'tn_l2', nodeBId: 'tn_l7', installationType: 'ceiling', curveDirection: -1 },
+      { id: 'tc8', nodeAId: 'tn_l5', nodeBId: 'tn_tue2', installationType: 'ceiling', curveDirection: 1 },
+      { id: 'tc9', nodeAId: 'tn_l5', nodeBId: 'tn_tue3', installationType: 'ceiling', curveDirection: -1 },
+      { id: 'tc10', nodeAId: 'tn_l7', nodeBId: 'tn_tue1', installationType: 'ceiling', curveDirection: 1 },
+      { id: 'tc11', nodeAId: 'tn_l3', nodeBId: 'tn_sw3', installationType: 'wall', curveDirection: 1 },
+      { id: 'tc12', nodeAId: 'tn_l5', nodeBId: 'tn_sw4', installationType: 'wall', curveDirection: 1 }
+    ];
+
+    // ==================== 2. PAVIMENTO SUPERIOR ====================
     const supWalls = [
-      { id: 'sw1', a: { x: 1.0, y: 1.0 }, b: { x: 10.0, y: 1.0 }, thickness: 0.15 },
-      { id: 'sw2', a: { x: 10.0, y: 1.0 }, b: { x: 10.0, y: 11.0 }, thickness: 0.15 },
-      { id: 'sw3', a: { x: 10.0, y: 11.0 }, b: { x: 1.0, y: 11.0 }, thickness: 0.15 },
-      { id: 'sw4', a: { x: 1.0, y: 11.0 }, b: { x: 1.0, y: 1.0 }, thickness: 0.15 },
-      { id: 'sw5', a: { x: 1.0, y: 5.5 }, b: { x: 10.0, y: 5.5 }, thickness: 0.15 },
-      { id: 'sw6', a: { x: 5.5, y: 5.5 }, b: { x: 5.5, y: 11.0 }, thickness: 0.15 }
-    ];
-    const supRooms = [
-      { id: 'sr1', name: 'SUÍTE MASTER', pos: { x: 5.5, y: 3.2 }, areaM2: 38.0 },
-      { id: 'sr2', name: 'DORMITÓRIO 01', pos: { x: 3.2, y: 8.2 }, areaM2: 24.5 },
-      { id: 'sr3', name: 'DORMITÓRIO 02', pos: { x: 7.8, y: 8.2 }, areaM2: 24.5 }
-    ];
-    const supDoors = [
-      { id: 'sd1', pos: { x: 5.5, y: 5.5 }, radius: 0.8, startAngle: 0, endAngle: Math.PI / 2, rotation: 0, orientationIndex: 0 }
-    ];
-    const supWindows = [
-      { id: 'swin1', pos: { x: 5.5, y: 1.0 }, width: 1.6, rotation: 0 },
-      { id: 'swin2', pos: { x: 3.2, y: 11.0 }, width: 1.4, rotation: 0 }
-    ];
-    const supNodes = [
-      { id: 'sn_qd2', type: 'distribution_board', position: { x: 1.15, y: 10.2 }, circuit: 6, powerWatts: 0 },
-      { id: 'sn_l1', type: 'light_ceiling', position: { x: 5.5, y: 3.2 }, circuit: 7, command: 'd', powerWatts: 150 },
-      { id: 'sn_l2', type: 'light_ceiling', position: { x: 3.2, y: 8.2 }, circuit: 7, command: 'e', powerWatts: 100 },
-      { id: 'sn_l3', type: 'light_ceiling', position: { x: 7.8, y: 8.2 }, circuit: 7, command: 'f', powerWatts: 100 }
-    ];
-    const supConduits = [
-      { id: 'sc1', nodeAId: 'sn_qd2', nodeBId: 'sn_l2', installationType: 'ceiling', curveDirection: 1 },
-      { id: 'sc2', nodeAId: 'sn_l2', nodeBId: 'sn_l1', installationType: 'ceiling', curveDirection: -1 },
-      { id: 'sc3', nodeAId: 'sn_l1', nodeBId: 'sn_l3', installationType: 'ceiling', curveDirection: 1 }
+      // Perímetro Externo Superior
+      { id: 'sw1', a: { x: 0.33, y: 0.0 }, b: { x: 8.5, y: 0.0 }, thickness: 0.15 },
+      { id: 'sw2', a: { x: 8.5, y: 0.0 }, b: { x: 8.5, y: 9.65 }, thickness: 0.15 },
+      { id: 'sw3', a: { x: 8.5, y: 9.65 }, b: { x: 4.3, y: 9.65 }, thickness: 0.15 },
+      { id: 'sw4', a: { x: 4.3, y: 9.65 }, b: { x: 4.3, y: 15.4 }, thickness: 0.15 },
+      { id: 'sw5', a: { x: 4.3, y: 15.4 }, b: { x: 0.33, y: 15.4 }, thickness: 0.15 },
+      { id: 'sw6', a: { x: 0.33, y: 15.4 }, b: { x: 0.33, y: 0.0 }, thickness: 0.15 },
+
+      // Divisórias Internas Superior
+      { id: 'sw7', a: { x: 0.33, y: 2.1 }, b: { x: 8.5, y: 2.1 }, thickness: 0.15 }, // Frente das Sacadas
+      { id: 'sw8', a: { x: 4.8, y: 2.1 }, b: { x: 4.8, y: 9.65 }, thickness: 0.15 }, // Eixo Central Suíte Master
+      { id: 'sw9', a: { x: 4.8, y: 5.95 }, b: { x: 8.5, y: 5.95 }, thickness: 0.15 }, // Dorm Suíte / Closet
+      { id: 'sw10', a: { x: 4.8, y: 7.65 }, b: { x: 7.7, y: 7.65 }, thickness: 0.15 }, // Closet / Banho Suíte
+      { id: 'sw11', a: { x: 0.33, y: 6.15 }, b: { x: 4.8, y: 6.15 }, thickness: 0.15 }, // Dorm 01 / Escada e Banhos
+      { id: 'sw12', a: { x: 0.33, y: 9.85 }, b: { x: 4.8, y: 9.85 }, thickness: 0.15 }, // Escada / Dorm 02
+      { id: 'sw13', a: { x: 1.83, y: 6.15 }, b: { x: 1.83, y: 9.85 }, thickness: 0.15 }, // Banho 02 / Circulação
+      { id: 'sw14', a: { x: 3.0, y: 6.15 }, b: { x: 3.0, y: 9.85 }, thickness: 0.15 }  // Circulação / Escada
     ];
 
+    const supRooms = [
+      { id: 'sr1', name: 'SUÍTE MASTER', pos: { x: 6.65, y: 4.0 }, areaM2: 13.48 },
+      { id: 'sr2', name: 'SACADA SUÍTE', pos: { x: 6.65, y: 1.05 }, areaM2: 7.77 },
+      { id: 'sr3', name: 'CLOSET', pos: { x: 6.25, y: 6.8 }, areaM2: 4.93 },
+      { id: 'sr4', name: 'BANHO SUÍTE', pos: { x: 6.25, y: 8.65 }, areaM2: 5.8 },
+      { id: 'sr5', name: 'DORMITÓRIO 01', pos: { x: 2.5, y: 4.1 }, areaM2: 13.37 },
+      { id: 'sr6', name: 'SACADA DORM 01', pos: { x: 2.5, y: 1.05 }, areaM2: 5.46 },
+      { id: 'sr7', name: 'DORMITÓRIO 02', pos: { x: 2.3, y: 12.1 }, areaM2: 15.02 },
+      { id: 'sr8', name: 'SACADA DORM 02', pos: { x: 2.3, y: 14.9 }, areaM2: 3.97 },
+      { id: 'sr9', name: 'BANHO 02', pos: { x: 1.08, y: 8.0 }, areaM2: 5.55 },
+      { id: 'sr10', name: 'CIRCULAÇÃO SUPERIOR', pos: { x: 2.4, y: 8.0 }, areaM2: 4.33 },
+      { id: 'sr11', name: 'ESCADA SUPERIOR', pos: { x: 3.9, y: 8.0 }, areaM2: 6.66 }
+    ];
+
+    const supDoors = [
+      { id: 'sd1', pos: { x: 4.8, y: 4.5 }, radius: 0.80, startAngle: 0, endAngle: Math.PI / 2, rotation: 0, orientationIndex: 0 },
+      { id: 'sd2', pos: { x: 4.8, y: 7.2 }, radius: 0.70, startAngle: 0, endAngle: Math.PI / 2, rotation: 0, orientationIndex: 0 },
+      { id: 'sd3', pos: { x: 4.8, y: 8.2 }, radius: 0.70, startAngle: 0, endAngle: Math.PI / 2, rotation: 0, orientationIndex: 0 },
+      { id: 'sd4', pos: { x: 2.4, y: 6.15 }, radius: 0.80, startAngle: 0, endAngle: Math.PI / 2, rotation: 0, orientationIndex: 0 },
+      { id: 'sd5', pos: { x: 2.4, y: 9.85 }, radius: 0.80, startAngle: 0, endAngle: Math.PI / 2, rotation: 0, orientationIndex: 0 },
+      { id: 'sd6', pos: { x: 1.83, y: 8.0 }, radius: 0.70, startAngle: 0, endAngle: Math.PI / 2, rotation: 0, orientationIndex: 0 }
+    ];
+
+    const supWindows = [
+      { id: 'swin1', pos: { x: 6.65, y: 2.1 }, width: 2.0, rotation: 0 },
+      { id: 'swin2', pos: { x: 2.5, y: 2.1 }, width: 1.6, rotation: 0 },
+      { id: 'swin3', pos: { x: 2.3, y: 15.4 }, width: 1.8, rotation: 0 },
+      { id: 'swin4', pos: { x: 8.5, y: 8.65 }, width: 1.0, rotation: Math.PI / 2 }
+    ];
+
+    const supNodes = [
+      // QD-02 Pavimento Superior no Hall da Escada
+      { id: 'sn_qd2', type: 'distribution_board', position: { x: 3.15, y: 7.5 }, circuit: 9, powerWatts: 0, label: 'QD-02 SUPERIOR' },
+
+      // Iluminação Superior
+      { id: 'sn_l1', type: 'light_ceiling', position: { x: 6.65, y: 4.0 }, circuitId: 10, command: 'h', powerWatts: 150 },
+      { id: 'sn_l2', type: 'light_ceiling', position: { x: 6.25, y: 6.8 }, circuitId: 10, command: 'i', powerWatts: 100 },
+      { id: 'sn_l3', type: 'light_ceiling', position: { x: 6.25, y: 8.65 }, circuitId: 10, command: 'j', powerWatts: 60 },
+      { id: 'sn_l4', type: 'light_ceiling', position: { x: 2.5, y: 4.1 }, circuitId: 10, command: 'k', powerWatts: 100 },
+      { id: 'sn_l5', type: 'light_ceiling', position: { x: 2.3, y: 12.1 }, circuitId: 10, command: 'l', powerWatts: 100 },
+      { id: 'sn_l6', type: 'light_ceiling', position: { x: 1.08, y: 8.0 }, circuitId: 10, command: 'm', powerWatts: 60 },
+      { id: 'sn_l7', type: 'light_ceiling', position: { x: 2.4, y: 8.0 }, circuitId: 10, command: 'n', powerWatts: 60 },
+
+      // TUEs Chuveiros e Ar-Condicionados Superior
+      { id: 'sn_tue_ch1', type: 'outlet_high', position: { x: 6.25, y: 9.5 }, circuitId: 13, powerWatts: 7500 }, // Chuveiro Suíte
+      { id: 'sn_tue_ch2', type: 'outlet_high', position: { x: 1.08, y: 9.7 }, circuitId: 14, powerWatts: 7500 }, // Chuveiro Banho 02
+      { id: 'sn_tue_ar1', type: 'outlet_high', position: { x: 8.35, y: 4.0 }, circuitId: 15, powerWatts: 1800 }, // AC Suíte Master
+      { id: 'sn_tue_ar2', type: 'outlet_high', position: { x: 0.48, y: 4.1 }, circuitId: 16, powerWatts: 1400 }, // AC Dorm 01
+      { id: 'sn_tue_ar3', type: 'outlet_high', position: { x: 0.48, y: 12.1 }, circuitId: 17, powerWatts: 1400 }, // AC Dorm 02
+
+      // Tomadas TUGs
+      { id: 'sn_t1', type: 'outlet_medium', position: { x: 4.95, y: 3.0 }, circuitId: 11, powerWatts: 200 },
+      { id: 'sn_t2', type: 'outlet_medium', position: { x: 8.35, y: 3.0 }, circuitId: 11, powerWatts: 200 },
+      { id: 'sn_t3', type: 'outlet_medium', position: { x: 4.15, y: 3.0 }, circuitId: 12, powerWatts: 200 },
+      { id: 'sn_t4', type: 'outlet_medium', position: { x: 4.15, y: 13.0 }, circuitId: 12, powerWatts: 200 }
+    ];
+
+    const supConduits = [
+      { id: 'sc1', nodeAId: 'sn_qd2', nodeBId: 'sn_l7', installationType: 'ceiling', curveDirection: 1 },
+      { id: 'sc2', nodeAId: 'sn_l7', nodeBId: 'sn_l1', installationType: 'ceiling', curveDirection: -1 },
+      { id: 'sc3', nodeAId: 'sn_l7', nodeBId: 'sn_l4', installationType: 'ceiling', curveDirection: 1 },
+      { id: 'sc4', nodeAId: 'sn_l7', nodeBId: 'sn_l5', installationType: 'ceiling', curveDirection: -1 },
+      { id: 'sc5', nodeAId: 'sn_l7', nodeBId: 'sn_l6', installationType: 'ceiling', curveDirection: 1 },
+      { id: 'sc6', nodeAId: 'sn_l1', nodeBId: 'sn_l2', installationType: 'ceiling', curveDirection: 1 },
+      { id: 'sc7', nodeAId: 'sn_l2', nodeBId: 'sn_l3', installationType: 'ceiling', curveDirection: -1 },
+      { id: 'sc8', nodeAId: 'sn_l3', nodeBId: 'sn_tue_ch1', installationType: 'ceiling', curveDirection: 1 },
+      { id: 'sc9', nodeAId: 'sn_l6', nodeBId: 'sn_tue_ch2', installationType: 'ceiling', curveDirection: 1 },
+      { id: 'sc10', nodeAId: 'sn_l1', nodeBId: 'sn_tue_ar1', installationType: 'ceiling', curveDirection: 1 },
+      { id: 'sc11', nodeAId: 'sn_l4', nodeBId: 'sn_tue_ar2', installationType: 'ceiling', curveDirection: -1 },
+      { id: 'sc12', nodeAId: 'sn_l5', nodeBId: 'sn_tue_ar3', installationType: 'ceiling', curveDirection: 1 }
+    ];
+
+    // ==================== 3. PRUMADA VERTICAL (INTERLIGAÇÃO ENTRE PAVIMENTOS) ====================
+    this.risers = [
+      {
+        id: 'pr_01',
+        name: 'PR-01 (Alimentador QD-02)',
+        position: { x: 5.2, y: 7.2 },
+        fromLevelId: 'level_terreo',
+        toLevelId: 'level_superior',
+        diameter: 32
+      }
+    ];
+
+    // ==================== 4. CONFIGURAÇÃO DE NÍVEIS ====================
     this.levels = [
       {
         id: 'level_terreo',
@@ -1790,11 +2140,12 @@ export class CadEngine {
         dimensions: terreoDimensions,
         roomDividers: [],
         nodes: terreoNodes,
-        conduits: terreoConduits
+        conduits: terreoConduits,
+        backgroundImage: null
       },
       {
-        id: 'level_primeiro',
-        name: '1º Pavimento',
+        id: 'level_superior',
+        name: 'Pavimento Superior',
         elevation: 2.80,
         height: 2.80,
         walls: supWalls,
@@ -1804,32 +2155,66 @@ export class CadEngine {
         dimensions: [],
         roomDividers: [],
         nodes: supNodes,
-        conduits: supConduits
+        conduits: supConduits,
+        backgroundImage: null
       }
     ];
 
+    // ==================== 5. CADASTRO DE CIRCUITOS NORMATIVOS (NBR 5410) ====================
+    this.circuits = [
+      // Circuitos Térreo (Alimentados pelo QGBT)
+      { id: 1, desc: 'Iluminação Geral Térreo', panel: 'QGBT', v: 127, w: 740, type: 'light', phase: 'A', breaker: 10, gauge: 1.5, dr: 'Geral 30mA' },
+      { id: 2, desc: 'TUGs Sala de TV e Dormitório', panel: 'QGBT', v: 127, w: 1600, type: 'outlet', phase: 'B', breaker: 16, gauge: 2.5, dr: 'Geral 30mA' },
+      { id: 3, desc: 'TUGs Cozinha Gourmet e Despensa', panel: 'QGBT', v: 127, w: 2200, type: 'outlet', phase: 'C', breaker: 20, gauge: 2.5, dr: 'Geral 30mA' },
+      { id: 4, desc: 'TUE - Torneira Elétrica Cozinha', panel: 'QGBT', v: 220, w: 5000, type: 'outlet', phase: 'AB', breaker: 25, gauge: 4.0, dr: 'DDR 30mA' },
+      { id: 5, desc: 'TUE - Cooktop por Indução', panel: 'QGBT', v: 220, w: 4400, type: 'outlet', phase: 'BC', breaker: 25, gauge: 4.0, dr: 'DDR 30mA' },
+      { id: 6, desc: 'TUE - Lavanderia / Secadora', panel: 'QGBT', v: 220, w: 3500, type: 'outlet', phase: 'AC', breaker: 20, gauge: 4.0, dr: 'DDR 30mA' },
+      { id: 7, desc: 'TUE - Chuveiro Banho Social', panel: 'QGBT', v: 220, w: 7500, type: 'outlet', phase: 'AB', breaker: 32, gauge: 6.0, dr: 'DDR 30mA' },
+      { id: 8, desc: 'TUE - Ar-Condicionado Dorm Térreo', panel: 'QGBT', v: 220, w: 1400, type: 'outlet', phase: 'BC', breaker: 16, gauge: 2.5, dr: 'Geral 30mA' },
+      { id: 9, desc: 'Alimentador Prumada QD-02', panel: 'QGBT', v: 220, w: 16000, type: 'feed', phase: 'ABC', breaker: 50, gauge: 10.0, dr: 'Geral 300mA' },
+
+      // Circuitos Superior (Alimentados pelo QD-02)
+      { id: 10, desc: 'Iluminação Geral Superior', panel: 'QD2', v: 127, w: 630, type: 'light', phase: 'A', breaker: 10, gauge: 1.5, dr: 'Geral 30mA' },
+      { id: 11, desc: 'TUGs Suíte Master e Closet', panel: 'QD2', v: 127, w: 1200, type: 'outlet', phase: 'B', breaker: 16, gauge: 2.5, dr: 'Geral 30mA' },
+      { id: 12, desc: 'TUGs Dormitórios 01 e 02', panel: 'QD2', v: 127, w: 1200, type: 'outlet', phase: 'C', breaker: 16, gauge: 2.5, dr: 'Geral 30mA' },
+      { id: 13, desc: 'TUE - Chuveiro Suíte Master', panel: 'QD2', v: 220, w: 7500, type: 'outlet', phase: 'AB', breaker: 32, gauge: 6.0, dr: 'DDR 30mA' },
+      { id: 14, desc: 'TUE - Chuveiro Banho 02', panel: 'QD2', v: 220, w: 7500, type: 'outlet', phase: 'BC', breaker: 32, gauge: 6.0, dr: 'DDR 30mA' },
+      { id: 15, desc: 'TUE - Ar-Condicionado Suíte Master', panel: 'QD2', v: 220, w: 1800, type: 'outlet', phase: 'AC', breaker: 16, gauge: 2.5, dr: 'Geral 30mA' },
+      { id: 16, desc: 'TUE - Ar-Condicionado Dorm 01', panel: 'QD2', v: 220, w: 1400, type: 'outlet', phase: 'AB', breaker: 16, gauge: 2.5, dr: 'Geral 30mA' },
+      { id: 17, desc: 'TUE - Ar-Condicionado Dorm 02', panel: 'QD2', v: 220, w: 1400, type: 'outlet', phase: 'BC', breaker: 16, gauge: 2.5, dr: 'Geral 30mA' }
+    ];
+
+    this.panels = [
+      { id: 'QGBT', name: 'QGBT - Quadro Geral de Baixa Tensão', location: 'Cozinha / Serviço Térreo', mainBreaker: 63, phases: 'Trifásico (3F+N+T)' },
+      { id: 'QD2', name: 'QD-02 - Quadro Parcial Superior', location: 'Hall Superior', mainBreaker: 50, phases: 'Bifásico/Trifásico (2F+N+T)' }
+    ];
+
+    // Ativação e carregamento do nível inicial
     this.activeLevelId = 'level_terreo';
     this.underlayLevelId = null;
 
-    // Prumada vertical conectando Térreo e 1º Pavimento junto ao QDC
-    this.risers = [
-      {
-        id: 'pr_01',
-        name: 'PR-01',
-        position: { x: 1.15, y: 10.2 },
-        fromLevelId: 'level_terreo',
-        toLevelId: 'level_primeiro',
-        diameter: 32
-      }
-    ];
+    this.walls = terreoWalls;
+    this.rooms = terreoRooms;
+    this.doors = terreoDoors;
+    this.windows = terreoWindows;
+    this.dimensions = terreoDimensions;
+    this.roomDividers = [];
+    this.nodes = terreoNodes;
+    this.conduits = terreoConduits;
+    this.backgroundImage = null;
 
     this.selectedElement = null;
     this.selectedElements = [];
     this.selectedNodeId = null;
-    this.undoStack = [];
-    this.redoStack = [];
-    this.saveSnapshot();
+    this.wallStartPoint = null;
+    this.conduitStartNodeId = null;
+
+    this.viewport.panX = 60;
+    this.viewport.panY = 30;
+    this.viewport.zoom = 48;
+
     this.recalculateWiring();
+    this.saveSnapshot();
     this.notify();
   }
 
@@ -1893,6 +2278,104 @@ export class CadEngine {
 
     if (typeof window !== 'undefined' && window.__showToast) {
       window.__showToast(`Parede de ${val.toFixed(2)} m adicionada com sucesso!`);
+    }
+    return true;
+  }
+
+  resetTrimState() {
+    this.trimCornerWall1 = null;
+    this.trimCornerPt1 = null;
+    this.trimMultiRefWall = null;
+  }
+
+  /**
+   * Une duas paredes concorrentes em canto fechado (L), aparando ou estendendo ambos os elementos.
+   * Conforme ABNT NBR 6492 para concordancia e fechamento de alvenarias.
+   */
+  trimExtendCorner(w1, clickPt1, w2, clickPt2) {
+    if (!w1 || !w2 || w1.id === w2.id) return false;
+
+    const d1 = { x: w1.b.x - w1.a.x, y: w1.b.y - w1.a.y };
+    const d2 = { x: w2.b.x - w2.a.x, y: w2.b.y - w2.a.y };
+    const pInt = lineIntersect(w1.a, d1, w2.a, d2);
+
+    if (!pInt) {
+      if (typeof window !== 'undefined' && window.__showToast) {
+        window.__showToast('As paredes selecionadas sao paralelas e nao formam canto.', 'warning');
+      }
+      return false;
+    }
+
+    const newEndpoints1 = computeTrimmedWallEndpoints(w1, pInt, clickPt1);
+    const newEndpoints2 = computeTrimmedWallEndpoints(w2, pInt, clickPt2);
+
+    if (!newEndpoints1 || !newEndpoints2) return false;
+
+    const len1 = Math.hypot(newEndpoints1.b.x - newEndpoints1.a.x, newEndpoints1.b.y - newEndpoints1.a.y);
+    const len2 = Math.hypot(newEndpoints2.b.x - newEndpoints2.a.x, newEndpoints2.b.y - newEndpoints2.a.y);
+    if (len1 < 0.05 || len2 < 0.05) {
+      if (typeof window !== 'undefined' && window.__showToast) {
+        window.__showToast('Comprimento residual de parede insuficiente para formar o canto.', 'warning');
+      }
+      return false;
+    }
+
+    this.saveSnapshot();
+
+    w1.a = newEndpoints1.a;
+    w1.b = newEndpoints1.b;
+
+    w2.a = newEndpoints2.a;
+    w2.b = newEndpoints2.b;
+
+    this.recalculateWiring();
+    this.notify();
+
+    if (typeof window !== 'undefined' && window.__showToast) {
+      window.__showToast('Canto unido com precisao geometrica!', 'success');
+    }
+    return true;
+  }
+
+  /**
+   * Estende ou apara uma parede concorrente ate o limite definido por uma parede de referencia.
+   * A parede de referencia permanece inalterada, servindo como plano de corte ou prolongamento.
+   */
+  trimExtendToTarget(refWall, wallToExtend, clickPt) {
+    if (!refWall || !wallToExtend || refWall.id === wallToExtend.id) return false;
+
+    const dRef = { x: refWall.b.x - refWall.a.x, y: refWall.b.y - refWall.a.y };
+    const dWall = { x: wallToExtend.b.x - wallToExtend.a.x, y: wallToExtend.b.y - wallToExtend.a.y };
+    const pInt = lineIntersect(refWall.a, dRef, wallToExtend.a, dWall);
+
+    if (!pInt) {
+      if (typeof window !== 'undefined' && window.__showToast) {
+        window.__showToast('A parede selecionada e paralela a parede limite.', 'warning');
+      }
+      return false;
+    }
+
+    const newEndpoints = computeTrimmedWallEndpoints(wallToExtend, pInt, clickPt);
+    if (!newEndpoints) return false;
+
+    const len = Math.hypot(newEndpoints.b.x - newEndpoints.a.x, newEndpoints.b.y - newEndpoints.a.y);
+    if (len < 0.05) {
+      if (typeof window !== 'undefined' && window.__showToast) {
+        window.__showToast('Comprimento residual de parede insuficiente.', 'warning');
+      }
+      return false;
+    }
+
+    this.saveSnapshot();
+
+    wallToExtend.a = newEndpoints.a;
+    wallToExtend.b = newEndpoints.b;
+
+    this.recalculateWiring();
+    this.notify();
+
+    if (typeof window !== 'undefined' && window.__showToast) {
+      window.__showToast('Parede ajustada ao limite com sucesso!', 'success');
     }
     return true;
   }
@@ -2866,6 +3349,21 @@ export class CadEngine {
         this.wallStartPoint = null;
         this.polarGuide = null;
         this.notify();
+      } else if (this.activeTool === 'trim_corner') {
+        if (this.trimCornerWall1) {
+          this.trimCornerWall1 = null;
+          this.trimCornerPt1 = null;
+        } else {
+          this.activeTool = 'select';
+        }
+        this.notify();
+      } else if (this.activeTool === 'trim_extend_multi') {
+        if (this.trimMultiRefWall) {
+          this.trimMultiRefWall = null;
+        } else {
+          this.activeTool = 'select';
+        }
+        this.notify();
       } else {
         this.activeTool = 'select';
         this.notify();
@@ -2878,6 +3376,92 @@ export class CadEngine {
     const snap = this.findSnap(screenPt);
     const worldPos = snap.snapped ? snap.point : this.viewport.screenToWorld(screenPt);
     this.dragStartWorld = worldPos;
+
+    // 0.2 Aparar / Estender para Canto (Trim/Extend Corner)
+    if (this.activeTool === 'trim_corner') {
+      const near = this.findNearestWall(worldPos, 0.75);
+      if (!near) {
+        if (typeof window !== 'undefined' && window.__showToast) {
+          window.__showToast('Clique sobre uma parede existente.', 'info');
+        }
+        return;
+      }
+
+      if (!this.trimCornerWall1) {
+        this.trimCornerWall1 = near.wall;
+        this.trimCornerPt1 = worldPos;
+        this.notify();
+        if (typeof window !== 'undefined' && window.__showToast) {
+          window.__showToast('1ª parede selecionada. Clique na 2ª parede para formar o canto.', 'info');
+        }
+        return;
+      } else {
+        if (near.wall.id === this.trimCornerWall1.id) {
+          if (typeof window !== 'undefined' && window.__showToast) {
+            window.__showToast('Selecione uma parede concorrente diferente para formar o canto.', 'warning');
+          }
+          return;
+        }
+        this.trimExtendCorner(this.trimCornerWall1, this.trimCornerPt1, near.wall, worldPos);
+        this.trimCornerWall1 = null;
+        this.trimCornerPt1 = null;
+        this.notify();
+        return;
+      }
+    }
+
+    // 0.3 Aparar / Estender Multiplos Elementos ate Parede Limite (Trim/Extend Multi)
+    if (this.activeTool === 'trim_extend_multi') {
+      const near = this.findNearestWall(worldPos, 0.75);
+      if (!near) {
+        if (typeof window !== 'undefined' && window.__showToast) {
+          window.__showToast('Clique sobre uma parede existente.', 'info');
+        }
+        return;
+      }
+
+      if (!this.trimMultiRefWall) {
+        this.trimMultiRefWall = near.wall;
+        this.notify();
+        if (typeof window !== 'undefined' && window.__showToast) {
+          window.__showToast('Parede limite fixada! Agora clique nas paredes a estender ou aparar.', 'success');
+        }
+        return;
+      } else {
+        if (near.wall.id === this.trimMultiRefWall.id) {
+          this.trimMultiRefWall = null;
+          this.notify();
+          if (typeof window !== 'undefined' && window.__showToast) {
+            window.__showToast('Parede limite desselecionada.', 'info');
+          }
+          return;
+        }
+        this.trimExtendToTarget(this.trimMultiRefWall, near.wall, worldPos);
+        this.notify();
+        return;
+      }
+    }
+
+    // 0.4 Calibração Métrica da Planta de Referência (2 Cliques)
+    if (this.activeTool === 'calibrate_image') {
+      const clickWorld = this.viewport.screenToWorld(screenPt);
+      if (this.calibStage === 1) {
+        this.calibP1 = clickWorld;
+        this.calibStage = 2;
+        this.notify();
+        return;
+      } else if (this.calibStage === 2) {
+        this.calibP2 = clickWorld;
+        const measured = Math.hypot(this.calibP2.x - this.calibP1.x, this.calibP2.y - this.calibP1.y);
+        if (measured < 0.05) return; // Evita duplo clique no mesmo ponto
+
+        if (typeof this.onCalibrationRequested === 'function') {
+          this.onCalibrationRequested(measured, this.calibP1, this.calibP2);
+        }
+        this.notify();
+        return;
+      }
+    }
 
     // 0.5 Inserir Prumada Vertical (Eletroduto que sobe / desce entre pavimentos)
     if (this.activeTool === 'riser') {
@@ -3234,20 +3818,22 @@ export class CadEngine {
       }
 
       // 8.2 Fallback: Checar se clicou sobre o Diagrama Unifilar (QD1)
-      const unifilarScreen = this.viewport.worldToScreen(this.sldPosition);
-      const sc = this.viewport.zoom / 55;
-      const uW = 340 * sc;
-      const uH = 205 * sc;
-      if (
-        screenPt.x >= unifilarScreen.x - 12 * sc &&
-        screenPt.x <= unifilarScreen.x + uW &&
-        screenPt.y >= unifilarScreen.y - 32 * sc &&
-        screenPt.y <= unifilarScreen.y + uH
-      ) {
-        this.selectedElement = { type: 'unifilar' };
-        this.isDragging = true;
-        this.notify();
-        return;
+      if (this.layers.unifilar) {
+        const unifilarScreen = this.viewport.worldToScreen(this.sldPosition);
+        const sc = this.viewport.zoom / 55;
+        const uW = 340 * sc;
+        const uH = 205 * sc;
+        if (
+          screenPt.x >= unifilarScreen.x - 12 * sc &&
+          screenPt.x <= unifilarScreen.x + uW &&
+          screenPt.y >= unifilarScreen.y - 32 * sc &&
+          screenPt.y <= unifilarScreen.y + uH
+        ) {
+          this.selectedElement = { type: 'unifilar' };
+          this.isDragging = true;
+          this.notify();
+          return;
+        }
       }
 
       // 8.3 Prioridade para Portas e Janelas (sempre selecionáveis)
@@ -3867,21 +4453,23 @@ export class CadEngine {
     }
 
     // 7. Diagrama Unifilar
-    const unifilarScreen = this.viewport.worldToScreen(this.sldPosition);
-    const sc = this.viewport.zoom / 55;
-    const uW = 340 * sc;
-    const uH = 205 * sc;
-    if (
-      screenPt.x >= unifilarScreen.x - 12 * sc &&
-      screenPt.x <= unifilarScreen.x + uW &&
-      screenPt.y >= unifilarScreen.y - 32 * sc &&
-      screenPt.y <= unifilarScreen.y + uH
-    ) {
-      candidates.push({
-        type: 'unifilar',
-        label: 'Diagrama Unifilar Móvel (QD1)',
-        pos: this.sldPosition
-      });
+    if (this.layers.unifilar) {
+      const unifilarScreen = this.viewport.worldToScreen(this.sldPosition);
+      const sc = this.viewport.zoom / 55;
+      const uW = 340 * sc;
+      const uH = 205 * sc;
+      if (
+        screenPt.x >= unifilarScreen.x - 12 * sc &&
+        screenPt.x <= unifilarScreen.x + uW &&
+        screenPt.y >= unifilarScreen.y - 32 * sc &&
+        screenPt.y <= unifilarScreen.y + uH
+      ) {
+        candidates.push({
+          type: 'unifilar',
+          label: 'Diagrama Unifilar Móvel (QD1)',
+          pos: this.sldPosition
+        });
+      }
     }
 
     // 8. Cotas Técnicas (NBR 6492)
@@ -5161,18 +5749,12 @@ export class CadEngine {
     ctx.lineTo(-12 + boxW, -6);
     ctx.stroke();
 
-    // Título e Ícone de Mover
+    // Título do Quadro
     ctx.fillStyle = '#0f172a';
     ctx.font = 'bold 11px Arial, sans-serif';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.fillText('QD1 — QUADRO GERAL DE DISTRIBUIÇÃO (3F+N+T)', 4, -19);
-
-    // Alça de arrasto no canto superior direito
-    ctx.fillStyle = '#94a3b8';
-    ctx.font = '9px Arial, sans-serif';
-    ctx.textAlign = 'right';
-    ctx.fillText('✢ Arrastar', boxW - 18, -19);
+    ctx.fillText('QD1: QUADRO GERAL DE DISTRIBUIÇÃO (3F+N+T)', 4, -19);
 
     // Linha de Entrada Principal
     ctx.strokeStyle = '#0284c7';
@@ -5265,6 +5847,9 @@ export class CadEngine {
     if (this.layers.grid) {
       this.viewport.renderGrid(ctx, w, h);
     }
+
+    // 1.2 Imagem de Fundo Calibrada (Planta de Referência / Underlay Raster)
+    this.renderBackgroundImage(ctx);
 
     // 1.5 Pavimento Subjacente (Underlay / Plano Fantasma esmaecido)
     if (this.underlayLevelId) {
@@ -5440,15 +6025,14 @@ export class CadEngine {
         ctx.font = 'bold 10px Arial, sans-serif';
         ctx.fillText(this.currentSnap.label || 'Centro da Abertura', s.x + 10, s.y - 8);
       } else if (this.currentSnap.type === 'boneca') {
-        // Marcador de Boneca 10 cm da porta
+        // Marcador silencioso de atracamento a 10 cm da quina (sem poluição textual)
         ctx.strokeStyle = '#10b981';
         ctx.fillStyle = '#10b981';
+        ctx.lineWidth = 1.5;
         ctx.beginPath();
-        ctx.arc(s.x, s.y, 6, 0, Math.PI * 2);
+        ctx.arc(s.x, s.y, 4, 0, Math.PI * 2);
         ctx.fill();
-
-        ctx.font = 'bold 10px Arial, sans-serif';
-        ctx.fillText('Boneca 10 cm', s.x + 10, s.y - 8);
+        ctx.stroke();
       } else if (this.currentSnap.type === 'wall_face_corner') {
         // Losango verde esmeralda (Quina da face da parede: interna ou externa)
         ctx.strokeStyle = '#059669';
@@ -5693,5 +6277,973 @@ export class CadEngine {
       }
       ctx.restore();
     }
+
+    // 12. Prévia e Linha Elástica da Calibração Métrica de Imagem (2 Cliques)
+    if (!this.isPaperSpace && this.activeTool === 'calibrate_image') {
+      ctx.save();
+      if (this.calibStage === 1 && this.mouseScreenPos) {
+        // Passo 1: Mira circular no cursor indicando clique no Ponto 1
+        ctx.strokeStyle = '#0284c7';
+        ctx.lineWidth = 2.0;
+        ctx.beginPath();
+        ctx.arc(this.mouseScreenPos.x, this.mouseScreenPos.y, 9, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(this.mouseScreenPos.x - 14, this.mouseScreenPos.y);
+        ctx.lineTo(this.mouseScreenPos.x + 14, this.mouseScreenPos.y);
+        ctx.moveTo(this.mouseScreenPos.x, this.mouseScreenPos.y - 14);
+        ctx.lineTo(this.mouseScreenPos.x, this.mouseScreenPos.y + 14);
+        ctx.stroke();
+
+        // Helper Pill
+        const msg = 'Calibração: Clique no Ponto 1 (Início da Cota)';
+        ctx.font = 'bold 11px Arial, sans-serif';
+        const tw = ctx.measureText(msg).width;
+        ctx.fillStyle = '#0284c7';
+        ctx.fillRect(this.mouseScreenPos.x + 14, this.mouseScreenPos.y - 24, tw + 14, 20);
+        ctx.fillStyle = '#ffffff';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(msg, this.mouseScreenPos.x + 21, this.mouseScreenPos.y - 14);
+      } else if (this.calibStage === 2 && this.calibP1 && this.mouseWorldPos) {
+        // Passo 2: Linha elástica azul com setas e cota provisória conectando P1 a P2
+        const s1 = this.viewport.worldToScreen(this.calibP1);
+        const s2 = this.viewport.worldToScreen(this.mouseWorldPos);
+        const measuredM = Math.hypot(this.mouseWorldPos.x - this.calibP1.x, this.mouseWorldPos.y - this.calibP1.y);
+
+        ctx.strokeStyle = '#0284c7';
+        ctx.lineWidth = 2.2;
+        ctx.setLineDash([6, 4]);
+        ctx.beginPath();
+        ctx.moveTo(s1.x, s1.y);
+        ctx.lineTo(s2.x, s2.y);
+        ctx.stroke();
+
+        // Ponto P1 fixo (Círculo azul com halo branco)
+        ctx.setLineDash([]);
+        ctx.fillStyle = '#0284c7';
+        ctx.beginPath();
+        ctx.arc(s1.x, s1.y, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2.0;
+        ctx.stroke();
+
+        // Ponto P2 no cursor
+        ctx.fillStyle = '#38bdf8';
+        ctx.beginPath();
+        ctx.arc(s2.x, s2.y, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // Helper Pill com cota medida
+        const midX = (s1.x + s2.x) / 2;
+        const midY = (s1.y + s2.y) / 2 - 16;
+        const msg = `${measuredM.toFixed(2)} m (Clique no Ponto 2 para fixar)`;
+        ctx.font = 'bold 11px Arial, sans-serif';
+        const tw = ctx.measureText(msg).width;
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.90)';
+        ctx.fillRect(midX - tw / 2 - 8, midY - 12, tw + 16, 22);
+        ctx.strokeStyle = '#0284c7';
+        ctx.lineWidth = 1.2;
+        ctx.strokeRect(midX - tw / 2 - 8, midY - 12, tw + 16, 22);
+        ctx.fillStyle = '#ffffff';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(msg, midX, midY - 1);
+      }
+      ctx.restore();
+    }
+
+    // 13. Feedback Visual e Guias para Ferramentas de Alvenaria (Trim/Extend Corner & Multi)
+    if (!this.isPaperSpace && (this.activeTool === 'trim_corner' || this.activeTool === 'trim_extend_multi')) {
+      ctx.save();
+
+      // Caso 1: Aparar / Estender para Canto
+      if (this.activeTool === 'trim_corner') {
+        if (this.trimCornerWall1) {
+          const sA = this.viewport.worldToScreen(this.trimCornerWall1.a);
+          const sB = this.viewport.worldToScreen(this.trimCornerWall1.b);
+
+          ctx.strokeStyle = '#0284c7';
+          ctx.lineWidth = 4.5;
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.moveTo(sA.x, sA.y);
+          ctx.lineTo(sB.x, sB.y);
+          ctx.stroke();
+
+          if (this.trimCornerPt1) {
+            const sPt = this.viewport.worldToScreen(this.trimCornerPt1);
+            ctx.fillStyle = '#0284c7';
+            ctx.beginPath();
+            ctx.arc(sPt.x, sPt.y, 6, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2.0;
+            ctx.stroke();
+          }
+        }
+
+        if (this.mouseWorldPos && this.mouseScreenPos) {
+          const near = this.findNearestWall(this.mouseWorldPos, 0.75);
+          if (near && (!this.trimCornerWall1 || near.wall.id !== this.trimCornerWall1.id)) {
+            const nA = this.viewport.worldToScreen(near.wall.a);
+            const nB = this.viewport.worldToScreen(near.wall.b);
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 3.0;
+            ctx.beginPath();
+            ctx.moveTo(nA.x, nA.y);
+            ctx.lineTo(nB.x, nB.y);
+            ctx.stroke();
+          }
+
+          const msg = this.trimCornerWall1
+            ? 'Clique na 2ª parede do canto [Esc: Cancelar]'
+            : 'Clique na 1ª parede a ser unida em canto';
+          ctx.font = 'bold 11px Arial, sans-serif';
+          const tw = ctx.measureText(msg).width;
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.90)';
+          ctx.fillRect(this.mouseScreenPos.x + 14, this.mouseScreenPos.y - 24, tw + 16, 22);
+          ctx.strokeStyle = '#0284c7';
+          ctx.lineWidth = 1.2;
+          ctx.strokeRect(this.mouseScreenPos.x + 14, this.mouseScreenPos.y - 24, tw + 16, 22);
+          ctx.fillStyle = '#ffffff';
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(msg, this.mouseScreenPos.x + 22, this.mouseScreenPos.y - 13);
+        }
+      }
+
+      // Caso 2: Aparar / Estender Múltiplos Elementos
+      if (this.activeTool === 'trim_extend_multi') {
+        if (this.trimMultiRefWall) {
+          const rA = this.trimMultiRefWall.a;
+          const rB = this.trimMultiRefWall.b;
+          const sA = this.viewport.worldToScreen(rA);
+          const sB = this.viewport.worldToScreen(rB);
+
+          ctx.strokeStyle = '#059669';
+          ctx.lineWidth = 4.5;
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.moveTo(sA.x, sA.y);
+          ctx.lineTo(sB.x, sB.y);
+          ctx.stroke();
+
+          const rDx = rB.x - rA.x;
+          const rDy = rB.y - rA.y;
+          const rLen = Math.hypot(rDx, rDy);
+          if (rLen > 1e-4) {
+            const uX = rDx / rLen;
+            const uY = rDy / rLen;
+            const inf1 = { x: rA.x - uX * 500, y: rA.y - uY * 500 };
+            const inf2 = { x: rB.x + uX * 500, y: rB.y + uY * 500 };
+            const sInf1 = this.viewport.worldToScreen(inf1);
+            const sInf2 = this.viewport.worldToScreen(inf2);
+
+            ctx.strokeStyle = 'rgba(5, 150, 105, 0.65)';
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([8, 6]);
+            ctx.beginPath();
+            ctx.moveTo(sInf1.x, sInf1.y);
+            ctx.lineTo(sInf2.x, sInf2.y);
+            ctx.stroke();
+            ctx.setLineDash([]);
+          }
+        }
+
+        if (this.mouseWorldPos && this.mouseScreenPos) {
+          const near = this.findNearestWall(this.mouseWorldPos, 0.75);
+          if (near && (!this.trimMultiRefWall || near.wall.id !== this.trimMultiRefWall.id)) {
+            const nA = this.viewport.worldToScreen(near.wall.a);
+            const nB = this.viewport.worldToScreen(near.wall.b);
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 3.0;
+            ctx.beginPath();
+            ctx.moveTo(nA.x, nA.y);
+            ctx.lineTo(nB.x, nB.y);
+            ctx.stroke();
+          }
+
+          const msg = this.trimMultiRefWall
+            ? 'Clique na parede para estender/aparar [Esc/Botão direito: Sair]'
+            : 'Clique na parede de DESTINO (limite)';
+          ctx.font = 'bold 11px Arial, sans-serif';
+          const tw = ctx.measureText(msg).width;
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.90)';
+          ctx.fillRect(this.mouseScreenPos.x + 14, this.mouseScreenPos.y - 24, tw + 16, 22);
+          ctx.strokeStyle = this.trimMultiRefWall ? '#059669' : '#0284c7';
+          ctx.lineWidth = 1.2;
+          ctx.strokeRect(this.mouseScreenPos.x + 14, this.mouseScreenPos.y - 24, tw + 16, 22);
+          ctx.fillStyle = '#ffffff';
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(msg, this.mouseScreenPos.x + 22, this.mouseScreenPos.y - 13);
+        }
+      }
+
+      ctx.restore();
+    }
+  }
+
+  // Gera o arquivo completo em formato AutoCAD DXF R12 em estrita conformidade com a ABNT NBR 5410 e NBR 6492
+  exportToDxf() {
+    this.saveCurrentLevelState();
+    return DxfSerializer.generate(this);
+  }
+}
+
+// ==================== SERIALIZADOR DXF PROFISSIONAL (AUTOCAD R12 / AC1009) ====================
+export class DxfSerializer {
+  static generate(engine) {
+    const lines = [];
+
+    const add = (code, val) => {
+      lines.push(String(code));
+      lines.push(String(val));
+    };
+
+    // 1. SEÇÃO HEADER
+    add(0, 'SECTION');
+    add(2, 'HEADER');
+    add(9, '$ACADVER');
+    add(1, 'AC1009'); // AutoCAD Release 12 ASCII
+    add(9, '$INSUNITS');
+    add(70, 6); // Metros
+    add(9, '$MEASUREMENT');
+    add(70, 1); // Sistema Métrico
+    add(9, '$LUNITS');
+    add(70, 2); // Decimal
+    add(9, '$LUPREC');
+    add(70, 4); // 4 casas decimais
+    add(9, '$AUNITS');
+    add(70, 0); // Graus decimais
+    add(9, '$ANGBASE');
+    add(50, 0.0);
+    add(9, '$ANGDIR');
+    add(70, 0); // Sentido anti-horário
+    add(0, 'ENDSEC');
+
+    // 2. SEÇÃO TABLES
+    add(0, 'SECTION');
+    add(2, 'TABLES');
+
+    // Tabela VPORT
+    add(0, 'TABLE');
+    add(2, 'VPORT');
+    add(70, 1);
+    add(0, 'VPORT');
+    add(2, '*ACTIVE');
+    add(70, 0);
+    add(10, 0.0);
+    add(20, 0.0);
+    add(11, 1.0);
+    add(21, 1.0);
+    add(12, 10.0);
+    add(22, 10.0);
+    add(40, 25.0);
+    add(41, 1.5);
+    add(0, 'ENDTAB');
+
+    // Tabela LTYPE (Tipos de Linha)
+    add(0, 'TABLE');
+    add(2, 'LTYPE');
+    add(70, 3);
+
+    add(0, 'LTYPE');
+    add(2, 'CONTINUOUS');
+    add(70, 0);
+    add(3, 'Linha Continua Solida');
+    add(72, 65);
+    add(73, 0);
+    add(40, 0.0);
+
+    add(0, 'LTYPE');
+    add(2, 'HIDDEN');
+    add(70, 0);
+    add(3, 'Linha Tracejada __ __ __');
+    add(72, 65);
+    add(73, 2);
+    add(40, 0.5);
+    add(49, 0.35);
+    add(49, -0.15);
+
+    add(0, 'LTYPE');
+    add(2, 'DASHED');
+    add(70, 0);
+    add(3, 'Linha Traco-Ponto _ . _ .');
+    add(72, 65);
+    add(73, 4);
+    add(40, 0.8);
+    add(49, 0.5);
+    add(49, -0.15);
+    add(49, 0.0);
+    add(49, -0.15);
+
+    add(0, 'ENDTAB');
+
+    // Tabela LAYER (17 Camadas Normatizadas NBR 6492 / NBR 5410)
+    const layers = [
+      { name: '0', color: 7, ltype: 'CONTINUOUS' },
+      { name: 'ARQ_ALVENARIA', color: 7, ltype: 'CONTINUOUS' }, // Branco/Preto 0.50mm
+      { name: 'ARQ_ESQUADRIAS', color: 4, ltype: 'CONTINUOUS' }, // Ciano 0.20mm
+      { name: 'ARQ_PROJECAO_PORTAS', color: 8, ltype: 'HIDDEN' }, // Cinza tracejado 0.15mm
+      { name: 'ARQ_COTAS', color: 1, ltype: 'CONTINUOUS' }, // Vermelho 0.15mm
+      { name: 'ARQ_TEXTOS', color: 7, ltype: 'CONTINUOUS' }, // Branco 0.25mm
+      { name: 'ELET_PONTOS_LUZ', color: 2, ltype: 'CONTINUOUS' }, // Amarelo 0.35mm
+      { name: 'ELET_TOMADAS', color: 3, ltype: 'CONTINUOUS' }, // Verde 0.35mm
+      { name: 'ELET_INTERRUPTORES', color: 6, ltype: 'CONTINUOUS' }, // Magenta 0.35mm
+      { name: 'ELET_QUADROS', color: 1, ltype: 'CONTINUOUS' }, // Vermelho 0.50mm
+      { name: 'ELET_ELETRODUTO_TETO', color: 4, ltype: 'CONTINUOUS' }, // Ciano continuo 0.35mm
+      { name: 'ELET_ELETRODUTO_PISO', color: 1, ltype: 'HIDDEN' }, // Vermelho tracejado 0.35mm
+      { name: 'ELET_ELETRODUTO_PAREDE', color: 5, ltype: 'DASHED' }, // Azul traco-ponto 0.25mm
+      { name: 'ELET_CONDUTORES', color: 7, ltype: 'CONTINUOUS' }, // Branco 0.25mm
+      { name: 'ELET_TEXTOS_CIRCUITOS', color: 2, ltype: 'CONTINUOUS' }, // Amarelo 0.20mm
+      { name: 'ELET_DIAGRAMA_UNIFILAR', color: 7, ltype: 'CONTINUOUS' }, // Branco 0.35mm
+      { name: 'ELET_QUADRO_CARGAS', color: 7, ltype: 'CONTINUOUS' }, // Branco 0.25mm
+      { name: 'ABNT_MOLDURA_SELO', color: 7, ltype: 'CONTINUOUS' } // Moldura ABNT
+    ];
+
+    add(0, 'TABLE');
+    add(2, 'LAYER');
+    add(70, layers.length);
+    layers.forEach(ly => {
+      add(0, 'LAYER');
+      add(2, ly.name);
+      add(70, 0);
+      add(62, ly.color);
+      add(6, ly.ltype);
+    });
+    add(0, 'ENDTAB');
+
+    // Tabela STYLE (Fontes)
+    add(0, 'TABLE');
+    add(2, 'STYLE');
+    add(70, 1);
+    add(0, 'STYLE');
+    add(2, 'STANDARD');
+    add(70, 0);
+    add(40, 0.0);
+    add(41, 1.0);
+    add(50, 0.0);
+    add(71, 0);
+    add(42, 0.25);
+    add(3, 'txt');
+    add(4, '');
+    add(0, 'ENDTAB');
+
+    add(0, 'ENDSEC');
+
+    // 3. SEÇÃO BLOCKS (Simbologia Paramétrica ABNT NBR 5410)
+    add(0, 'SECTION');
+    add(2, 'BLOCKS');
+
+    // Bloco: Tomada Baixa (Triângulo vazado cota 0,30 m)
+    add(0, 'BLOCK');
+    add(2, 'BLK_TOMADA_BAIXA');
+    add(70, 0);
+    add(10, 0.0); add(20, 0.0); add(30, 0.0);
+    add(3, 'BLK_TOMADA_BAIXA');
+    add(0, 'LINE'); add(8, '0');
+    add(10, -0.13); add(20, 0.0); add(30, 0.0);
+    add(11, 0.13); add(21, 0.0); add(31, 0.0);
+    add(0, 'LINE'); add(8, '0');
+    add(10, -0.13); add(20, 0.0); add(30, 0.0);
+    add(11, 0.0); add(21, 0.22); add(31, 0.0);
+    add(0, 'LINE'); add(8, '0');
+    add(10, 0.13); add(20, 0.0); add(30, 0.0);
+    add(11, 0.0); add(21, 0.22); add(31, 0.0);
+    add(0, 'ENDBLK');
+
+    // Bloco: Tomada Média (Triângulo semi-preenchido cota 1,20 m)
+    add(0, 'BLOCK');
+    add(2, 'BLK_TOMADA_MEDIA');
+    add(70, 0);
+    add(10, 0.0); add(20, 0.0); add(30, 0.0);
+    add(3, 'BLK_TOMADA_MEDIA');
+    add(0, 'LINE'); add(8, '0');
+    add(10, -0.13); add(20, 0.0); add(30, 0.0);
+    add(11, 0.13); add(21, 0.0); add(31, 0.0);
+    add(0, 'LINE'); add(8, '0');
+    add(10, -0.13); add(20, 0.0); add(30, 0.0);
+    add(11, 0.0); add(21, 0.22); add(31, 0.0);
+    add(0, 'LINE'); add(8, '0');
+    add(10, 0.13); add(20, 0.0); add(30, 0.0);
+    add(11, 0.0); add(21, 0.22); add(31, 0.0);
+    add(0, 'LINE'); add(8, '0');
+    add(10, 0.0); add(20, 0.0); add(30, 0.0);
+    add(11, 0.0); add(21, 0.22); add(31, 0.0);
+    for (let dy = 0.02; dy < 0.20; dy += 0.03) {
+      const rx = (1 - dy / 0.22) * 0.13;
+      add(0, 'LINE'); add(8, '0');
+      add(10, 0.0); add(20, dy); add(30, 0.0);
+      add(11, rx); add(21, dy); add(31, 0.0);
+    }
+    add(0, 'ENDBLK');
+
+    // Bloco: Tomada Alta (Triângulo totalmente preenchido cota 2,20 m)
+    add(0, 'BLOCK');
+    add(2, 'BLK_TOMADA_ALTA');
+    add(70, 0);
+    add(10, 0.0); add(20, 0.0); add(30, 0.0);
+    add(3, 'BLK_TOMADA_ALTA');
+    add(0, 'LINE'); add(8, '0');
+    add(10, -0.13); add(20, 0.0); add(30, 0.0);
+    add(11, 0.13); add(21, 0.0); add(31, 0.0);
+    add(0, 'LINE'); add(8, '0');
+    add(10, -0.13); add(20, 0.0); add(30, 0.0);
+    add(11, 0.0); add(21, 0.22); add(31, 0.0);
+    add(0, 'LINE'); add(8, '0');
+    add(10, 0.13); add(20, 0.0); add(30, 0.0);
+    add(11, 0.0); add(21, 0.22); add(31, 0.0);
+    for (let dy = 0.02; dy < 0.20; dy += 0.02) {
+      const lx = (1 - dy / 0.22) * 0.13;
+      add(0, 'LINE'); add(8, '0');
+      add(10, -lx); add(20, dy); add(30, 0.0);
+      add(11, lx); add(21, dy); add(31, 0.0);
+    }
+    add(0, 'ENDBLK');
+
+    // Bloco: Caixa Octogonal de Teto / Iluminação (com 4 quadrantes)
+    add(0, 'BLOCK');
+    add(2, 'BLK_LUZ_TETO');
+    add(70, 0);
+    add(10, 0.0); add(20, 0.0); add(30, 0.0);
+    add(3, 'BLK_LUZ_TETO');
+    add(0, 'CIRCLE'); add(8, '0');
+    add(10, 0.0); add(20, 0.0); add(30, 0.0);
+    add(40, 0.22); // Raio 22cm
+    add(0, 'LINE'); add(8, '0');
+    add(10, -0.22); add(20, 0.0); add(30, 0.0);
+    add(11, 0.22); add(21, 0.0); add(31, 0.0);
+    add(0, 'LINE'); add(8, '0');
+    add(10, 0.0); add(20, -0.22); add(30, 0.0);
+    add(11, 0.0); add(21, 0.22); add(31, 0.0);
+    add(0, 'ENDBLK');
+
+    // Bloco: Interruptor Simples
+    add(0, 'BLOCK');
+    add(2, 'BLK_INT_SIMPLES');
+    add(70, 0);
+    add(10, 0.0); add(20, 0.0); add(30, 0.0);
+    add(3, 'BLK_INT_SIMPLES');
+    add(0, 'CIRCLE'); add(8, '0');
+    add(10, 0.0); add(20, 0.16); add(30, 0.0);
+    add(40, 0.10);
+    add(0, 'LINE'); add(8, '0');
+    add(10, 0.0); add(20, 0.0); add(30, 0.0);
+    add(11, 0.0); add(21, 0.06); add(31, 0.0);
+    add(0, 'ENDBLK');
+
+    // Bloco: Interruptor Paralelo (Three-Way)
+    add(0, 'BLOCK');
+    add(2, 'BLK_INT_PARALELO');
+    add(70, 0);
+    add(10, 0.0); add(20, 0.0); add(30, 0.0);
+    add(3, 'BLK_INT_PARALELO');
+    add(0, 'CIRCLE'); add(8, '0');
+    add(10, 0.0); add(20, 0.16); add(30, 0.0);
+    add(40, 0.10);
+    add(0, 'LINE'); add(8, '0');
+    add(10, 0.0); add(20, 0.0); add(30, 0.0);
+    add(11, 0.0); add(21, 0.06); add(31, 0.0);
+    add(0, 'LINE'); add(8, '0');
+    add(10, 0.0); add(20, 0.06); add(30, 0.0);
+    add(11, 0.0); add(21, 0.26); add(31, 0.0);
+    for (let dy = -0.08; dy <= 0.08; dy += 0.02) {
+      const rx = Math.sqrt(Math.max(0, 0.01 - dy * dy));
+      add(0, 'LINE'); add(8, '0');
+      add(10, 0.0); add(20, 0.16 + dy); add(30, 0.0);
+      add(11, rx); add(21, 0.16 + dy); add(31, 0.0);
+    }
+    add(0, 'ENDBLK');
+
+    // Bloco: Quadro de Distribuição
+    add(0, 'BLOCK');
+    add(2, 'BLK_QUADRO_DIST');
+    add(70, 0);
+    add(10, 0.0); add(20, 0.0); add(30, 0.0);
+    add(3, 'BLK_QUADRO_DIST');
+    add(0, 'LINE'); add(8, '0');
+    add(10, -0.30); add(20, 0.0); add(30, 0.0);
+    add(11, 0.30); add(21, 0.0); add(31, 0.0);
+    add(0, 'LINE'); add(8, '0');
+    add(10, 0.30); add(20, 0.0); add(30, 0.0);
+    add(11, 0.30); add(21, 0.15); add(31, 0.0);
+    add(0, 'LINE'); add(8, '0');
+    add(10, 0.30); add(20, 0.15); add(30, 0.0);
+    add(11, -0.30); add(21, 0.15); add(31, 0.0);
+    add(0, 'LINE'); add(8, '0');
+    add(10, -0.30); add(20, 0.15); add(30, 0.0);
+    add(11, -0.30); add(21, 0.0); add(31, 0.0);
+    add(0, 'LINE'); add(8, '0');
+    add(10, -0.30); add(20, 0.0); add(30, 0.0);
+    add(11, 0.30); add(21, 0.15); add(31, 0.0);
+    add(0, 'ENDBLK');
+
+    // Blocos de Condutores (Fiação)
+    add(0, 'BLOCK'); add(2, 'BLK_COND_FASE'); add(70, 0);
+    add(10, 0.0); add(20, 0.0); add(30, 0.0); add(3, 'BLK_COND_FASE');
+    add(0, 'LINE'); add(8, '0');
+    add(10, 0.0); add(20, -0.10); add(30, 0.0);
+    add(11, 0.0); add(21, 0.10); add(31, 0.0);
+    add(0, 'ENDBLK');
+
+    add(0, 'BLOCK'); add(2, 'BLK_COND_NEUTRO'); add(70, 0);
+    add(10, 0.0); add(20, 0.0); add(30, 0.0); add(3, 'BLK_COND_NEUTRO');
+    add(0, 'LINE'); add(8, '0');
+    add(10, 0.0); add(20, 0.0); add(30, 0.0);
+    add(11, 0.0); add(21, 0.10); add(31, 0.0);
+    add(0, 'LINE'); add(8, '0');
+    add(10, 0.0); add(20, 0.10); add(30, 0.0);
+    add(11, 0.06); add(21, 0.10); add(31, 0.0);
+    add(0, 'ENDBLK');
+
+    add(0, 'BLOCK'); add(2, 'BLK_COND_TERRA'); add(70, 0);
+    add(10, 0.0); add(20, 0.0); add(30, 0.0); add(3, 'BLK_COND_TERRA');
+    add(0, 'LINE'); add(8, '0');
+    add(10, 0.0); add(20, 0.0); add(30, 0.0);
+    add(11, 0.0); add(21, 0.10); add(31, 0.0);
+    add(0, 'LINE'); add(8, '0');
+    add(10, -0.04); add(20, 0.10); add(30, 0.0);
+    add(11, 0.04); add(21, 0.10); add(31, 0.0);
+    add(0, 'ENDBLK');
+
+    add(0, 'BLOCK'); add(2, 'BLK_COND_RETORNO'); add(70, 0);
+    add(10, 0.0); add(20, 0.0); add(30, 0.0); add(3, 'BLK_COND_RETORNO');
+    add(0, 'LINE'); add(8, '0');
+    add(10, 0.0); add(20, 0.0); add(30, 0.0);
+    add(11, 0.0); add(21, 0.08); add(31, 0.0);
+    add(0, 'ENDBLK');
+
+    add(0, 'ENDSEC');
+
+    // 4. SEÇÃO ENTITIES (Instâncias Geométricas no Espaço do Modelo)
+    add(0, 'SECTION');
+    add(2, 'ENTITIES');
+
+    // 4.1 Arquitetura: Alvenarias
+    if (Array.isArray(engine.walls)) {
+      const geoms = typeof engine.computeWallGeometries === 'function' ? engine.computeWallGeometries() : [];
+      if (geoms.length > 0) {
+        geoms.forEach(g => {
+          // Faces externas da parede (a1-b1 e a2-b2)
+          add(0, 'LINE'); add(8, 'ARQ_ALVENARIA');
+          add(10, g.a1.x); add(20, g.a1.y); add(30, 0.0);
+          add(11, g.b1.x); add(21, g.b1.y); add(31, 0.0);
+
+          add(0, 'LINE'); add(8, 'ARQ_ALVENARIA');
+          add(10, g.a2.x); add(20, g.a2.y); add(30, 0.0);
+          add(11, g.b2.x); add(21, g.b2.y); add(31, 0.0);
+        });
+      } else {
+        engine.walls.forEach(w => {
+          add(0, 'LINE'); add(8, 'ARQ_ALVENARIA');
+          add(10, w.a.x); add(20, w.a.y); add(30, 0.0);
+          add(11, w.b.x); add(21, w.b.y); add(31, 0.0);
+        });
+      }
+    }
+
+    // 4.2 Portas e Aberturas (NBR 6492)
+    if (Array.isArray(engine.doors)) {
+      engine.doors.forEach(d => {
+        const p = d.pos || { x: 0, y: 0 };
+        const w = d.width || 0.80;
+        const th = d.wallThickness || 0.15;
+        const angDeg = ((d.rotation || 0) * 180) / Math.PI;
+
+        // Vão de passagem
+        add(0, 'LINE'); add(8, 'ARQ_ESQUADRIAS');
+        add(10, p.x); add(20, p.y); add(30, 0.0);
+        add(11, p.x + Math.cos(d.rotation || 0) * w); add(21, p.y + Math.sin(d.rotation || 0) * w); add(31, 0.0);
+
+        // Arco de abertura
+        add(0, 'ARC'); add(8, 'ARQ_PROJECAO_PORTAS');
+        add(10, p.x); add(20, p.y); add(30, 0.0);
+        add(40, w); // Raio igual à largura da folha
+        add(50, angDeg);
+        add(51, angDeg + 90);
+      });
+    }
+
+    // 4.3 Cotas Técnicas (NBR 6492)
+    if (Array.isArray(engine.dimensions)) {
+      engine.dimensions.forEach(dim => {
+        const ptA = dim.a || dim.ptA;
+        const ptB = dim.b || dim.ptB;
+        if (!ptA || !ptB) return;
+
+        const off = dim.offset || 0.40;
+        const dx = ptB.x - ptA.x;
+        const dy = ptB.y - ptA.y;
+        const len = Math.hypot(dx, dy);
+        if (len < 0.05) return;
+
+        const nx = -dy / len;
+        const ny = dx / len;
+
+        const cA = { x: ptA.x + nx * off, y: ptA.y + ny * off };
+        const cB = { x: ptB.x + nx * off, y: ptB.y + ny * off };
+
+        // Linha de cota principal
+        add(0, 'LINE'); add(8, 'ARQ_COTAS');
+        add(10, cA.x); add(20, cA.y); add(30, 0.0);
+        add(11, cB.x); add(21, cB.y); add(31, 0.0);
+
+        // Linhas de chamada
+        add(0, 'LINE'); add(8, 'ARQ_COTAS');
+        add(10, ptA.x); add(20, ptA.y); add(30, 0.0);
+        add(11, cA.x + nx * 0.08); add(21, cA.y + ny * 0.08); add(31, 0.0);
+
+        add(0, 'LINE'); add(8, 'ARQ_COTAS');
+        add(10, ptB.x); add(20, ptB.y); add(30, 0.0);
+        add(11, cB.x + nx * 0.08); add(21, cB.y + ny * 0.08); add(31, 0.0);
+
+        // Texto do valor métrico
+        const midX = (cA.x + cB.x) / 2 + nx * 0.08;
+        const midY = (cA.y + cB.y) / 2 + ny * 0.08;
+        add(0, 'TEXT'); add(8, 'ARQ_COTAS');
+        add(10, midX); add(20, midY); add(30, 0.0);
+        add(40, 0.16); // Altura de 16cm
+        add(1, len.toFixed(2));
+      });
+    }
+
+    // 4.4 Ambientes e Áreas
+    if (Array.isArray(engine.rooms)) {
+      engine.rooms.forEach(r => {
+        const c = r.center || { x: 5, y: 5 };
+        add(0, 'TEXT'); add(8, 'ARQ_TEXTOS');
+        add(10, c.x); add(20, c.y + 0.15); add(30, 0.0);
+        add(40, 0.22);
+        add(1, r.name || 'AMBIENTE');
+
+        if (r.area) {
+          add(0, 'TEXT'); add(8, 'ARQ_TEXTOS');
+          add(10, c.x); add(20, c.y - 0.15); add(30, 0.0);
+          add(40, 0.15);
+          add(1, `A: ${r.area.toFixed(2)} m²`);
+        }
+      });
+    }
+
+    // 4.5 Pontos Elétricos (NBR 5410)
+    const nodeMap = new Map();
+    if (Array.isArray(engine.nodes)) {
+      engine.nodes.forEach(n => {
+        nodeMap.set(n.id, n);
+        const p = n.position || { x: 0, y: 0 };
+        const rot = Number(n.rotation) || 0;
+
+        let blkName = 'BLK_TOMADA_MEDIA';
+        let layerName = 'ELET_TOMADAS';
+
+        if (n.type === 'outlet_low') {
+          blkName = 'BLK_TOMADA_BAIXA';
+        } else if (n.type === 'outlet_medium') {
+          blkName = 'BLK_TOMADA_MEDIA';
+        } else if (n.type === 'outlet_high') {
+          blkName = 'BLK_TOMADA_ALTA';
+        } else if (n.type === 'outlet_floor') {
+          blkName = 'BLK_TOMADA_BAIXA';
+        } else if (n.type === 'light_ceiling' || n.type === 'light_wall') {
+          blkName = 'BLK_LUZ_TETO';
+          layerName = 'ELET_PONTOS_LUZ';
+        } else if (n.type.startsWith('switch')) {
+          blkName = n.type.includes('parallel') ? 'BLK_INT_PARALELO' : 'BLK_INT_SIMPLES';
+          layerName = 'ELET_INTERRUPTORES';
+        } else if (n.type === 'distribution_board') {
+          blkName = 'BLK_QUADRO_DIST';
+          layerName = 'ELET_QUADROS';
+        }
+
+        // Inserção do Bloco
+        add(0, 'INSERT'); add(8, layerName);
+        add(2, blkName);
+        add(10, p.x); add(20, p.y); add(30, 0.0);
+        add(41, 1.0); add(42, 1.0); add(43, 1.0);
+        add(50, rot);
+
+        // Identificador de Circuito / Comando
+        if (n.circuitId) {
+          add(0, 'TEXT'); add(8, 'ELET_TEXTOS_CIRCUITOS');
+          add(10, p.x + 0.16); add(20, p.y + 0.16); add(30, 0.0);
+          add(40, 0.14);
+          add(1, `C${n.circuitId}`);
+        }
+        if (n.command) {
+          add(0, 'TEXT'); add(8, 'ELET_TEXTOS_CIRCUITOS');
+          add(10, p.x - 0.18); add(20, p.y + 0.16); add(30, 0.0);
+          add(40, 0.14);
+          add(1, n.command);
+        }
+      });
+    }
+
+    // 4.6 Eletrodutos e Fiação Integrada
+    if (Array.isArray(engine.conduits)) {
+      engine.conduits.forEach(c => {
+        const na = nodeMap.get(c.nodeAId);
+        const nb = nodeMap.get(c.nodeBId);
+        if (!na || !nb) return;
+
+        const pa = na.position;
+        const pb = nb.position;
+        const isFloor = c.installationType === 'floor';
+        const layer = isFloor ? 'ELET_ELETRODUTO_PISO' : 'ELET_ELETRODUTO_TETO';
+        const ltype = isFloor ? 'HIDDEN' : 'CONTINUOUS';
+
+        const mid = { x: (pa.x + pb.x) / 2, y: (pa.y + pb.y) / 2 };
+        const dx = pb.x - pa.x;
+        const dy = pb.y - pa.y;
+        const len = Math.hypot(dx, dy);
+
+        if (len < 0.05) return;
+
+        const nx = -dy / len;
+        const ny = dx / len;
+        const curveDir = c.curveDirection || 1;
+        const sag = Math.min(0.40, len * 0.14) * curveDir;
+
+        // Se houver curvatura, traça arco suave ou segmentos de polilinha
+        if (Math.abs(sag) > 0.08) {
+          const ctrl = { x: mid.x + nx * sag, y: mid.y + ny * sag };
+          // 3 segmentos lineares concordantes aproximando a curva Bézier com alta resolução
+          const p14 = {
+            x: 0.5625 * pa.x + 0.375 * ctrl.x + 0.0625 * pb.x,
+            y: 0.5625 * pa.y + 0.375 * ctrl.y + 0.0625 * pb.y
+          };
+          const pmid = {
+            x: 0.25 * pa.x + 0.5 * ctrl.x + 0.25 * pb.x,
+            y: 0.25 * pa.y + 0.5 * ctrl.y + 0.25 * pb.y
+          };
+          const p34 = {
+            x: 0.0625 * pa.x + 0.375 * ctrl.x + 0.5625 * pb.x,
+            y: 0.0625 * pa.y + 0.375 * ctrl.y + 0.5625 * pb.y
+          };
+
+          add(0, 'LINE'); add(8, layer); add(6, ltype);
+          add(10, pa.x); add(20, pa.y); add(30, 0.0);
+          add(11, p14.x); add(21, p14.y); add(31, 0.0);
+
+          add(0, 'LINE'); add(8, layer); add(6, ltype);
+          add(10, p14.x); add(20, p14.y); add(30, 0.0);
+          add(11, pmid.x); add(21, pmid.y); add(31, 0.0);
+
+          add(0, 'LINE'); add(8, layer); add(6, ltype);
+          add(10, pmid.x); add(20, pmid.y); add(30, 0.0);
+          add(11, p34.x); add(21, p34.y); add(31, 0.0);
+
+          add(0, 'LINE'); add(8, layer); add(6, ltype);
+          add(10, p34.x); add(20, p34.y); add(30, 0.0);
+          add(11, pb.x); add(21, pb.y); add(31, 0.0);
+        } else {
+          add(0, 'LINE'); add(8, layer); add(6, ltype);
+          add(10, pa.x); add(20, pa.y); add(30, 0.0);
+          add(11, pb.x); add(21, pb.y); add(31, 0.0);
+        }
+
+        // Fiação no eletroduto
+        const wires = engine.wireAllocations ? engine.wireAllocations.get(c.id) : null;
+        if (Array.isArray(wires) && wires.length > 0) {
+          const normalAng = ((Math.atan2(ny, nx) * 180) / Math.PI);
+          const wireCenter = { x: mid.x + nx * (sag * 0.5), y: mid.y + ny * (sag * 0.5) };
+
+          // Desenha cada condutor espaçado
+          const step = 0.06;
+          const totalW = (wires.length - 1) * step;
+          wires.forEach((w, idx) => {
+            const offsetDist = -totalW / 2 + idx * step;
+            const wx = wireCenter.x + (dx / len) * offsetDist;
+            const wy = wireCenter.y + (dy / len) * offsetDist;
+
+            let condBlock = 'BLK_COND_FASE';
+            if (w.type === 'neutral') condBlock = 'BLK_COND_NEUTRO';
+            else if (w.type === 'ground') condBlock = 'BLK_COND_TERRA';
+            else if (w.type.startsWith('return')) condBlock = 'BLK_COND_RETORNO';
+
+            add(0, 'INSERT'); add(8, 'ELET_CONDUTORES');
+            add(2, condBlock);
+            add(10, wx); add(20, wy); add(30, 0.0);
+            add(41, 1.0); add(42, 1.0); add(43, 1.0);
+            add(50, normalAng);
+          });
+
+          // Rótulo de circuito da fiação
+          const circIds = [...new Set(wires.map(w => w.circuitId))].filter(Boolean).join(',');
+          if (circIds) {
+            add(0, 'TEXT'); add(8, 'ELET_TEXTOS_CIRCUITOS');
+            add(10, wireCenter.x + nx * 0.18); add(20, wireCenter.y + ny * 0.18); add(30, 0.0);
+            add(40, 0.13);
+            add(1, `${circIds}`);
+          }
+        }
+      });
+    }
+
+    // 4.7 Prumadas Verticais entre Pavimentos
+    if (Array.isArray(engine.risers)) {
+      engine.risers.forEach(r => {
+        const p = r.position;
+        add(0, 'CIRCLE'); add(8, 'ELET_ELETRODUTO_TETO');
+        add(10, p.x); add(20, p.y); add(30, 0.0);
+        add(40, 0.16);
+        add(0, 'CIRCLE'); add(8, 'ELET_ELETRODUTO_TETO');
+        add(10, p.x); add(20, p.y); add(30, 0.0);
+        add(40, 0.08);
+
+        add(0, 'TEXT'); add(8, 'ELET_TEXTOS_CIRCUITOS');
+        add(10, p.x + 0.20); add(20, p.y + 0.10); add(30, 0.0);
+        add(40, 0.14);
+        add(1, r.name || 'PRUMADA');
+      });
+    }
+
+    // 4.8 Quadro de Cargas Vetorial (Posicionado ao lado da Planta Baixa)
+    const tX = 16.0;
+    let tY = 12.0;
+
+    add(0, 'TEXT'); add(8, 'ELET_QUADRO_CARGAS');
+    add(10, tX); add(20, tY); add(30, 0.0);
+    add(40, 0.28);
+    add(1, 'QUADRO DE CARGAS E DIMENSIONAMENTO (ABNT NBR 5410)');
+    tY -= 0.5;
+
+    // Cabeçalho da tabela
+    add(0, 'LINE'); add(8, 'ELET_QUADRO_CARGAS');
+    add(10, tX); add(20, tY); add(30, 0.0);
+    add(11, tX + 14.0); add(21, tY); add(31, 0.0);
+    tY -= 0.35;
+
+    add(0, 'TEXT'); add(8, 'ELET_QUADRO_CARGAS');
+    add(10, tX + 0.2); add(20, tY); add(30, 0.0);
+    add(40, 0.15);
+    add(1, 'CIRC  DESCRICAO               POT(W)   FAS   DISJ   CABO(mm2)');
+    tY -= 0.25;
+
+    add(0, 'LINE'); add(8, 'ELET_QUADRO_CARGAS');
+    add(10, tX); add(20, tY); add(30, 0.0);
+    add(11, tX + 14.0); add(21, tY); add(31, 0.0);
+    tY -= 0.35;
+
+    const circList = Array.isArray(engine.circuits) && engine.circuits.length > 0 ? engine.circuits : [
+      { id: 1, desc: 'Iluminacao Geral', watts: 600, phase: 'A', breaker: 10, gauge: 1.5 },
+      { id: 2, desc: 'Tomadas TUG Salas/Quartos', watts: 1500, phase: 'B', breaker: 16, gauge: 2.5 },
+      { id: 3, desc: 'Tomadas TUG Cozinha/Serv', watts: 2200, phase: 'C', breaker: 20, gauge: 2.5 },
+      { id: 4, desc: 'Chuveiro Eletrico Master', watts: 7500, phase: 'AB', breaker: 32, gauge: 6.0 },
+      { id: 5, desc: 'Torneira Eletrica Cozinha', watts: 5000, phase: 'BC', breaker: 25, gauge: 4.0 }
+    ];
+
+    circList.forEach(c => {
+      const lineStr = `C${String(c.id).padEnd(4)} ${(c.desc || c.type || '').padEnd(22)} ${String(c.watts || c.w || 0).padStart(5)}W   ${(c.phase || 'A').padEnd(4)}  ${String(c.breaker || 16)}A    #${c.gauge || 2.5}`;
+      add(0, 'TEXT'); add(8, 'ELET_QUADRO_CARGAS');
+      add(10, tX + 0.2); add(20, tY); add(30, 0.0);
+      add(40, 0.14);
+      add(1, lineStr);
+      tY -= 0.30;
+    });
+
+    add(0, 'LINE'); add(8, 'ELET_QUADRO_CARGAS');
+    add(10, tX); add(20, tY); add(30, 0.0);
+    add(11, tX + 14.0); add(21, tY); add(31, 0.0);
+
+    // 4.9 Diagrama Unifilar Procedural (Abaixo do Quadro de Cargas)
+    tY -= 1.0;
+    add(0, 'TEXT'); add(8, 'ELET_DIAGRAMA_UNIFILAR');
+    add(10, tX); add(20, tY); add(30, 0.0);
+    add(40, 0.25);
+    add(1, 'DIAGRAMA UNIFILAR ESQUEMATICO - QGBT (220/127V)');
+    tY -= 0.6;
+
+    // Barramento Geral Horizontal
+    const barLen = Math.max(10.0, circList.length * 1.5 + 2.0);
+    add(0, 'LINE'); add(8, 'ELET_DIAGRAMA_UNIFILAR');
+    add(10, tX); add(20, tY); add(30, 0.0);
+    add(11, tX + barLen); add(21, tY); add(31, 0.0);
+
+    // Derivações dos circuitos
+    circList.forEach((c, idx) => {
+      const cx = tX + 1.2 + idx * 1.5;
+      add(0, 'LINE'); add(8, 'ELET_DIAGRAMA_UNIFILAR');
+      add(10, cx); add(20, tY); add(30, 0.0);
+      add(11, cx); add(21, tY - 1.2); add(31, 0.0);
+
+      // Caixa do Disjuntor
+      add(0, 'LINE'); add(8, 'ELET_DIAGRAMA_UNIFILAR');
+      add(10, cx - 0.25); add(20, tY - 0.4); add(30, 0.0);
+      add(11, cx + 0.25); add(21, tY - 0.4); add(31, 0.0);
+      add(0, 'LINE'); add(8, 'ELET_DIAGRAMA_UNIFILAR');
+      add(10, cx + 0.25); add(20, tY - 0.4); add(30, 0.0);
+      add(11, cx + 0.25); add(21, tY - 0.8); add(31, 0.0);
+      add(0, 'LINE'); add(8, 'ELET_DIAGRAMA_UNIFILAR');
+      add(10, cx + 0.25); add(20, tY - 0.8); add(30, 0.0);
+      add(11, cx - 0.25); add(21, tY - 0.8); add(31, 0.0);
+      add(0, 'LINE'); add(8, 'ELET_DIAGRAMA_UNIFILAR');
+      add(10, cx - 0.25); add(20, tY - 0.8); add(30, 0.0);
+      add(11, cx - 0.25); add(21, tY - 0.4); add(31, 0.0);
+
+      add(0, 'TEXT'); add(8, 'ELET_DIAGRAMA_UNIFILAR');
+      add(10, cx - 0.20); add(20, tY - 0.65); add(30, 0.0);
+      add(40, 0.12);
+      add(1, `${c.breaker || 16}A`);
+
+      add(0, 'TEXT'); add(8, 'ELET_DIAGRAMA_UNIFILAR');
+      add(10, cx - 0.30); add(20, tY - 1.45); add(30, 0.0);
+      add(40, 0.13);
+      add(1, `C${c.id}`);
+
+      add(0, 'TEXT'); add(8, 'ELET_DIAGRAMA_UNIFILAR');
+      add(10, cx - 0.35); add(20, tY - 1.70); add(30, 0.0);
+      add(40, 0.11);
+      add(1, `#${c.gauge || 2.5}`);
+    });
+
+    // 4.10 Carimbo Técnico ABNT NBR 10068 / NBR 16752
+    const stampX = tX + barLen - 6.0;
+    const stampY = tY - 3.5;
+    add(0, 'LINE'); add(8, 'ABNT_MOLDURA_SELO');
+    add(10, stampX); add(20, stampY); add(30, 0.0);
+    add(11, stampX + 6.0); add(21, stampY); add(31, 0.0);
+    add(0, 'LINE'); add(8, 'ABNT_MOLDURA_SELO');
+    add(10, stampX + 6.0); add(20, stampY); add(30, 0.0);
+    add(11, stampX + 6.0); add(21, stampY + 2.5); add(31, 0.0);
+    add(0, 'LINE'); add(8, 'ABNT_MOLDURA_SELO');
+    add(10, stampX + 6.0); add(20, stampY + 2.5); add(30, 0.0);
+    add(11, stampX); add(21, stampY + 2.5); add(31, 0.0);
+    add(0, 'LINE'); add(8, 'ABNT_MOLDURA_SELO');
+    add(10, stampX); add(20, stampY + 2.5); add(30, 0.0);
+    add(11, stampX); add(21, stampY); add(31, 0.0);
+
+    add(0, 'TEXT'); add(8, 'ABNT_MOLDURA_SELO');
+    add(10, stampX + 0.3); add(20, stampY + 2.1); add(30, 0.0);
+    add(40, 0.16);
+    add(1, engine.projectMeta?.title || 'PROJETO ELETRICO RESIDENCIAL');
+
+    add(0, 'TEXT'); add(8, 'ABNT_MOLDURA_SELO');
+    add(10, stampX + 0.3); add(20, stampY + 1.7); add(30, 0.0);
+    add(40, 0.13);
+    add(1, `RESP: ${engine.projectMeta?.engineer || 'ENG. ELETRICISTA'}`);
+
+    add(0, 'TEXT'); add(8, 'ABNT_MOLDURA_SELO');
+    add(10, stampX + 0.3); add(20, stampY + 1.3); add(30, 0.0);
+    add(40, 0.13);
+    add(1, `CREA: ${engine.projectMeta?.crea || 'CREA-SP'}`);
+
+    add(0, 'TEXT'); add(8, 'ABNT_MOLDURA_SELO');
+    add(10, stampX + 0.3); add(20, stampY + 0.9); add(30, 0.0);
+    add(40, 0.12);
+    add(1, `CONCESSIONARIA: ${engine.projectMeta?.utilityCompany || 'Equatorial Energia'}`);
+
+    add(0, 'TEXT'); add(8, 'ABNT_MOLDURA_SELO');
+    add(10, stampX + 0.3); add(20, stampY + 0.5); add(30, 0.0);
+    add(40, 0.12);
+    add(1, `DATA: ${engine.projectMeta?.date || '06/11/2026'} | REV: ${engine.projectMeta?.revision || '00'}`);
+
+    add(0, 'ENDSEC');
+    add(0, 'EOF');
+
+    return lines.join('\r\n');
   }
 }
