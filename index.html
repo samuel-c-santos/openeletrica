@@ -121,8 +121,10 @@
 
     /* Paper Space / Modo Layout (ABNT NBR 10068 / NBR 16752) */
     #layout-paper-container { display: none; flex-direction: column; flex: 1; width: 100%; height: calc(100vh - 48px); position: relative; background: #334155; overflow: hidden; padding: 0; margin: 0; }
-    #layout-top-toolbar { width: 100%; height: 46px; flex-shrink: 0; background: #ffffff; border-bottom: 1px solid #cbd5e1; box-shadow: 0 2px 4px rgba(0,0,0,0.06); padding: 0 16px; display: flex; align-items: center; justify-content: space-between; gap: 10px; z-index: 30; box-sizing: border-box; overflow-x: auto; }
-    #layout-workspace { display: flex; flex-direction: column; flex: 1; width: 100%; height: calc(100vh - 48px - 46px); position: relative; overflow: hidden; box-sizing: border-box; }
+    #layout-top-toolbar { width: 100%; flex-shrink: 0; background: #ffffff; border-bottom: 1px solid #cbd5e1; box-shadow: 0 2px 4px rgba(0,0,0,0.06); padding: 5px 16px; display: flex; flex-direction: column; gap: 4px; z-index: 30; box-sizing: border-box; overflow: hidden; }
+    .layout-toolbar-row { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px; box-sizing: border-box; }
+    .layout-toolbar-group { display: flex; align-items: center; gap: 5px; flex-wrap: nowrap; flex-shrink: 0; }
+    #layout-workspace { display: flex; flex-direction: column; flex: 1; width: 100%; height: calc(100vh - 48px - 72px); position: relative; overflow: hidden; box-sizing: border-box; }
     #layout-ruler-top-bar { height: 20px; width: 100%; background: #1e293b; border-bottom: 1px solid #475569; display: flex; align-items: center; z-index: 20; flex-shrink: 0; box-sizing: border-box; overflow: hidden; }
     #layout-ruler-corner { width: 20px; height: 20px; background: #0f172a; border-right: 1px solid #475569; color: #94a3b8; font-size: 8px; font-weight: 700; display: flex; align-items: center; justify-content: center; user-select: none; flex-shrink: 0; box-sizing: border-box; }
     #layout-ruler-left-bar { width: 20px; height: 100%; background: #1e293b; border-right: 1px solid #475569; z-index: 20; flex-shrink: 0; box-sizing: border-box; overflow: hidden; }
@@ -559,96 +561,113 @@
 
   <!-- 3.1 Espaço de Trabalho do Layout de Prancha (Paper Space ABNT) -->
   <section id="layout-paper-container">
-    <!-- Barra Superior de Controle de Prancha (Estilo QGIS Print Layout) -->
+    <!-- Barra Superior de Controle de Prancha (Estilo QGIS Print Layout em Duas Camadas) -->
     <div id="layout-top-toolbar">
-      <button class="btn-eng-action" id="btn-back-to-model" style="padding:3px 8px; font-size:11px; white-space:nowrap;">
-        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:13px;height:13px;"><path d="M19 12H5M12 19l-7-7 7-7"></path></svg>
-        Voltar (CAD)
-      </button>
+      <!-- Linha 1: Navegação, Formato, Escala, Zoom e Impressão -->
+      <div class="layout-toolbar-row">
+        <div class="layout-toolbar-group">
+          <button class="btn-eng-action" id="btn-back-to-model" style="padding:3px 8px; font-size:11px; white-space:nowrap;">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:13px;height:13px;"><path d="M19 12H5M12 19l-7-7 7-7"></path></svg>
+            Voltar (CAD)
+          </button>
 
-      <div class="divider-v"></div>
+          <div class="divider-v"></div>
 
-      <span class="context-title" style="font-size:10.5px;">Folha:</span>
-      <select class="form-control" id="layout-select-sheet" style="width:115px; padding:3px 6px; font-size:11px;">
-        <option value="A4">A4 (297x210)</option>
-        <option value="A3">A3 (420x297)</option>
-        <option value="A2">A2 (594x420)</option>
-        <option value="A1" selected>A1 (841x594)</option>
-        <option value="A0">A0 (1189x841)</option>
-      </select>
+          <span class="context-title" style="font-size:10.5px;">Folha:</span>
+          <select class="form-control" id="layout-select-sheet" style="width:115px; padding:3px 6px; font-size:11px;">
+            <option value="A4">A4 (297x210)</option>
+            <option value="A3">A3 (420x297)</option>
+            <option value="A2">A2 (594x420)</option>
+            <option value="A1" selected>A1 (841x594)</option>
+            <option value="A0">A0 (1189x841)</option>
+          </select>
 
-      <span class="context-title" style="font-size:10.5px;">Escala:</span>
-      <select class="form-control" id="layout-select-scale" style="width:78px; padding:3px 4px; font-size:11px;">
-        <option value="20">1:20</option>
-        <option value="25">1:25</option>
-        <option value="50" selected>1:50</option>
-        <option value="75">1:75</option>
-        <option value="100">1:100</option>
-        <option value="125">1:125</option>
-        <option value="200">1:200</option>
-      </select>
+          <span class="context-title" style="font-size:10.5px;">Escala:</span>
+          <select class="form-control" id="layout-select-scale" style="width:105px; padding:3px 4px; font-size:11px;">
+            <option value="20">1:20</option>
+            <option value="25">1:25</option>
+            <option value="50" selected>1:50</option>
+            <option value="75">1:75</option>
+            <option value="100">1:100</option>
+            <option value="125">1:125</option>
+            <option value="200">1:200</option>
+            <option value="custom" id="opt-scale-custom" style="display:none;">Fora de escala</option>
+          </select>
 
-      <div class="divider-v"></div>
+          <div class="divider-v"></div>
 
-      <span class="context-title" style="font-size:10.5px;">Zoom:</span>
-      <button class="btn-micro" id="btn-sheet-zoom-out" title="Diminuir Zoom da Prancha" style="padding:2px 7px; font-weight:700;">-</button>
-      <select class="form-control" id="layout-sheet-zoom-select" style="width:96px; padding:3px 4px; font-size:11px;">
-        <option value="fit" selected>Ajustar</option>
-        <option value="0.20">20%</option>
-        <option value="0.25">25%</option>
-        <option value="0.33">33%</option>
-        <option value="0.50">50%</option>
-        <option value="0.75">75%</option>
-        <option value="1.00">100%</option>
-      </select>
-      <button class="btn-micro" id="btn-sheet-zoom-in" title="Aumentar Zoom da Prancha" style="padding:2px 7px; font-weight:700;">+</button>
-      <button class="btn-micro" id="btn-sheet-1to1" title="Zoom Real 100% (1:1)" style="padding:2px 6px; font-size:10.5px; font-weight:700;">1:1</button>
-      <button class="btn-micro" id="btn-sheet-fit" title="Ajustar Prancha à Tela" style="padding:2px 6px; font-size:10.5px;">⛶ Ajustar</button>
-      <button class="btn-micro" id="btn-recenter-viewport" title="Centralizar Planta na Viewport" style="padding:2px 6px; font-size:10.5px;">⌖ Centralizar</button>
-      <button class="btn-micro" id="btn-toggle-layout-grid" title="Exibir ou ocultar a grade do CAD na prancha" style="padding:2px 6px; font-size:10.5px;">Grade: Off</button>
+          <span class="context-title" style="font-size:10.5px;">Zoom Folha:</span>
+          <button class="btn-micro" id="btn-sheet-zoom-out" title="Diminuir Zoom da Prancha" style="padding:2px 7px; font-weight:700;">-</button>
+          <select class="form-control" id="layout-sheet-zoom-select" style="width:96px; padding:3px 4px; font-size:11px;">
+            <option value="fit" selected>Ajustar</option>
+            <option value="0.20">20%</option>
+            <option value="0.25">25%</option>
+            <option value="0.33">33%</option>
+            <option value="0.50">50%</option>
+            <option value="0.75">75%</option>
+            <option value="1.00">100%</option>
+          </select>
+          <button class="btn-micro" id="btn-sheet-zoom-in" title="Aumentar Zoom da Prancha" style="padding:2px 7px; font-weight:700;">+</button>
+          <button class="btn-micro" id="btn-sheet-1to1" title="Zoom Real 100% (1:1)" style="padding:2px 6px; font-size:10.5px; font-weight:700;">1:1</button>
+          <button class="btn-micro" id="btn-sheet-fit" title="Ajustar Prancha à Tela" style="padding:2px 6px; font-size:10.5px;">⛶ Ajustar</button>
+          <button class="btn-micro" id="btn-recenter-viewport" title="Centralizar Planta na Viewport" style="padding:2px 6px; font-size:10.5px;">⌖ Centralizar</button>
+          <button class="btn-micro" id="btn-toggle-layout-grid" title="Exibir ou ocultar a grade do CAD na prancha" style="padding:2px 6px; font-size:10.5px;">Grade: Off</button>
+        </div>
 
-      <div class="divider-v"></div>
+        <div class="layout-toolbar-group">
+          <!-- Imprimir / Salvar PDF -->
+          <button class="btn-eng-action primary" id="btn-print-layout" title="Imprimir em alta definição ou Salvar em PDF" style="white-space:nowrap; padding:4px 12px; font-size:11.5px; font-weight:700;">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:13px;height:13px;"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><path d="M6 14h12v8H6z"></path></svg>
+            Exportar PDF / Imprimir
+          </button>
+        </div>
+      </div>
 
-      <!-- Alternadores de Ferramenta da Folha -->
-      <button class="btn-eng-action active" id="btn-layout-tool-item" title="Mover ou Redimensionar o quadro na folha" style="padding:3px 7px; font-size:11px; white-space:nowrap;">
-        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:13px;height:13px;"><path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"></path><path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"></path><path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"></path><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"></path></svg>
-        Mover Quadros
-      </button>
-      <button class="btn-eng-action" id="btn-layout-tool-content" title="Navegar no Conteúdo (Pan e Zoom dentro da planta)" style="padding:3px 7px; font-size:11px; white-space:nowrap;">
-        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:13px;height:13px;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-        Mover Conteúdo
-      </button>
+      <!-- Linha 2: Modos de Operação, Elementos da Folha e Quantitativo -->
+      <div class="layout-toolbar-row" style="border-top:1px solid #f1f5f9; padding-top:3px;">
+        <div class="layout-toolbar-group">
+          <span class="context-title" style="font-size:10.5px;">Modo:</span>
+          <button class="btn-eng-action active" id="btn-layout-tool-item" title="Mover ou Redimensionar o quadro na folha" style="padding:2px 7px; font-size:11px; white-space:nowrap;">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:13px;height:13px;"><path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"></path><path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"></path><path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"></path><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"></path></svg>
+            Mover Quadros
+          </button>
+          <button class="btn-eng-action" id="btn-layout-tool-content" title="Navegar no Conteúdo (Pan e Zoom dentro da planta)" style="padding:2px 7px; font-size:11px; white-space:nowrap;">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:13px;height:13px;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            Mover Conteúdo
+          </button>
 
-      <div class="divider-v"></div>
+          <div class="divider-v"></div>
 
-      <!-- Inserir / Ocultar Elementos na Folha -->
-      <button class="btn-eng-action" id="btn-insert-unifilar" title="Inserir / Ocultar Diagrama Unifilar na Folha" style="padding:3px 6px; font-size:10.5px; white-space:nowrap;">
-        + Unifilar
-      </button>
-      <button class="btn-eng-action" id="btn-insert-cargas" title="Inserir / Ocultar Tabela de Cargas na Folha" style="padding:3px 6px; font-size:10.5px; white-space:nowrap;">
-        + Cargas
-      </button>
-      <button class="btn-eng-action" id="btn-insert-legenda" title="Inserir / Ocultar Legenda ABNT na Folha" style="padding:3px 6px; font-size:10.5px; white-space:nowrap;">
-        + Legenda
-      </button>
-      <button class="btn-eng-action" id="btn-insert-3d" title="Inserir / Ocultar Maquete 3D na Folha" style="padding:3px 6px; font-size:10.5px; white-space:nowrap;">
-        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:12px;height:12px;"><path d="m21 16-9 5-9-5V8l9-5 9 5v8Z"></path></svg>
-        + 3D
-      </button>
+          <span class="context-title" style="font-size:10.5px;">Elementos:</span>
+          <button class="btn-eng-action" id="btn-insert-unifilar" title="Inserir / Ocultar Diagrama Unifilar na Folha" style="padding:2px 6px; font-size:10.5px; white-space:nowrap;">
+            + Unifilar
+          </button>
+          <button class="btn-eng-action" id="btn-insert-cargas" title="Inserir / Ocultar Tabela de Cargas na Folha" style="padding:2px 6px; font-size:10.5px; white-space:nowrap;">
+            + Cargas
+          </button>
+          <button class="btn-eng-action" id="btn-insert-legenda" title="Inserir / Ocultar Legenda ABNT na Folha" style="padding:2px 6px; font-size:10.5px; white-space:nowrap;">
+            + Legenda
+          </button>
+          <button class="btn-eng-action" id="btn-insert-3d" title="Inserir / Ocultar Maquete 3D na Folha" style="padding:2px 6px; font-size:10.5px; white-space:nowrap;">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:12px;height:12px;"><path d="m21 16-9 5-9-5V8l9-5 9 5v8Z"></path></svg>
+            + 3D
+          </button>
 
-      <div class="divider-v"></div>
+          <div class="divider-v"></div>
 
-      <!-- Lista de Materiais -->
-      <button class="btn-eng-action" id="btn-open-materials-from-layout" title="Lista Quantitativa de Materiais NBR 5410" style="padding:3px 8px; font-size:11px; white-space:nowrap;">
-        <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2m-6 9 2 2 4-4"></path></svg>
-        Materiais
-      </button>
+          <!-- Lista de Materiais -->
+          <button class="btn-eng-action" id="btn-open-materials-from-layout" title="Lista Quantitativa de Materiais NBR 5410" style="padding:2px 8px; font-size:11px; white-space:nowrap;">
+            <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2m-6 9 2 2 4-4"></path></svg>
+            Materiais
+          </button>
+        </div>
 
-      <!-- Imprimir / Salvar PDF -->
-      <button class="btn-eng-action primary" id="btn-print-layout" title="Imprimir em alta definição ou Salvar em PDF" style="margin-left:auto; white-space:nowrap; padding:4px 10px; font-size:11.5px; font-weight:700;">
-        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:13px;height:13px;"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><path d="M6 14h12v8H6z"></path></svg>
-        Exportar PDF / Imprimir
-      </button>
+        <div class="layout-toolbar-group">
+          <span id="layout-mode-status" style="font-size:11px; color:#475569; display:flex; align-items:center; gap:5px;">
+            <span style="width:7px; height:7px; border-radius:50%; background:#10b981;"></span>Modo: <strong>Mover Quadros</strong>
+          </span>
+        </div>
+      </div>
     </div>
 
     <!-- Workspace com Réguas Superior e Lateral (QGIS Print Layout) -->
@@ -3858,7 +3877,10 @@
     });
 
     document.getElementById('layout-select-scale').addEventListener('change', (e) => {
+      if (e.target.value === 'custom') return;
       const scale = parseInt(e.target.value) || 50;
+      const optCustom = document.getElementById('opt-scale-custom');
+      if (optCustom) optCustom.style.display = 'none';
       document.getElementById('sheet-stamp-scale').textContent = `1:${scale}`;
       document.getElementById('label-scale-display').textContent = `1:${scale}`;
       centerProjectInViewport(scale);
@@ -4041,16 +4063,32 @@
         e.preventDefault();
         layoutZoom = Math.max(15, Math.min(300, layoutZoom * (e.deltaY < 0 ? 1.12 : 0.88)));
 
-        // Recalcular escala dinâmica precisa (1:X) para evitar engano do usuário
-        const dynamicScale = Math.round((1000 * MM_TO_PX) / layoutZoom);
+        // Verificar se coincide com uma escala normativa padrão (com tolerância de 2%)
+        const standardScales = [20, 25, 50, 75, 100, 125, 200];
+        const matched = standardScales.find(s => {
+          const expectedZoom = (1000 * MM_TO_PX) / s;
+          return Math.abs(layoutZoom - expectedZoom) / expectedZoom < 0.02;
+        });
+
         const lblScale = document.getElementById('label-scale-display');
         const stampScale = document.getElementById('sheet-stamp-scale');
         const selScale = document.getElementById('layout-select-scale');
-        if (lblScale) lblScale.textContent = `1:${dynamicScale}`;
-        if (stampScale) stampScale.textContent = `1:${dynamicScale}`;
-        if (selScale) {
-          const hasOpt = Array.from(selScale.options).some(o => parseInt(o.value) === dynamicScale);
-          if (hasOpt) selScale.value = dynamicScale;
+        const optCustom = document.getElementById('opt-scale-custom');
+
+        if (matched) {
+          if (selScale) selScale.value = matched.toString();
+          if (optCustom) optCustom.style.display = 'none';
+          if (lblScale) lblScale.textContent = `1:${matched}`;
+          if (stampScale) stampScale.textContent = `1:${matched}`;
+        } else {
+          // Zoom arbitrário livre do operador: exibe explicitamente "Fora de escala"
+          if (optCustom) {
+            optCustom.style.display = 'block';
+            optCustom.textContent = 'Fora de escala';
+          }
+          if (selScale) selScale.value = 'custom';
+          if (lblScale) lblScale.textContent = 'Sem escala (Fora de escala)';
+          if (stampScale) stampScale.textContent = 'Sem escala';
         }
 
         renderLayoutViewport();
@@ -4066,6 +4104,8 @@
       let snapTop = rawTop;
       let snappedX = false;
       let snappedY = false;
+      let guideXPos = 0;
+      let guideYPos = 0;
       const SNAP_TOL = Math.max(8, 14 / currentSheetZoom);
       const w = itemEl.offsetWidth;
       const h = itemEl.offsetHeight;
@@ -4075,52 +4115,232 @@
       const sheetW = dim.w_px;
       const sheetH = dim.h_px;
 
-      // Alvos de snap: margens internas da folha ABNT
-      const targetsX = [dim.marginL_px, sheetW - dim.marginOther_px - w];
-      const targetsY = [dim.marginOther_px, sheetH - dim.marginOther_px - h];
+      // 1. PRIORIDADE MÁXIMA: OUTROS QUADROS NA FOLHA (ALINHAMENTO TÉCNICO INTERNO)
+      const otherItems = Array.from(document.querySelectorAll('.layout-item')).filter(
+        other => other !== itemEl && other.style.display !== 'none'
+      );
 
-      // Alvos dos outros quadros na folha
-      const items = document.querySelectorAll('.layout-item');
-      items.forEach(other => {
-        if (other === itemEl || other.style.display === 'none') return;
-        targetsX.push(other.offsetLeft);
-        targetsX.push(other.offsetLeft + other.offsetWidth);
-        targetsX.push(other.offsetLeft + other.offsetWidth + 12);
-        targetsX.push(other.offsetLeft - w - 12);
+      let bestDistX = SNAP_TOL;
+      let bestCandidateX = null;
+      let bestGuideY = null;
 
-        targetsY.push(other.offsetTop);
-        targetsY.push(other.offsetTop + other.offsetHeight);
-        targetsY.push(other.offsetTop + other.offsetHeight + 12);
-        targetsY.push(other.offsetTop - h - 12);
-      });
+      let bestDistY = SNAP_TOL;
+      let bestCandidateY = null;
+      let bestGuideX = null;
 
-      for (const tx of targetsX) {
-        if (Math.abs(rawLeft - tx) < SNAP_TOL) {
-          snapLeft = tx;
-          snappedX = true;
-          if (guideY) {
-            guideY.style.left = `${tx}px`;
-            guideY.style.display = 'block';
+      for (const other of otherItems) {
+        const oL = other.offsetLeft;
+        const oR = oL + other.offsetWidth;
+        const oT = other.offsetTop;
+        const oB = oT + other.offsetHeight;
+
+        // Candidatos horizontais para 'left' de itemEl: [posição left, coordenada X da linha guia]
+        const candX = [
+          [oL, oL],                 // Borda esquerda alinhada com esquerda
+          [oR - w, oR],             // Borda direita alinhada com direita
+          [oR, oR],                 // Encostado à direita
+          [oL - w, oL],             // Encostado à esquerda
+          [oR + 10, oR + 10],       // Espaçamento técnico de 10px à direita
+          [oL - w - 10, oL - 10],   // Espaçamento técnico de 10px à esquerda
+        ];
+
+        for (const [pos, gY] of candX) {
+          const dist = Math.abs(rawLeft - pos);
+          if (dist < bestDistX) {
+            bestDistX = dist;
+            bestCandidateX = pos;
+            bestGuideY = gY;
           }
-          break;
+        }
+
+        // Candidatos verticais para 'top' de itemEl: [posição top, coordenada Y da linha guia]
+        const candY = [
+          [oT, oT],                 // Borda superior alinhada com topo
+          [oB - h, oB],             // Borda inferior alinhada com base
+          [oB, oB],                 // Encostado abaixo
+          [oT - h, oT],             // Encostado acima
+          [oB + 10, oB + 10],       // Espaçamento técnico de 10px abaixo
+          [oT - h - 10, oT - 10],   // Espaçamento técnico de 10px acima
+        ];
+
+        for (const [pos, gX] of candY) {
+          const dist = Math.abs(rawTop - pos);
+          if (dist < bestDistY) {
+            bestDistY = dist;
+            bestCandidateY = pos;
+            bestGuideX = gX;
+          }
         }
       }
-      if (!snappedX && guideY) guideY.style.display = 'none';
 
-      for (const ty of targetsY) {
-        if (Math.abs(rawTop - ty) < SNAP_TOL) {
-          snapTop = ty;
-          snappedY = true;
-          if (guideX) {
-            guideX.style.top = `${ty}px`;
-            guideX.style.display = 'block';
+      // 2. SEGUNDA PRIORIDADE: MARGENS DA FOLHA E CARIMBO TÉCNICO ABNT
+      if (bestCandidateX === null) {
+        const sheetCandX = [
+          [dim.marginL_px, dim.marginL_px],
+          [sheetW - dim.marginOther_px - w, sheetW - dim.marginOther_px],
+        ];
+        for (const [pos, gY] of sheetCandX) {
+          const dist = Math.abs(rawLeft - pos);
+          if (dist < bestDistX) {
+            bestDistX = dist;
+            bestCandidateX = pos;
+            bestGuideY = gY;
           }
-          break;
         }
       }
-      if (!snappedY && guideX) guideX.style.display = 'none';
+
+      if (bestCandidateY === null) {
+        const sheetCandY = [
+          [dim.marginOther_px, dim.marginOther_px],
+          [sheetH - dim.marginOther_px - h, sheetH - dim.marginOther_px],
+          [sheetH - dim.marginOther_px - dim.stampH_px - h, sheetH - dim.marginOther_px - dim.stampH_px]
+        ];
+        for (const [pos, gX] of sheetCandY) {
+          const dist = Math.abs(rawTop - pos);
+          if (dist < bestDistY) {
+            bestDistY = dist;
+            bestCandidateY = pos;
+            bestGuideX = gX;
+          }
+        }
+      }
+
+      if (bestCandidateX !== null) {
+        snapLeft = bestCandidateX;
+        snappedX = true;
+        guideYPos = bestGuideY;
+      }
+      if (bestCandidateY !== null) {
+        snapTop = bestCandidateY;
+        snappedY = true;
+        guideXPos = bestGuideX;
+      }
+
+      if (snappedX && guideY) {
+        guideY.style.left = `${guideYPos}px`;
+        guideY.style.display = 'block';
+      } else if (guideY) {
+        guideY.style.display = 'none';
+      }
+
+      if (snappedY && guideX) {
+        guideX.style.top = `${guideXPos}px`;
+        guideX.style.display = 'block';
+      } else if (guideX) {
+        guideX.style.display = 'none';
+      }
 
       return { left: Math.max(0, snapLeft), top: Math.max(0, snapTop) };
+    }
+
+    // Magnetismo no Redimensionamento (Grips)
+    function checkResizeSnap(itemEl, rawW, rawH) {
+      let snapW = Math.max(180, rawW);
+      let snapH = Math.max(100, rawH);
+      let snappedX = false;
+      let snappedY = false;
+      let guideXPos = 0;
+      let guideYPos = 0;
+      const SNAP_TOL = Math.max(8, 14 / currentSheetZoom);
+
+      const curLeft = itemEl.offsetLeft;
+      const curTop = itemEl.offsetTop;
+      const rawRight = curLeft + snapW;
+      const rawBottom = curTop + snapH;
+
+      const curFormat = document.getElementById('layout-select-sheet')?.value || 'A1';
+      const dim = sheetDims[curFormat] || sheetDims.A1;
+      const sheetW = dim.w_px;
+      const sheetH = dim.h_px;
+
+      // 1. PRIORIDADE MÁXIMA: OUTROS QUADROS NA FOLHA
+      const otherItems = Array.from(document.querySelectorAll('.layout-item')).filter(
+        other => other !== itemEl && other.style.display !== 'none'
+      );
+
+      let bestDistX = SNAP_TOL;
+      let bestCandidateRight = null;
+
+      let bestDistY = SNAP_TOL;
+      let bestCandidateBottom = null;
+
+      for (const other of otherItems) {
+        const oL = other.offsetLeft;
+        const oR = oL + other.offsetWidth;
+        const oT = other.offsetTop;
+        const oB = oT + other.offsetHeight;
+
+        // Candidatos para o Right de itemEl:
+        const candR = [oR, oL, oL - 10];
+        for (const targetR of candR) {
+          const dist = Math.abs(rawRight - targetR);
+          if (dist < bestDistX) {
+            bestDistX = dist;
+            bestCandidateRight = targetR;
+          }
+        }
+
+        // Candidatos para o Bottom de itemEl:
+        const candB = [oB, oT, oT - 10];
+        for (const targetB of candB) {
+          const dist = Math.abs(rawBottom - targetB);
+          if (dist < bestDistY) {
+            bestDistY = dist;
+            bestCandidateBottom = targetB;
+          }
+        }
+      }
+
+      // 2. SEGUNDA PRIORIDADE: MARGENS DA FOLHA E CARIMBO
+      if (bestCandidateRight === null) {
+        const targetR = sheetW - dim.marginOther_px;
+        const dist = Math.abs(rawRight - targetR);
+        if (dist < bestDistX) {
+          bestDistX = dist;
+          bestCandidateRight = targetR;
+        }
+      }
+
+      if (bestCandidateBottom === null) {
+        const candB = [
+          sheetH - dim.marginOther_px,
+          sheetH - dim.marginOther_px - dim.stampH_px
+        ];
+        for (const targetB of candB) {
+          const dist = Math.abs(rawBottom - targetB);
+          if (dist < bestDistY) {
+            bestDistY = dist;
+            bestCandidateBottom = targetB;
+          }
+        }
+      }
+
+      if (bestCandidateRight !== null) {
+        snapW = Math.max(180, bestCandidateRight - curLeft);
+        snappedX = true;
+        guideYPos = bestCandidateRight;
+      }
+      if (bestCandidateBottom !== null) {
+        snapH = Math.max(100, bestCandidateBottom - curTop);
+        snappedY = true;
+        guideXPos = bestCandidateBottom;
+      }
+
+      if (snappedX && guideY) {
+        guideY.style.left = `${guideYPos}px`;
+        guideY.style.display = 'block';
+      } else if (guideY) {
+        guideY.style.display = 'none';
+      }
+
+      if (snappedY && guideX) {
+        guideX.style.top = `${guideXPos}px`;
+        guideX.style.display = 'block';
+      } else if (guideX) {
+        guideX.style.display = 'none';
+      }
+
+      return { width: snapW, height: snapH };
     }
 
     function hideGuides() {
@@ -4139,6 +4359,7 @@
         isDraggingItem = true;
         startMouse = { x: e.clientX, y: e.clientY };
         startPos = { x: itemEl.offsetLeft, y: itemEl.offsetTop };
+        setActiveLayoutItem(itemEl);
         e.stopPropagation();
       });
 
@@ -4162,7 +4383,7 @@
       });
     }
 
-    // Redimensionamento Visual com o Mouse (Grips de Quina)
+    // Redimensionamento Visual com o Mouse (Grips de Quina com Snap Magnético)
     function makeItemResizable(itemEl, handleEl, onResizeCallback) {
       if (!itemEl || !handleEl) return;
       let isResizing = false;
@@ -4174,6 +4395,7 @@
         isResizing = true;
         startMouse = { x: e.clientX, y: e.clientY };
         startDim = { w: itemEl.offsetWidth, h: itemEl.offsetHeight };
+        setActiveLayoutItem(itemEl);
         e.stopPropagation();
       });
 
@@ -4181,16 +4403,18 @@
         if (!isResizing) return;
         const dw = (e.clientX - startMouse.x) / currentSheetZoom;
         const dh = (e.clientY - startMouse.y) / currentSheetZoom;
-        const newW = Math.max(220, startDim.w + dw);
-        const newH = Math.max(140, startDim.h + dh);
-        itemEl.style.width = `${newW}px`;
-        itemEl.style.height = `${newH}px`;
+        const rawW = startDim.w + dw;
+        const rawH = startDim.h + dh;
+        const snapped = checkResizeSnap(itemEl, rawW, rawH);
+        itemEl.style.width = `${snapped.width}px`;
+        itemEl.style.height = `${snapped.height}px`;
         if (onResizeCallback) onResizeCallback();
       });
 
       window.addEventListener('mouseup', () => {
         if (isResizing) {
           isResizing = false;
+          hideGuides();
           renderPaperSheet();
         }
       });
