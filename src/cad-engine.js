@@ -385,6 +385,8 @@ export class SymbolRenderer {
     const th = ((node.rotation || 0) * Math.PI) / 180;
     const offX = (node.labelOffset?.x || 0) * viewport.zoom;
     const offY = (node.labelOffset?.y || 0) * viewport.zoom;
+    const side = node.wallSide || 1;
+    const stemLen = 10;
 
     let localX = offX;
     let localY = offY;
@@ -392,17 +394,21 @@ export class SymbolRenderer {
 
     if (node.type.startsWith('switch')) {
       const swR = 13 * 0.65;
-      localY += (-swR - 7);
+      localY += side * -(stemLen + swR * 2 + 7);
       text = node.command || 'a';
     } else if (node.type.startsWith('outlet')) {
       const sz = 13 * 0.9;
-      localY += (sz + 9);
+      localY += side * -(stemLen + sz * 1.2 + 7);
       text = String(node.circuitId || 1);
     } else if (node.type === 'combo_switch_outlet') {
       const swR = 13 * 0.55;
       localX += (-13 * 0.55);
-      localY += (-swR - 6);
+      localY += side * -(stemLen + swR * 2 + 6);
       text = node.modules?.[0]?.command || node.command || 'a';
+    } else if (node.type === 'combo_switch_switch') {
+      const swR = 13 * 0.75;
+      localY += side * -(stemLen + swR);
+      text = node.command || 'a,b';
     } else {
       return null;
     }
@@ -429,13 +435,16 @@ export class SymbolRenderer {
     const r = 13;
     const offX = (node.labelOffset?.x || 0) * viewport.zoom;
     const offY = (node.labelOffset?.y || 0) * viewport.zoom;
+    const side = node.wallSide || 1;
+    const stemLen = 10;
 
     if (isSelected) {
+      const cySelect = (node.type.startsWith('switch') || node.type.startsWith('combo')) ? (side * -(stemLen + (r * 0.65))) : node.type.startsWith('outlet') ? (side * -(stemLen + (r * 0.5))) : 0;
       ctx.strokeStyle = '#0284c7';
       ctx.fillStyle = 'rgba(2, 132, 199, 0.15)';
       ctx.lineWidth = 2.5;
       ctx.beginPath();
-      ctx.arc(0, 0, r + 7, 0, Math.PI * 2);
+      ctx.arc(0, cySelect, r + 7, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
     }
@@ -502,11 +511,22 @@ export class SymbolRenderer {
       case 'outlet_medium':
       case 'outlet_high': {
         const sz = r * 0.9;
+        const outStem = 8;
+        const baseY = side * -outStem;
+        const tipY = side * -(outStem + sz * 1.2);
+
+        // Perninha técnica conectando o símbolo à alvenaria
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(0, baseY);
+        ctx.stroke();
+
+        // Triângulo da tomada apontando para dentro do cômodo (NBR 6492)
         ctx.fillStyle = '#ffffff';
         ctx.beginPath();
-        ctx.moveTo(-sz, sz / 2);
-        ctx.lineTo(0, -sz / 2);
-        ctx.lineTo(sz, sz / 2);
+        ctx.moveTo(-sz * 0.8, baseY);
+        ctx.lineTo(0, tipY);
+        ctx.lineTo(sz * 0.8, baseY);
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
@@ -517,9 +537,9 @@ export class SymbolRenderer {
         } else if (node.type === 'outlet_medium') {
           ctx.fillStyle = '#000000';
           ctx.beginPath();
-          ctx.moveTo(0, -sz / 2);
-          ctx.lineTo(sz, sz / 2);
-          ctx.lineTo(0, sz / 2);
+          ctx.moveTo(0, tipY);
+          ctx.lineTo(sz * 0.8, baseY);
+          ctx.lineTo(0, baseY);
           ctx.closePath();
           ctx.fill();
         }
@@ -527,11 +547,11 @@ export class SymbolRenderer {
         ctx.fillStyle = isLabelSelected ? '#0284c7' : '#000000';
         ctx.font = 'bold 9px Arial, sans-serif';
         ctx.textAlign = 'center';
-        const circY = sz + 9 + offY;
+        const circY = tipY + side * -7 + offY;
         if (node.circuitId) ctx.fillText(String(node.circuitId), offX, circY);
         if (node.powerWatts && node.powerWatts > 100) {
           ctx.font = '8px Arial, sans-serif';
-          ctx.fillText(`${node.powerWatts}W`, offX, -sz / 2 - 4 + offY);
+          ctx.fillText(`${node.powerWatts}W`, offX + sz + 12, (baseY + tipY) / 2 + offY);
         }
         if (isLabelSelected) {
           ctx.save();
@@ -546,23 +566,32 @@ export class SymbolRenderer {
       case 'switch_simple':
       case 'switch_three_way': {
         const swR = r * 0.65;
+        const cy = side * -(stemLen + swR);
+
+        // Perninha técnica conectando o interruptor à alvenaria
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(0, side * -stemLen);
+        ctx.stroke();
+
+        // Círculo do interruptor
         ctx.fillStyle = '#ffffff';
         ctx.beginPath();
-        ctx.arc(0, 0, swR, 0, Math.PI * 2);
+        ctx.arc(0, cy, swR, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
 
         if (node.type === 'switch_three_way') {
           ctx.fillStyle = '#000000';
           ctx.beginPath();
-          ctx.arc(0, 0, swR, Math.PI / 2, (3 * Math.PI) / 2);
+          ctx.arc(0, cy, swR, Math.PI / 2, (3 * Math.PI) / 2);
           ctx.closePath();
           ctx.fill();
         }
 
         if (node.command) {
           const lblX = offX;
-          const lblY = -swR - 7 + offY;
+          const lblY = cy + side * -(swR + 7) + offY;
           ctx.fillStyle = isLabelSelected ? '#0284c7' : '#000000';
           ctx.font = 'bold 10px Arial, sans-serif';
           ctx.textAlign = 'center';
@@ -584,21 +613,31 @@ export class SymbolRenderer {
         // Dispositivo conjugado NBR 5410 e NBR 6492: Interruptor + Tomada Média (1,20m)
         const swR = r * 0.55;
         const sz = r * 0.75;
+        const baseY = side * -stemLen;
         const swMod = node.modules?.[0] || { command: node.command || 'a', circuitId: node.circuitId || 1 };
         const outMod = node.modules?.[1] || { circuitId: 2, powerWatts: node.powerWatts || 600 };
+
+        // Perninha bifurcada na alvenaria
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(0, baseY);
+        ctx.moveTo(-r * 0.55, baseY);
+        ctx.lineTo(r * 0.55, baseY);
+        ctx.stroke();
 
         // 1. Interruptor Simples à esquerda
         ctx.save();
         ctx.translate(-r * 0.55, 0);
+        const cySw = side * -(stemLen + swR);
         ctx.fillStyle = '#ffffff';
         ctx.beginPath();
-        ctx.arc(0, 0, swR, 0, Math.PI * 2);
+        ctx.arc(0, cySw, swR, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
 
         if (swMod.command) {
           const lblX = offX;
-          const lblY = -swR - 6 + offY;
+          const lblY = cySw + side * -(swR + 6) + offY;
           ctx.fillStyle = isLabelSelected ? '#0284c7' : '#000000';
           ctx.font = 'bold 9px Arial, sans-serif';
           ctx.textAlign = 'center';
@@ -619,58 +658,66 @@ export class SymbolRenderer {
         // 2. Tomada Média à direita (semi-preenchida conforme NBR 6492)
         ctx.save();
         ctx.translate(r * 0.55, 0);
+        const tipYCombo = side * -(stemLen + sz * 1.2);
         ctx.fillStyle = '#ffffff';
         ctx.beginPath();
-        ctx.moveTo(-sz, sz / 2);
-        ctx.lineTo(0, -sz / 2);
-        ctx.lineTo(sz, sz / 2);
+        ctx.moveTo(-sz * 0.8, baseY);
+        ctx.lineTo(0, tipYCombo);
+        ctx.lineTo(sz * 0.8, baseY);
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
 
         ctx.fillStyle = '#000000';
         ctx.beginPath();
-        ctx.moveTo(0, -sz / 2);
-        ctx.lineTo(sz, sz / 2);
-        ctx.lineTo(0, sz / 2);
+        ctx.moveTo(0, tipYCombo);
+        ctx.lineTo(sz * 0.8, baseY);
+        ctx.lineTo(0, baseY);
         ctx.closePath();
         ctx.fill();
 
         ctx.fillStyle = '#000000';
         ctx.font = 'bold 9px Arial, sans-serif';
         ctx.textAlign = 'center';
-        if (outMod.circuitId) ctx.fillText(String(outMod.circuitId), 0, sz + 8);
+        if (outMod.circuitId) ctx.fillText(String(outMod.circuitId), 0, tipYCombo + side * -7);
         ctx.restore();
         break;
       }
       case 'combo_switch_switch': {
         // Interruptor de 2 Seções / 2 Teclas (NBR 6492)
         const swR = r * 0.75;
+        const cy = side * -(stemLen + swR);
         const cmdA = node.modules?.[0]?.command || 'a';
         const cmdB = node.modules?.[1]?.command || 'b';
 
+        // Perninha
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(0, side * -stemLen);
+        ctx.stroke();
+
         ctx.fillStyle = '#ffffff';
         ctx.beginPath();
-        ctx.arc(0, 0, swR, 0, Math.PI * 2);
+        ctx.arc(0, cy, swR, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
 
         // Linha divisória vertical representando as 2 teclas
         ctx.beginPath();
-        ctx.moveTo(0, -swR);
-        ctx.lineTo(0, swR);
+        ctx.moveTo(0, cy - swR);
+        ctx.lineTo(0, cy + swR);
         ctx.stroke();
 
         ctx.fillStyle = isLabelSelected ? '#0284c7' : '#000000';
         ctx.font = 'bold 9px Arial, sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(cmdA, -swR * 0.45 + offX, offY);
-        ctx.fillText(cmdB, swR * 0.45 + offX, offY);
+        ctx.fillText(cmdA, -swR * 0.45 + offX, cy + offY);
+        ctx.fillText(cmdB, swR * 0.45 + offX, cy + offY);
 
         if (node.circuitId) {
           ctx.font = 'bold 8px Arial, sans-serif';
-          ctx.fillText(String(node.circuitId), offX, swR + 7 + offY);
+          ctx.fillText(String(node.circuitId), offX, cy + side * -(swR + 7) + offY);
         }
 
         if (isLabelSelected) {
@@ -678,7 +725,7 @@ export class SymbolRenderer {
           ctx.strokeStyle = '#0284c7';
           ctx.lineWidth = 1.2;
           ctx.setLineDash([3, 2]);
-          ctx.strokeRect(offX - swR - 2, offY - 8, swR * 2 + 4, 16);
+          ctx.strokeRect(offX - swR - 2, cy + offY - 8, swR * 2 + 4, 16);
           ctx.restore();
         }
         break;
@@ -761,26 +808,39 @@ export class WireRenderer {
         ctx.lineTo(p.x + n.x * (h * 0.9), p.y + n.y * (h * 0.9));
         ctx.stroke();
         if (w.command) {
-          ctx.fillStyle = isSelected ? '#0284c7' : '#000000';
+          const cmdDist = h + 7;
+          const cmdPos = new Vector2D(p.x + n.x * cmdDist, p.y + n.y * cmdDist);
+          ctx.save();
           ctx.font = 'bold 8.5px Arial, sans-serif';
+          const tw = ctx.measureText(w.command).width;
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(cmdPos.x - tw / 2 - 1.5, cmdPos.y - 5.5, tw + 3, 11);
+          ctx.fillStyle = isSelected ? '#0284c7' : '#000000';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText(w.command, p.x + n.x * (h + 6), p.y + n.y * (h + 6));
+          ctx.fillText(w.command, cmdPos.x, cmdPos.y);
+          ctx.restore();
         }
       }
       offset += spacing;
     }
 
     // Número do Circuito posicionado no lado OPOSTO da tubulação (-n)
-    // Isso garante que o número do circuito NUNCA sobreponha as letras de comando de retorno (como '1' e 'e')
+    // Afastado da ponta dos traços e com fundo protetor para não colidir com o eletroduto
     const circIds = [...new Set(wires.map(w => w.circuitId).filter(Boolean))].join(',');
     if (circIds) {
-      const labelPos = new Vector2D(base.x - n.x * (11 * sc), base.y - n.y * (11 * sc));
-      ctx.fillStyle = isSelected ? '#0284c7' : '#000000';
+      const circDist = h + 9;
+      const labelPos = new Vector2D(base.x - n.x * circDist, base.y - n.y * circDist);
+      ctx.save();
       ctx.font = 'bold 9px Arial, sans-serif';
+      const tw = ctx.measureText(circIds).width;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(labelPos.x - tw / 2 - 2, labelPos.y - 6, tw + 4, 12);
+      ctx.fillStyle = isSelected ? '#0284c7' : '#000000';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(circIds, labelPos.x, labelPos.y);
+      ctx.restore();
     }
 
     // Alça visual sutil indicando possibilidade de arrasto quando selecionado
@@ -2499,7 +2559,33 @@ export class CadEngine {
 
     // 1. Inserir Ponto Elétrico
     if (this.activeTool === 'add_node') {
-      this.addNode(this.pendingNodeType, worldPos);
+      const isWallDevice = this.pendingNodeType.startsWith('switch') || this.pendingNodeType.startsWith('outlet') || this.pendingNodeType.startsWith('combo') || this.pendingNodeType === 'distribution_board';
+      if (isWallDevice) {
+        const near = this.findNearestWall(worldPos, 1.4);
+        if (!near) {
+          if (typeof window !== 'undefined' && window.__showToast) {
+            window.__showToast('Interruptores e tomadas devem ser vinculados a uma alvenaria existente!', 'warning');
+          }
+          return;
+        }
+        const w = near.wall;
+        const wLen = Math.hypot(w.b.x - w.a.x, w.b.y - w.a.y) || 1;
+        const nx = -(w.b.y - w.a.y) / wLen;
+        const ny = (w.b.x - w.a.x) / wLen;
+        const dot = (worldPos.x - near.point.x) * nx + (worldPos.y - near.point.y) * ny;
+        const wallSide = dot >= 0 ? 1 : -1;
+
+        const node = this.addNode(this.pendingNodeType, near.point);
+        if (node) {
+          node.wallId = near.wall.id;
+          node.rotation = Math.round((near.angle * 180) / Math.PI);
+          node.wallSide = wallSide;
+          this.recalculateWiring();
+          this.notify();
+        }
+      } else {
+        this.addNode(this.pendingNodeType, worldPos);
+      }
       return;
     }
 
@@ -2984,13 +3070,33 @@ export class CadEngine {
         return;
       }
 
-      // 2. Movimentação de Nó Elétrico
+      // 2. Movimentação de Nó Elétrico (Vinculado a Paredes para interruptores, tomadas e quadros)
       if (this.selectedElement && this.selectedElement.type === 'node') {
         const node = this.nodes.find(n => n.id === this.selectedElement.id);
         if (node) {
-          node.position.x = curWorld.x;
-          node.position.y = curWorld.y;
-          this.recalculateWiring();
+          const isWallDevice = node.type.startsWith('switch') || node.type.startsWith('outlet') || node.type.startsWith('combo') || node.type === 'distribution_board';
+          if (isWallDevice) {
+            const near = this.findNearestWall(curWorld, 1.6);
+            if (near) {
+              node.position.x = near.point.x;
+              node.position.y = near.point.y;
+              node.wallId = near.wall.id;
+              node.rotation = Math.round((near.angle * 180) / Math.PI);
+              const w = near.wall;
+              const wLen = Math.hypot(w.b.x - w.a.x, w.b.y - w.a.y) || 1;
+              const nx = -(w.b.y - w.a.y) / wLen;
+              const ny = (w.b.x - w.a.x) / wLen;
+              const dot = (curWorld.x - near.point.x) * nx + (curWorld.y - near.point.y) * ny;
+              node.wallSide = dot >= 0 ? 1 : -1;
+              this.recalculateWiring();
+              this.notify();
+            }
+          } else {
+            node.position.x = curWorld.x;
+            node.position.y = curWorld.y;
+            this.recalculateWiring();
+            this.notify();
+          }
         }
       }
       // 3. Vértice de Parede (Articulação Conjunta de Quinas)

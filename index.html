@@ -128,7 +128,7 @@
     .paper-margin-inner { position: absolute; border: 2px solid #000000; pointer-events: none; }
     
     /* Selo / Carimbo Técnico ABNT NBR 10068 / NBR 16752 (Alinhamento milimétrico com a margem interna) */
-    .paper-carimbo { position: absolute; bottom: 12px; right: 12px; width: 340px; height: 160px; border-left: 2px solid #000000; border-top: 2px solid #000000; border-right: none; border-bottom: none; background: #ffffff; font-family: Arial, sans-serif; display: flex; flex-direction: column; z-index: 10; }
+    .paper-carimbo { position: absolute; bottom: 12px; right: 12px; width: 340px; height: 160px; border: 2px solid #000000; background: #ffffff; font-family: Arial, sans-serif; display: flex; flex-direction: column; z-index: 10; }
     .carimbo-row { display: flex; border-bottom: 1px solid #000000; flex: 1; }
     .carimbo-row:last-child { border-bottom: none; }
     .carimbo-cell { padding: 4px 6px; font-size: 8.5px; border-right: 1px solid #000000; display: flex; flex-direction: column; justify-content: center; }
@@ -645,9 +645,15 @@
           <div class="layout-item-header" id="viewport-3d-drag-handle">
             <span style="display:flex;align-items:center;gap:5px;">
               <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="m21 16-9 5-9-5V8l9-5 9 5v8Z"></path></svg>
-              MAQUETE 3D AXONOMÉTRICA (BIM)
+              MAQUETE 3D
             </span>
-            <button class="modal-close" style="font-size:12px;" id="btn-close-sheet-3d">✕</button>
+            <div style="display:flex;align-items:center;gap:4px;">
+              <select id="sheet-3d-filter" style="font-size:9.5px; padding:1px 4px; border:1px solid #cbd5e1; border-radius:3px; background:#ffffff; color:#334155; cursor:pointer;" title="Filtrar maquete 3D por pavimento">
+                <option value="active">Pavimento Ativo</option>
+                <option value="all">Edificação Completa (Todos)</option>
+              </select>
+              <button class="modal-close" style="font-size:12px;" id="btn-close-sheet-3d">✕</button>
+            </div>
           </div>
           <div class="layout-item-content">
             <canvas id="canvas-layout-3d" style="width:100%; height:100%; display:block;"></canvas>
@@ -1163,6 +1169,7 @@
         updateLevelSelectors();
         scheduleAutoSave();
         resize();
+        renderPaperSheet();
         showToast(`Pavimento ativo: ${selectActiveLevel.options[selectActiveLevel.selectedIndex].text}`);
       });
     }
@@ -1936,6 +1943,12 @@
               <button class="btn-micro" id="btn-lbl-right" title="Deslocar à Direita">🠆</button>
             </div>
           </div>
+          ${(node.type.startsWith('switch') || node.type.startsWith('outlet') || node.type.startsWith('combo')) ? `
+            <div class="prop-row">
+              <span class="prop-label">Orientação:</span>
+              <button class="btn-micro" id="btn-flip-node-side" style="padding:2px 8px;">Inverter Lado da Parede</button>
+            </div>
+          ` : ''}
           <div style="margin: 8px 0 4px 0; font-size:10.5px; font-weight:700; color:#0284c7;">DIMENSIONAMENTO NBR 5410</div>
           <div class="prop-row"><span class="prop-label">Corrente Ib:</span><span class="prop-val">${sizing.currentIb} A</span></div>
           <div class="prop-row"><span class="prop-label">Bitola do Cabo:</span><span class="prop-val">#${sizing.gaugeMm2} mm²</span></div>
@@ -1996,6 +2009,12 @@
         document.getElementById('btn-lbl-down')?.addEventListener('click', () => updateOffset(0, 0.25));
         document.getElementById('btn-lbl-left')?.addEventListener('click', () => updateOffset(-0.25, 0));
         document.getElementById('btn-lbl-right')?.addEventListener('click', () => updateOffset(0.25, 0));
+
+        document.getElementById('btn-flip-node-side')?.addEventListener('click', () => {
+          engine.saveSnapshot();
+          node.wallSide = (node.wallSide || 1) * -1;
+          engine.render(ctx, canvas.width, canvas.height);
+        });
 
         document.getElementById('btn-delete-element')?.addEventListener('click', deleteCurrentSelection);
         return;
@@ -3413,6 +3432,10 @@
       window.print();
     });
 
+    document.getElementById('sheet-3d-filter')?.addEventListener('change', () => {
+      renderPaperSheet();
+    });
+
     // ==================== VISUALIZADOR 3D BIM DA INFRAESTRUTURA ELÉTRICA ====================
     const modal3D = document.getElementById('modal-3d');
     const canvas3D = document.getElementById('canvas-3d');
@@ -3435,6 +3458,17 @@
       targetCtx.clearRect(0, 0, w, h);
 
       const allLevels = engine.getAllLevelsWithData();
+      const isSheet3D = targetCanvas !== canvas3D;
+      const sheetFilter = isSheet3D ? (document.getElementById('sheet-3d-filter')?.value || 'active') : 'all';
+
+      const levelsToRender = (isSheet3D && sheetFilter === 'active')
+        ? allLevels.filter(lvl => lvl.id === engine.activeLevelId)
+        : allLevels;
+
+      const singleLevel = levelsToRender.length === 1 ? levelsToRender[0] : null;
+      const baseElev = singleLevel ? (Number(singleLevel.elevation) || 0) : 0;
+      const levelHeight = singleLevel ? (Number(singleLevel.height) || 2.80) : 2.80;
+
       const topLevel = allLevels[allLevels.length - 1];
       const totalBuildingHeight = topLevel ? (topLevel.elevation + (topLevel.height || 2.80)) : 2.80;
 
@@ -3442,9 +3476,8 @@
       const centerY = h / 2 + (targetCanvas === canvas3D ? 30 : 20);
       const scale3D = targetCanvas === canvas3D 
         ? Math.min(36, Math.min(w, h) / (12 + totalBuildingHeight * 0.8))
-        : Math.min(w, h) / 18;
+        : singleLevel ? (Math.min(w, h) / 14) : (Math.min(w, h) / 18);
 
-      const isSheet3D = targetCanvas !== canvas3D;
       if (isSheet3D) {
         targetCtx.fillStyle = '#ffffff';
         targetCtx.fillRect(0, 0, w, h);
@@ -3453,7 +3486,7 @@
       function project3D(x, y, z) {
         const cx = x - 5.5;
         const cy = y - 5.5;
-        const cz = z - totalBuildingHeight / 2;
+        const cz = singleLevel ? (z - (baseElev + levelHeight / 2)) : (z - totalBuildingHeight / 2);
         const rx = cx * Math.cos(rotAngle) - cy * Math.sin(rotAngle);
         const ry = cx * Math.sin(rotAngle) + cy * Math.cos(rotAngle);
         const px = centerX + rx * scale3D;
@@ -3461,8 +3494,8 @@
         return { x: px, y: py };
       }
 
-      // Renderiza cada pavimento empilhado
-      for (const lvl of allLevels) {
+      // Renderiza cada pavimento
+      for (const lvl of levelsToRender) {
         const bZ = Number(lvl.elevation) || 0;
         const wH = Number(lvl.height) || 2.80;
         const tZ = bZ + wH;
