@@ -741,7 +741,36 @@ export class SymbolRenderer {
 
 // ==================== RENDERIZADOR DE FIAÇÃO ====================
 export class WireRenderer {
-  static renderWiresOnConduit(ctx, sA, sB, ctrlPt, wires, t = 0.5, side = 1, isSelected = false) {
+  // Retorna a posição na tela da etiqueta de circuito da fiação no eletroduto
+  static getWireLabelScreenPos(sA, sB, ctrlPt, wires, t = 0.5, side = 1, wireLabelOffset = null) {
+    if (!wires || wires.length === 0) return null;
+    const mt = 1 - t;
+    const px = mt * mt * sA.x + 2 * mt * t * ctrlPt.x + t * t * sB.x;
+    const py = mt * mt * sA.y + 2 * mt * t * ctrlPt.y + t * t * sB.y;
+    const base = new Vector2D(px, py);
+
+    const tx = 2 * mt * (ctrlPt.x - sA.x) + 2 * t * (sB.x - ctrlPt.x);
+    const ty = 2 * mt * (ctrlPt.y - sA.y) + 2 * t * (sB.y - ctrlPt.y);
+    const dir = new Vector2D(tx, ty);
+    if (dir.length() < 5) return null;
+
+    const u = dir.normalize();
+    const n = u.orthogonal().mul(side || 1);
+    const sc = 0.85;
+    const h = 9 * sc;
+    const circDist = h + 8;
+    const offX = wireLabelOffset?.x || 0;
+    const offY = wireLabelOffset?.y || 0;
+
+    const circIds = [...new Set(wires.map(w => w.circuitId).filter(Boolean))].join(',');
+    return {
+      pos: new Vector2D(base.x - n.x * circDist + offX, base.y - n.y * circDist + offY),
+      base,
+      circIds
+    };
+  }
+
+  static renderWiresOnConduit(ctx, sA, sB, ctrlPt, wires, t = 0.5, side = 1, isSelected = false, wireLabelOffset = null) {
     if (!wires || wires.length === 0) return;
 
     const mt = 1 - t;
@@ -761,6 +790,7 @@ export class WireRenderer {
 
     const spacing = 6;
     const sc = 0.85;
+    const h = 9 * sc;
 
     ctx.save();
 
@@ -779,7 +809,6 @@ export class WireRenderer {
 
     for (const w of wires) {
       const p = new Vector2D(base.x + u.x * offset, base.y + u.y * offset);
-      const h = 9 * sc;
 
       if (w.type === 'phase') {
         ctx.beginPath();
@@ -808,14 +837,11 @@ export class WireRenderer {
         ctx.lineTo(p.x + n.x * (h * 0.9), p.y + n.y * (h * 0.9));
         ctx.stroke();
         if (w.command) {
-          const cmdDist = h + 7;
+          const cmdDist = h + 6.5;
           const cmdPos = new Vector2D(p.x + n.x * cmdDist, p.y + n.y * cmdDist);
           ctx.save();
-          ctx.font = 'bold 8.5px Arial, sans-serif';
-          const tw = ctx.measureText(w.command).width;
-          ctx.fillStyle = '#ffffff';
-          ctx.fillRect(cmdPos.x - tw / 2 - 1.5, cmdPos.y - 5.5, tw + 3, 11);
           ctx.fillStyle = isSelected ? '#0284c7' : '#000000';
+          ctx.font = 'bold 8.5px Arial, sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.fillText(w.command, cmdPos.x, cmdPos.y);
@@ -825,21 +851,28 @@ export class WireRenderer {
       offset += spacing;
     }
 
-    // Número do Circuito posicionado no lado OPOSTO da tubulação (-n)
-    // Afastado da ponta dos traços e com fundo protetor para não colidir com o eletroduto
+    // Número do Circuito posicionado no lado oposto (-n) ou deslocado manualmente pelo usuário
     const circIds = [...new Set(wires.map(w => w.circuitId).filter(Boolean))].join(',');
     if (circIds) {
-      const circDist = h + 9;
-      const labelPos = new Vector2D(base.x - n.x * circDist, base.y - n.y * circDist);
+      const circDist = h + 8;
+      const offX = wireLabelOffset?.x || 0;
+      const offY = wireLabelOffset?.y || 0;
+      const labelPos = new Vector2D(base.x - n.x * circDist + offX, base.y - n.y * circDist + offY);
+
       ctx.save();
-      ctx.font = 'bold 9px Arial, sans-serif';
-      const tw = ctx.measureText(circIds).width;
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(labelPos.x - tw / 2 - 2, labelPos.y - 6, tw + 4, 12);
       ctx.fillStyle = isSelected ? '#0284c7' : '#000000';
+      ctx.font = 'bold 9px Arial, sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(circIds, labelPos.x, labelPos.y);
+
+      if (isSelected) {
+        ctx.strokeStyle = '#0284c7';
+        ctx.lineWidth = 1.0;
+        ctx.setLineDash([2, 2]);
+        const tw = ctx.measureText(circIds).width;
+        ctx.strokeRect(labelPos.x - tw / 2 - 3, labelPos.y - 6, tw + 6, 12);
+      }
       ctx.restore();
     }
 
@@ -2847,6 +2880,17 @@ export class CadEngine {
           this.isDragging = true;
           this.notify();
           return;
+        } else if (cand.type === 'wire_label') {
+          this.selectedElement = { type: 'wire_label', conduitId: cand.conduitId, conduit: cand.conduit };
+          this.selectedNodeId = null;
+          this.isDragging = true;
+          this.dragStartWorld = worldPos;
+          this.dragInitialOffset = {
+            x: cand.conduit.wireLabelOffset?.x || 0,
+            y: cand.conduit.wireLabelOffset?.y || 0
+          };
+          this.notify();
+          return;
         } else if (cand.type === 'node_label') {
           this.selectedElement = { type: 'node_label', id: cand.id, node: cand.node };
           this.selectedNodeId = cand.id;
@@ -3223,6 +3267,20 @@ export class CadEngine {
           }
         }
       }
+      // 7.05 Mover Rótulo de Circuito da Fiação
+      else if (this.selectedElement && this.selectedElement.type === 'wire_label') {
+        const c = this.conduits.find(item => item.id === this.selectedElement.conduitId);
+        if (c) {
+          const dx = curWorld.x - (this.dragStartWorld?.x || curWorld.x);
+          const dy = curWorld.y - (this.dragStartWorld?.y || curWorld.y);
+          if (!c.wireLabelOffset) c.wireLabelOffset = { x: 0, y: 0 };
+          c.wireLabelOffset = {
+            x: Math.round(((this.dragInitialOffset?.x || 0) + dx * this.viewport.zoom) * 10) / 10,
+            y: Math.round(((this.dragInitialOffset?.y || 0) + dy * this.viewport.zoom) * 10) / 10
+          };
+          this.notify();
+        }
+      }
       // 7.1 Mover Prumada Vertical
       else if (this.selectedElement && this.selectedElement.type === 'riser') {
         const riser = this.risers ? this.risers.find(r => r.id === this.selectedElement.id) : null;
@@ -3572,6 +3630,19 @@ export class CadEngine {
           const py = mt * mt * sA.y + 2 * mt * wireT * ctrlPt.y + wireT * wireT * sB.y;
           const sTag = new Vector2D(px, py);
 
+          // 1. Rótulo de texto de circuitos da fiação (clique para arrastar e afastar livremente)
+          const lblInfo = WireRenderer.getWireLabelScreenPos(sA, sB, ctrlPt, wires, wireT, c.wireSide || 1, c.wireLabelOffset);
+          if (lblInfo && lblInfo.pos.distanceTo(screenPt) < 18) {
+            candidates.push({
+              type: 'wire_label',
+              conduitId: c.id,
+              conduit: c,
+              label: `Rótulo de Circuito (${lblInfo.circIds}) [Arraste para mover]`,
+              pos: this.viewport.screenToWorld(lblInfo.pos)
+            });
+          }
+
+          // 2. Alça geral da fiação para deslizar ao longo do tubo
           if (sTag.distanceTo(screenPt) < 22) {
             const circList = [...new Set(wires.map(w => w.circuitId).filter(Boolean))].join(', ');
             candidates.push({
@@ -4893,9 +4964,10 @@ export class CadEngine {
             const wireSide = typeof c.wireSide === 'number' ? c.wireSide : 1;
             const isWireSelected = this.selectedElement && (
               (this.selectedElement.type === 'wire_tag' && this.selectedElement.conduitId === c.id) ||
+              (this.selectedElement.type === 'wire_label' && this.selectedElement.conduitId === c.id) ||
               (this.selectedElement.type === 'conduit' && this.selectedElement.id === c.id)
             );
-            WireRenderer.renderWiresOnConduit(ctx, sA, sB, ctrlPt, wires, wireT, wireSide, isWireSelected);
+            WireRenderer.renderWiresOnConduit(ctx, sA, sB, ctrlPt, wires, wireT, wireSide, isWireSelected, c.wireLabelOffset);
           }
         }
       }
