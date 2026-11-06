@@ -197,8 +197,17 @@
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
       }
-      #header, #ribbon, #context-subtoolbar, #viewport-container, #inspector-drawer, .floating-bottom-left, .floating-right, .modal-overlay, #layout-top-toolbar, .layout-resize-handle, .layout-align-guide-x, .layout-align-guide-y {
+      #header, #ribbon, #context-subtoolbar, #viewport-container, #inspector-drawer, .floating-bottom-left, .floating-right, .modal-overlay, #layout-top-toolbar, .layout-resize-handle, .layout-align-guide-x, .layout-align-guide-y, #layout-ruler-top-bar, #layout-ruler-left-bar, #layout-ruler-corner, #canvas-ruler-h, #canvas-ruler-v, .layout-status-pill {
         display: none !important;
+      }
+      #layout-workspace {
+        display: block !important;
+        position: static !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        overflow: visible !important;
       }
       #layout-paper-container {
         display: block !important;
@@ -696,8 +705,9 @@
         <!-- Item 1: Viewport da Planta Baixa Elétrica (Redimensionável e Navegável) -->
         <div class="layout-item" id="item-viewport" style="left:34px; top:18px; width:680px; height:520px;">
           <div class="layout-item-header" id="viewport-drag-handle">
-            <span>📐 VIEWPORT PLANTA BAIXA ELÉTRICA — ESCALA <span id="label-scale-display">1:50</span></span>
+            <span><span class="layout-item-editable-title" id="title-viewport-text" title="Duplo-clique para renomear">📐 VIEWPORT PLANTA BAIXA ELÉTRICA</span> — ESCALA <span id="label-scale-display">1:50</span></span>
             <div style="display:flex;align-items:center;gap:6px;">
+              <button class="btn-micro btn-rename-layout-item" data-title-target="title-viewport-text" title="Renomear título do quadro">✎</button>
               <button class="btn-micro" id="btn-viewport-recenter" title="Centralizar Planta na Viewport" style="padding:1px 6px; font-size:10px;">⌖ Centralizar</button>
               <span style="font-size:10px; color:#64748b;" title="Redimensionável pela quina inferior direita">⤡</span>
             </div>
@@ -713,9 +723,12 @@
           <div class="layout-item-header" id="unifilar-drag-handle">
             <span style="display:flex;align-items:center;gap:6px;">
               <svg width="13" height="13" fill="none" stroke="#0284c7" stroke-width="2" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-              DIAGRAMA UNIFILAR (QD1)
+              <span class="layout-item-editable-title" id="title-unifilar-text" title="Duplo-clique para renomear">DIAGRAMA UNIFILAR (QD1)</span>
             </span>
-            <button class="modal-close" style="font-size:12px;" id="btn-close-sheet-unifilar">✕</button>
+            <div style="display:flex;align-items:center;gap:4px;">
+              <button class="btn-micro btn-rename-layout-item" data-title-target="title-unifilar-text" title="Renomear título do quadro">✎</button>
+              <button class="modal-close" style="font-size:12px;" id="btn-close-sheet-unifilar">✕</button>
+            </div>
           </div>
           <div class="layout-item-content">
             <canvas id="canvas-layout-unifilar" style="width:100%; height:100%; display:block;"></canvas>
@@ -728,9 +741,12 @@
           <div class="layout-item-header" id="cargas-drag-handle">
             <span style="display:flex;align-items:center;gap:6px;">
               <svg width="13" height="13" fill="none" stroke="#0284c7" stroke-width="2" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"></rect><path d="M3 9h18M3 15h18M9 3v18M15 3v18"></path></svg>
-              QUADRO DE DISTRIBUIÇÃO E DIMENSIONAMENTO (NBR 5410)
+              <span class="layout-item-editable-title" id="title-cargas-text" title="Duplo-clique para renomear">QUADRO DE DISTRIBUIÇÃO E DIMENSIONAMENTO (NBR 5410)</span>
             </span>
-            <button class="modal-close" style="font-size:12px;" id="btn-close-sheet-cargas">✕</button>
+            <div style="display:flex;align-items:center;gap:4px;">
+              <button class="btn-micro btn-rename-layout-item" data-title-target="title-cargas-text" title="Renomear título do quadro">✎</button>
+              <button class="modal-close" style="font-size:12px;" id="btn-close-sheet-cargas">✕</button>
+            </div>
           </div>
           <div class="layout-item-content" id="layout-cargas-table-content" style="padding:6px; overflow:auto;">
             <!-- Renderizado dinamicamente -->
@@ -743,9 +759,12 @@
           <div class="layout-item-header" id="legenda-drag-handle">
             <span style="display:flex;align-items:center;gap:6px;">
               <svg width="13" height="13" fill="none" stroke="#0284c7" stroke-width="2" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
-              LEGENDA DE SÍMBOLOS ABNT
+              <span class="layout-item-editable-title" id="title-legenda-text" title="Duplo-clique para renomear">LEGENDA DE SÍMBOLOS ABNT</span>
             </span>
-            <button class="modal-close" style="font-size:12px;" id="btn-close-sheet-legenda">✕</button>
+            <div style="display:flex;align-items:center;gap:4px;">
+              <button class="btn-micro btn-rename-layout-item" data-title-target="title-legenda-text" title="Renomear título do quadro">✎</button>
+              <button class="modal-close" style="font-size:12px;" id="btn-close-sheet-legenda">✕</button>
+            </div>
           </div>
           <div class="layout-item-content" id="layout-legenda-content" style="padding:6px; overflow:auto;">
             <!-- Renderizado dinamicamente -->
@@ -758,9 +777,10 @@
           <div class="layout-item-header" id="viewport-3d-drag-handle">
             <span style="display:flex;align-items:center;gap:5px;">
               <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="m21 16-9 5-9-5V8l9-5 9 5v8Z"></path></svg>
-              MAQUETE 3D
+              <span class="layout-item-editable-title" id="title-viewport-3d-text" title="Duplo-clique para renomear">MAQUETE 3D</span>
             </span>
             <div style="display:flex;align-items:center;gap:4px;">
+              <button class="btn-micro btn-rename-layout-item" data-title-target="title-viewport-3d-text" title="Renomear título do quadro">✎</button>
               <select id="sheet-3d-filter" style="font-size:9.5px; padding:1px 4px; border:1px solid #cbd5e1; border-radius:3px; background:#ffffff; color:#334155; cursor:pointer;" title="Filtrar maquete 3D por pavimento">
                 <option value="active">Pavimento Ativo</option>
                 <option value="all">Edificação Completa (Todos)</option>
@@ -814,15 +834,19 @@
           </div>
 
           <div class="carimbo-row" style="flex:0.8;">
-            <div class="carimbo-cell" style="flex:1;">
+            <div class="carimbo-cell" style="flex:0.9;">
               <span class="carimbo-lbl">Escala:</span>
               <span class="carimbo-val" id="sheet-stamp-scale">1:50</span>
             </div>
-            <div class="carimbo-cell" style="flex:1;">
+            <div class="carimbo-cell" style="flex:1.4;">
+              <span class="carimbo-lbl">Pavimento:</span>
+              <span class="carimbo-val" id="sheet-stamp-level">PAVIMENTO TÉRREO</span>
+            </div>
+            <div class="carimbo-cell" style="flex:0.9;">
               <span class="carimbo-lbl">Data:</span>
               <span class="carimbo-val">05/11/2026</span>
             </div>
-            <div class="carimbo-cell" style="flex:1;">
+            <div class="carimbo-cell" style="flex:0.8;">
               <span class="carimbo-lbl">Folha:</span>
               <span class="carimbo-val">01 / 01</span>
             </div>
@@ -1264,6 +1288,13 @@
         }
       }
       selectUnderlayLevel.innerHTML = underlayOptions.join('');
+
+      // Atualiza Carimbo Técnico ABNT da Prancha com o Pavimento Ativo
+      const activeLvl = levels.find(l => l.id === curId);
+      const stampLevelEl = document.getElementById('sheet-stamp-level');
+      if (stampLevelEl && activeLvl) {
+        stampLevelEl.textContent = `${activeLvl.name.toUpperCase()} (${Number(activeLvl.elevation).toFixed(2)}m)`;
+      }
     }
 
     function renderLevelsModal() {
@@ -2155,32 +2186,41 @@
         }
 
         content.innerHTML = `
-          <div class="prop-row"><span class="prop-label">Elemento:</span><span class="prop-val">${node.type}</span></div>
-          <div class="prop-row">
-            <span class="prop-label">Circuito:</span>
-            <select class="form-control" id="inspector-node-circ" style="width:110px; padding:2px 6px; font-size:11px;">
-              ${circOptions}
-            </select>
-          </div>
+          <div class="prop-row"><span class="prop-label">Elemento:</span><span class="prop-val">${node.type === 'distribution_board' ? 'Quadro de Distribuição (QDC)' : node.type}</span></div>
+          ${node.type === 'distribution_board' ? `
+            <div class="prop-row">
+              <span class="prop-label">Nome do Quadro:</span>
+              <input type="text" class="form-control" id="inspector-panel-name" value="${node.label || node.name || 'QD1'}" style="width:110px; padding:2px 6px; font-size:11px;" placeholder="Ex: QD1, QGBT" />
+            </div>
+          ` : `
+            <div class="prop-row">
+              <span class="prop-label">Circuito:</span>
+              <select class="form-control" id="inspector-node-circ" style="width:110px; padding:2px 6px; font-size:11px;">
+                ${circOptions}
+              </select>
+            </div>
+          `}
           ${node.type.startsWith('light') || node.type.startsWith('switch') ? `
             <div class="prop-row">
               <span class="prop-label">Comando:</span>
               <input type="text" class="form-control" id="inspector-node-cmd" value="${node.command || 'a'}" style="width:60px; padding:2px 6px; font-size:11px; text-align:center;" />
             </div>
           ` : ''}
-          <div class="prop-row">
-            <span class="prop-label">Potência:</span>
-            <div style="display:flex;align-items:center;gap:4px;">
-              <input type="number" step="10" class="form-control" id="inspector-node-pwr" value="${node.powerWatts || 100}" style="width:75px; padding:2px 6px; font-size:11px;" /> W
+          ${node.type !== 'distribution_board' ? `
+            <div class="prop-row">
+              <span class="prop-label">Potência:</span>
+              <div style="display:flex;align-items:center;gap:4px;">
+                <input type="number" step="10" class="form-control" id="inspector-node-pwr" value="${node.powerWatts || 100}" style="width:75px; padding:2px 6px; font-size:11px;" /> W
+              </div>
             </div>
-          </div>
-          <div class="prop-row">
-            <span class="prop-label">Tensão:</span>
-            <select class="form-control" id="inspector-node-volt" style="width:85px; padding:2px 6px; font-size:11px;">
-              <option value="127" ${node.voltage === 127 ? 'selected' : ''}>127 V (F+N)</option>
-              <option value="220" ${node.voltage === 220 ? 'selected' : ''}>220 V (F+F)</option>
-            </select>
-          </div>
+            <div class="prop-row">
+              <span class="prop-label">Tensão:</span>
+              <select class="form-control" id="inspector-node-volt" style="width:85px; padding:2px 6px; font-size:11px;">
+                <option value="127" ${node.voltage === 127 ? 'selected' : ''}>127 V (F+N)</option>
+                <option value="220" ${node.voltage === 220 ? 'selected' : ''}>220 V (F+F)</option>
+              </select>
+            </div>
+          ` : ''}
           <div class="prop-row">
             <span class="prop-label">Posição Rótulo:</span>
             <div style="display:flex; align-items:center; gap:3px;">
@@ -2222,6 +2262,17 @@
             Excluir Ponto (Del)
           </button>
         `;
+
+        document.getElementById('inspector-panel-name')?.addEventListener('input', (e) => {
+          const newName = e.target.value.trim() || 'QD1';
+          node.label = newName;
+          node.name = newName;
+          const unifilarTitleText = document.getElementById('title-unifilar-text');
+          if (unifilarTitleText) {
+            unifilarTitleText.textContent = `DIAGRAMA UNIFILAR (${newName})`;
+          }
+          engine.render(ctx, canvas.width, canvas.height);
+        });
 
         document.getElementById('inspector-node-circ')?.addEventListener('change', (e) => {
           node.circuitId = parseInt(e.target.value);
@@ -3477,6 +3528,27 @@
           margin: 0 !important;
         }
         @media print {
+          #header, #ribbon, #context-subtoolbar, #viewport-container, #inspector-drawer, .floating-bottom-left, .floating-right, .modal-overlay, #layout-top-toolbar, .layout-resize-handle, .layout-align-guide-x, .layout-align-guide-y, #layout-ruler-top-bar, #layout-ruler-left-bar, #layout-ruler-corner, #canvas-ruler-h, #canvas-ruler-v, .layout-status-pill {
+            display: none !important;
+          }
+          #layout-workspace {
+            display: block !important;
+            position: static !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            overflow: visible !important;
+          }
+          #layout-paper-container, .layout-sheet-wrap {
+            display: block !important;
+            position: static !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            overflow: visible !important;
+          }
           .paper-sheet {
             width: ${sheet.w_mm}mm !important;
             height: ${sheet.h_mm}mm !important;
@@ -4120,6 +4192,36 @@
         other => other !== itemEl && other.style.display !== 'none'
       );
 
+      // 1.1 GAPS EXISTENTES ENTRE PARES DE OUTROS ELEMENTOS (SMART EQUAL SPACING)
+      const existingGapsX = [];
+      const existingGapsY = [];
+      for (let i = 0; i < otherItems.length; i++) {
+        const a = otherItems[i];
+        const aL = a.offsetLeft, aR = aL + a.offsetWidth;
+        const aT = a.offsetTop, aB = aT + a.offsetHeight;
+        for (let j = i + 1; j < otherItems.length; j++) {
+          const b = otherItems[j];
+          const bL = b.offsetLeft, bR = bL + b.offsetWidth;
+          const bT = b.offsetTop, bB = bT + b.offsetHeight;
+
+          if (bL > aR) {
+            const g = bL - aR;
+            if (g >= 4 && g <= 1200) existingGapsX.push(g);
+          } else if (aL > bR) {
+            const g = aL - bR;
+            if (g >= 4 && g <= 1200) existingGapsX.push(g);
+          }
+
+          if (bT > aB) {
+            const g = bT - aB;
+            if (g >= 4 && g <= 1200) existingGapsY.push(g);
+          } else if (aT > bB) {
+            const g = aT - bB;
+            if (g >= 4 && g <= 1200) existingGapsY.push(g);
+          }
+        }
+      }
+
       let bestDistX = SNAP_TOL;
       let bestCandidateX = null;
       let bestGuideY = null;
@@ -4144,6 +4246,12 @@
           [oL - w - 10, oL - 10],   // Espaçamento técnico de 10px à esquerda
         ];
 
+        // Magnetismo de Espaçamento Equidistante Inteligente (Smart Equal Spacing)
+        for (const g of existingGapsX) {
+          candX.push([oR + g, oR + g]);       // Sugere a mesma distância horizontal à direita
+          candX.push([oL - w - g, oL - g]);   // Sugere a mesma distância horizontal à esquerda
+        }
+
         for (const [pos, gY] of candX) {
           const dist = Math.abs(rawLeft - pos);
           if (dist < bestDistX) {
@@ -4162,6 +4270,12 @@
           [oB + 10, oB + 10],       // Espaçamento técnico de 10px abaixo
           [oT - h - 10, oT - 10],   // Espaçamento técnico de 10px acima
         ];
+
+        // Magnetismo de Espaçamento Equidistante Inteligente Vertical (Smart Equal Spacing)
+        for (const g of existingGapsY) {
+          candY.push([oB + g, oB + g]);       // Sugere a mesma distância vertical abaixo
+          candY.push([oT - h - g, oT - g]);   // Sugere a mesma distância vertical acima
+        }
 
         for (const [pos, gX] of candY) {
           const dist = Math.abs(rawTop - pos);
@@ -4271,7 +4385,7 @@
         const oB = oT + other.offsetHeight;
 
         // Candidatos para o Right de itemEl:
-        const candR = [oR, oL, oL - 10];
+        const candR = [oR, oL, oL - 10, curLeft + other.offsetWidth];
         for (const targetR of candR) {
           const dist = Math.abs(rawRight - targetR);
           if (dist < bestDistX) {
@@ -4281,7 +4395,7 @@
         }
 
         // Candidatos para o Bottom de itemEl:
-        const candB = [oB, oT, oT - 10];
+        const candB = [oB, oT, oT - 10, curTop + other.offsetHeight];
         for (const targetB of candB) {
           const dist = Math.abs(rawBottom - targetB);
           if (dist < bestDistY) {
@@ -4446,6 +4560,33 @@
     document.querySelectorAll('.layout-item').forEach(item => {
       item.addEventListener('mousedown', () => {
         setActiveLayoutItem(item);
+      });
+    });
+
+    // Renomear Título dos Quadros da Prancha (duplo clique ou botão de lápis)
+    function renameLayoutItemTitle(targetId) {
+      const el = document.getElementById(targetId);
+      if (!el) return;
+      const current = el.textContent.trim();
+      const novo = prompt('Digite o novo título para este quadro:', current);
+      if (novo !== null && novo.trim() !== '') {
+        el.textContent = novo.trim();
+        showToast(`Quadro renomeado para "${novo.trim()}".`);
+      }
+    }
+
+    document.querySelectorAll('.btn-rename-layout-item').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const targetId = btn.dataset.titleTarget;
+        renameLayoutItemTitle(targetId);
+      });
+    });
+
+    document.querySelectorAll('.layout-item-editable-title').forEach(el => {
+      el.addEventListener('dblclick', (e) => {
+        e.stopPropagation();
+        renameLayoutItemTitle(el.id);
       });
     });
 
@@ -4627,25 +4768,37 @@
 
       let conduitRows = '';
       for (const [key, c] of Object.entries(bom.conduits)) {
+        const diam = (c && c.diameterMm) ? c.diameterMm : 20;
+        const inch = (c && c.inches) ? c.inches : '3/4"';
+        const len2D = typeof c?.length2DMeters === 'number' ? c.length2DMeters : (typeof c === 'number' ? c * 0.7 : 0);
+        const vert = typeof c?.verticalDropsMeters === 'number' ? c.verticalDropsMeters : (typeof c === 'number' ? c * 0.2 : 0);
+        const allow = typeof c?.allowanceMeters === 'number' ? c.allowanceMeters : (typeof c === 'number' ? c * 0.1 : 0);
+        const tot = typeof c?.totalMeters === 'number' ? c.totalMeters : (typeof c === 'number' ? c : (len2D + vert + allow));
         conduitRows += `
           <tr style="border-bottom:1px solid #e2e8f0; font-size:11.5px;">
-            <td style="padding:6px 8px; font-weight:600;">Eletroduto Corrugado Flexível DN ${c.diameterMm}mm (${c.inches})</td>
-            <td style="padding:6px 8px;">${c.length2DMeters.toFixed(2)} m</td>
-            <td style="padding:6px 8px;">${c.verticalDropsMeters.toFixed(2)} m</td>
-            <td style="padding:6px 8px;">${c.allowanceMeters.toFixed(2)} m</td>
-            <td style="padding:6px 8px; font-weight:700; color:#0284c7;">${c.totalMeters.toFixed(2)} m</td>
+            <td style="padding:6px 8px; font-weight:600;">Eletroduto Corrugado Flexível DN ${diam}mm (${inch})</td>
+            <td style="padding:6px 8px;">${len2D.toFixed(2)} m</td>
+            <td style="padding:6px 8px;">${vert.toFixed(2)} m</td>
+            <td style="padding:6px 8px;">${allow.toFixed(2)} m</td>
+            <td style="padding:6px 8px; font-weight:700; color:#0284c7;">${tot.toFixed(2)} m</td>
           </tr>
         `;
       }
 
       let wireRows = '';
       for (const [key, w] of Object.entries(bom.wires)) {
+        const gauge = (w && w.gaugeMm2) ? w.gaugeMm2 : '2.5';
+        const func = (w && w.functionLabel) ? w.functionLabel : key;
+        const col = (w && w.color) ? w.color : 'Padrão';
+        const net = typeof w?.netLengthMeters === 'number' ? w.netLengthMeters : (typeof w === 'number' ? w * 0.85 : 0);
+        const allow = typeof w?.allowanceMeters === 'number' ? w.allowanceMeters : (typeof w === 'number' ? w * 0.15 : 0);
+        const tot = typeof w?.totalMeters === 'number' ? w.totalMeters : (typeof w === 'number' ? w : (net + allow));
         wireRows += `
           <tr style="border-bottom:1px solid #e2e8f0; font-size:11.5px;">
-            <td style="padding:6px 8px; font-weight:600;">Cabo de Cobre PVC 70°C 450/750V #${w.gaugeMm2}mm² — ${w.functionLabel} (${w.color})</td>
-            <td style="padding:6px 8px;">${w.netLengthMeters.toFixed(2)} m</td>
-            <td style="padding:6px 8px;">${w.allowanceMeters.toFixed(2)} m</td>
-            <td style="padding:6px 8px; font-weight:700; color:#0284c7;">${w.totalMeters.toFixed(2)} m</td>
+            <td style="padding:6px 8px; font-weight:600;">Cabo de Cobre PVC 70°C 450/750V #${gauge}mm² — ${func} (${col})</td>
+            <td style="padding:6px 8px;">${net.toFixed(2)} m</td>
+            <td style="padding:6px 8px;">${allow.toFixed(2)} m</td>
+            <td style="padding:6px 8px; font-weight:700; color:#0284c7;">${tot.toFixed(2)} m</td>
           </tr>
         `;
       }
@@ -4742,10 +4895,17 @@
       const bom = engine.generateBillOfMaterials();
       let csv = 'Categoria;Item;Especificacao;Quantidade;Unidade\r\n';
       for (const [k, c] of Object.entries(bom.conduits)) {
-        csv += `Eletrodutos;Eletroduto Flexivel;DN ${c.diameterMm}mm (${c.inches});${c.totalMeters.toFixed(2)};m\r\n`;
+        const diam = (c && c.diameterMm) ? c.diameterMm : 20;
+        const inch = (c && c.inches) ? c.inches : '3/4"';
+        const tot = typeof c?.totalMeters === 'number' ? c.totalMeters : (typeof c === 'number' ? c : 0);
+        csv += `Eletrodutos;Eletroduto Flexivel;DN ${diam}mm (${inch});${tot.toFixed(2)};m\r\n`;
       }
       for (const [k, w] of Object.entries(bom.wires)) {
-        csv += `Condutores;Cabo PVC 70C #${w.gaugeMm2}mm2;${w.functionLabel} (${w.color});${w.totalMeters.toFixed(2)};m\r\n`;
+        const gauge = (w && w.gaugeMm2) ? w.gaugeMm2 : '2.5';
+        const func = (w && w.functionLabel) ? w.functionLabel : k;
+        const col = (w && w.color) ? w.color : 'Padrao';
+        const tot = typeof w?.totalMeters === 'number' ? w.totalMeters : (typeof w === 'number' ? w : 0);
+        csv += `Condutores;Cabo PVC 70C #${gauge}mm2;${func} (${col});${tot.toFixed(2)};m\r\n`;
       }
       for (const [k, qty] of Object.entries(bom.boxes)) {
         csv += `Caixas;${k};Padrao ABNT;${qty};un\r\n`;

@@ -1253,21 +1253,58 @@ export class CadEngine {
         verticalLen = Math.abs(zA - zB);
       }
 
-      const totalConduitLen = (d2d + verticalLen) * 1.10; // +10% de folga normativa
+      const allowance = (d2d + verticalLen) * 0.10; // +10% de folga normativa
+      const totalConduitLen = d2d + verticalLen + allowance;
       const dn = c.diameter || 20;
+      const inchMap = { 20: '1/2"', 25: '3/4"', 32: '1"', 40: '1 1/4"' };
+      const inches = inchMap[dn] || `${dn}mm`;
       const typeLabel = instType === 'floor' ? 'Piso' : instType === 'wall' ? 'Parede' : 'Teto';
       const key = `Eletroduto Corrugado PVC DN${dn} (${typeLabel})`;
-      bom.conduits[key] = (bom.conduits[key] || 0) + totalConduitLen;
+
+      if (!bom.conduits[key]) {
+        bom.conduits[key] = {
+          name: key,
+          diameterMm: dn,
+          inches: inches,
+          installationType: instType,
+          length2DMeters: 0,
+          verticalDropsMeters: 0,
+          allowanceMeters: 0,
+          totalMeters: 0
+        };
+      }
+      bom.conduits[key].length2DMeters += d2d;
+      bom.conduits[key].verticalDropsMeters += verticalLen;
+      bom.conduits[key].allowanceMeters += allowance;
+      bom.conduits[key].totalMeters += totalConduitLen;
 
       // 3. Fiação no trecho
       const wires = this.wireAllocations.get(c.id);
       if (wires && wires.length > 0) {
         for (const w of wires) {
-          const gauge = (w.circuitId && typeof w.circuitId === 'number' && w.circuitId >= 3) ? '4.0mm²' : (w.type === 'return' ? '1.5mm²' : '2.5mm²');
+          const gauge = (w.circuitId && typeof w.circuitId === 'number' && w.circuitId >= 3) ? '4.0' : (w.type === 'return' ? '1.5' : '2.5');
           const typeName = w.type === 'phase' ? 'Fase' : w.type === 'neutral' ? 'Neutro' : w.type === 'ground' ? 'Proteção (Terra)' : 'Retorno';
-          const wireKey = `Cabo Cobre PVC 70°C #${gauge} (${typeName})`;
-          const wireLen = totalConduitLen + 0.40; // 20cm ponta em cada extremidade
-          bom.wires[wireKey] = (bom.wires[wireKey] || 0) + wireLen;
+          const colorName = w.type === 'phase' ? 'Vermelho' : w.type === 'neutral' ? 'Azul Claro' : w.type === 'ground' ? 'Verde/Amarelo' : 'Amarelo';
+          const wireKey = `#${gauge}mm² ${typeName}`;
+
+          if (!bom.wires[wireKey]) {
+            bom.wires[wireKey] = {
+              name: wireKey,
+              gaugeMm2: gauge,
+              functionLabel: typeName,
+              color: colorName,
+              netLengthMeters: 0,
+              allowanceMeters: 0,
+              totalMeters: 0
+            };
+          }
+          const net = d2d + verticalLen;
+          const allowanceW = (net * 0.10) + 0.40; // 10% folga + 20cm cada ponta
+          const totalW = net + allowanceW;
+
+          bom.wires[wireKey].netLengthMeters += net;
+          bom.wires[wireKey].allowanceMeters += allowanceW;
+          bom.wires[wireKey].totalMeters += totalW;
         }
       }
     }
