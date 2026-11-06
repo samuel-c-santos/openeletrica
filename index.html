@@ -1135,16 +1135,64 @@
           <td>
             <div style="display:flex; align-items:center; gap:6px;">
               ${isCurrent ? '<span style="width:7px; height:7px; border-radius:50%; background:#10b981;" title="Pavimento Ativo"></span>' : '<span style="width:7px; height:7px;"></span>'}
-              <strong>${l.name}</strong>
+              <input type="text" class="input-nbr" value="${l.name}" data-level-name="${l.id}" style="width:140px; padding:3px 6px; font-weight:600; font-size:11.5px;">
             </div>
           </td>
-          <td>${Number(l.elevation).toFixed(2)} m</td>
-          <td>${Number(l.height || 2.80).toFixed(2)} m</td>
+          <td>
+            <div style="display:flex; align-items:center; gap:3px;">
+              <input type="number" step="0.05" class="input-nbr" value="${Number(l.elevation).toFixed(2)}" data-level-elev="${l.id}" style="width:70px; padding:3px 6px; text-align:right; font-size:11.5px;">
+              <span style="font-size:11px; color:#64748b;">m</span>
+            </div>
+          </td>
+          <td>
+            <div style="display:flex; align-items:center; gap:3px;">
+              <input type="number" step="0.05" min="1.50" max="10.00" class="input-nbr" value="${Number(l.height || 2.80).toFixed(2)}" data-level-height="${l.id}" style="width:70px; padding:3px 6px; text-align:right; font-size:11.5px;">
+              <span style="font-size:11px; color:#64748b;">m</span>
+            </div>
+          </td>
           <td style="text-align:center;">
             ${levels.length > 1 ? `<button class="btn-del-circ" data-del-level="${l.id}" title="Excluir Pavimento">✕</button>` : '<span style="color:#cbd5e1;">—</span>'}
           </td>
         `;
         tableLevelsBody.appendChild(tr);
+      });
+
+      // Handlers de edição de parâmetros do pavimento
+      tableLevelsBody.querySelectorAll('[data-level-name]').forEach(input => {
+        input.addEventListener('change', () => {
+          const lid = input.dataset.levelName;
+          engine.updateLevel(lid, { name: input.value });
+          updateLevelSelectors();
+          scheduleAutoSave();
+        });
+      });
+
+      tableLevelsBody.querySelectorAll('[data-level-elev]').forEach(input => {
+        input.addEventListener('change', () => {
+          const lid = input.dataset.levelElev;
+          const val = parseFloat(input.value);
+          if (!isNaN(val)) {
+            engine.updateLevel(lid, { elevation: val });
+            updateLevelSelectors();
+            scheduleAutoSave();
+            renderPaperSheet();
+            showToast('Cota Z do pavimento atualizada.');
+          }
+        });
+      });
+
+      tableLevelsBody.querySelectorAll('[data-level-height]').forEach(input => {
+        input.addEventListener('change', () => {
+          const lid = input.dataset.levelHeight;
+          const val = parseFloat(input.value);
+          if (!isNaN(val) && val >= 1.0) {
+            engine.updateLevel(lid, { height: val });
+            updateLevelSelectors();
+            scheduleAutoSave();
+            renderPaperSheet();
+            showToast('Pé-direito do pavimento atualizado.');
+          }
+        });
       });
 
       // Handlers de exclusão de pavimento
@@ -1634,12 +1682,36 @@
         return;
       }
 
-      if (engine.selectedElement && (engine.selectedElement.type === 'conduit' || engine.selectedElement.type === 'wire_tag' || engine.selectedElement.type === 'wire_label')) {
+      if (engine.selectedElement && (engine.selectedElement.type === 'conduit' || engine.selectedElement.type === 'wire_tag')) {
         const cId = engine.selectedElement.conduitId || engine.selectedElement.id;
         engine.deleteConduit(cId);
         engine.render(ctx, canvas.width, canvas.height);
         document.getElementById('inspector-drawer').classList.remove('open');
         showToast('Eletroduto excluído.');
+        return;
+      }
+
+      if (engine.selectedElement && engine.selectedElement.type === 'wire_label') {
+        const c = engine.conduits.find(item => item.id === engine.selectedElement.conduitId);
+        if (c) {
+          c.wireLabelOffset = { x: 0, y: 0 };
+          c.wireLabelRotation = 0;
+          engine.render(ctx, canvas.width, canvas.height);
+          updateInspector();
+          showToast('Rótulo de circuito resetado para a posição padrão.');
+        }
+        return;
+      }
+
+      if (engine.selectedElement && engine.selectedElement.type === 'riser_label') {
+        const r = engine.risers ? engine.risers.find(item => item.id === engine.selectedElement.id) : null;
+        if (r) {
+          r.labelOffset = { x: 0, y: 0 };
+          r.labelRotation = 0;
+          engine.render(ctx, canvas.width, canvas.height);
+          updateInspector();
+          showToast('Rótulo da prumada resetado para a posição padrão.');
+        }
         return;
       }
 
@@ -1937,6 +2009,7 @@
             <span class="prop-label">Posição Rótulo:</span>
             <div style="display:flex; align-items:center; gap:3px;">
               <button class="btn-micro" id="btn-lbl-center" title="Centralizado no Ponto">Centro</button>
+              <button class="btn-micro" id="btn-lbl-rot" title="Girar Rótulo 45° [Espaço]">⟳ 45°</button>
               <button class="btn-micro" id="btn-lbl-up" title="Deslocar Acima">🠅</button>
               <button class="btn-micro" id="btn-lbl-down" title="Deslocar Abaixo">🠇</button>
               <button class="btn-micro" id="btn-lbl-left" title="Deslocar à Esquerda">🠄</button>
@@ -2003,6 +2076,12 @@
         document.getElementById('btn-lbl-center')?.addEventListener('click', () => {
           engine.saveSnapshot();
           node.labelOffset = { x: 0, y: 0 };
+          node.labelRotation = 0;
+          engine.render(ctx, canvas.width, canvas.height);
+        });
+        document.getElementById('btn-lbl-rot')?.addEventListener('click', () => {
+          engine.saveSnapshot();
+          node.labelRotation = ((node.labelRotation || 0) + 45) % 360;
           engine.render(ctx, canvas.width, canvas.height);
         });
         document.getElementById('btn-lbl-up')?.addEventListener('click', () => updateOffset(0, -0.25));
@@ -2269,6 +2348,7 @@
               <span class="prop-label">Rótulo Circuito:</span>
               <div style="display:flex; align-items:center; gap:3px;">
                 <button class="btn-micro" id="btn-center-wire-label" title="Resetar posição do rótulo do circuito">Reset</button>
+                <button class="btn-micro" id="btn-rot-wire-label" title="Girar rótulo 45° [Espaço]">⟳ 45°</button>
                 <button class="btn-micro" id="btn-wire-lbl-up" title="Mover rótulo para cima">🠅</button>
                 <button class="btn-micro" id="btn-wire-lbl-down" title="Mover rótulo para baixo">🠇</button>
                 <button class="btn-micro" id="btn-wire-lbl-left" title="Mover rótulo para a esquerda">🠄</button>
@@ -2322,13 +2402,47 @@
             engine.render(ctx, canvas.width, canvas.height);
           });
 
+          document.getElementById('btn-center-wire-label')?.addEventListener('click', () => {
+            engine.saveSnapshot();
+            c.wireLabelOffset = { x: 0, y: 0 };
+            c.wireLabelRotation = 0;
+            engine.render(ctx, canvas.width, canvas.height);
+          });
+
+          document.getElementById('btn-rot-wire-label')?.addEventListener('click', () => {
+            engine.saveSnapshot();
+            c.wireLabelRotation = ((c.wireLabelRotation || 0) + 45) % 360;
+            engine.render(ctx, canvas.width, canvas.height);
+          });
+
+          document.getElementById('btn-wire-lbl-up')?.addEventListener('click', () => {
+            if (!c.wireLabelOffset) c.wireLabelOffset = { x: 0, y: 0 };
+            c.wireLabelOffset.y -= 4;
+            engine.render(ctx, canvas.width, canvas.height);
+          });
+          document.getElementById('btn-wire-lbl-down')?.addEventListener('click', () => {
+            if (!c.wireLabelOffset) c.wireLabelOffset = { x: 0, y: 0 };
+            c.wireLabelOffset.y += 4;
+            engine.render(ctx, canvas.width, canvas.height);
+          });
+          document.getElementById('btn-wire-lbl-left')?.addEventListener('click', () => {
+            if (!c.wireLabelOffset) c.wireLabelOffset = { x: 0, y: 0 };
+            c.wireLabelOffset.x -= 4;
+            engine.render(ctx, canvas.width, canvas.height);
+          });
+          document.getElementById('btn-wire-lbl-right')?.addEventListener('click', () => {
+            if (!c.wireLabelOffset) c.wireLabelOffset = { x: 0, y: 0 };
+            c.wireLabelOffset.x += 4;
+            engine.render(ctx, canvas.width, canvas.height);
+          });
+
           document.getElementById('btn-flip-conduit')?.addEventListener('click', () => {
             engine.toggleConduitCurvature(c.id);
           });
 
           document.getElementById('btn-delete-element')?.addEventListener('click', deleteCurrentSelection);
           return;
-        } else if (engine.selectedElement.type === 'riser') {
+        } else if (engine.selectedElement.type === 'riser' || engine.selectedElement.type === 'riser_label') {
           const r = engine.risers ? engine.risers.find(item => item.id === engine.selectedElement.id) : null;
           if (!r) {
             drawer.classList.remove('open');
@@ -2339,7 +2453,7 @@
 
           drawer.classList.add('open');
           content.innerHTML = `
-            <div class="prop-row"><span class="prop-label">Elemento:</span><span class="prop-val">Prumada Vertical</span></div>
+            <div class="prop-row"><span class="prop-label">Elemento:</span><span class="prop-val">${engine.selectedElement.type === 'riser_label' ? 'Rótulo de Prumada' : 'Prumada Vertical'}</span></div>
             <div class="prop-row"><span class="prop-label">Identificador:</span><span class="prop-val">${r.name || 'P'}</span></div>
             <div class="prop-row"><span class="prop-label">Origem:</span><span class="prop-val">${fromL}</span></div>
             <div class="prop-row"><span class="prop-label">Destino:</span><span class="prop-val">${toL}</span></div>
@@ -2353,7 +2467,19 @@
                 <option value="50" ${r.diameter === 50 ? 'selected' : ''}>50 mm (1 1/2")</option>
               </select>
             </div>
-            <button class="btn-eng-action" id="btn-delete-element" style="margin-top:12px; width:100%; justify-content:center; color:#ef4444; border-color:#fca5a5; background:#fef2f2;">
+            <div class="prop-row">
+              <span class="prop-label">Rótulo:</span>
+              <div style="display:flex; align-items:center; gap:3px;">
+                <button class="btn-micro" id="btn-reset-riser-lbl" title="Resetar posição do rótulo">Reset</button>
+                <button class="btn-micro" id="btn-rot-riser-lbl" title="Girar rótulo 45° [Espaço]">⟳ 45°</button>
+                <button class="btn-micro" id="btn-riser-lbl-up" title="Mover para cima">🠅</button>
+                <button class="btn-micro" id="btn-riser-lbl-down" title="Mover para baixo">🠇</button>
+                <button class="btn-micro" id="btn-riser-lbl-left" title="Mover para esquerda">🠄</button>
+                <button class="btn-micro" id="btn-riser-lbl-right" title="Mover para direita">🠆</button>
+              </div>
+            </div>
+            <div style="margin:4px 0 8px 0; font-size:10.5px; color:#64748b;">Arraste o rótulo diretamente com o mouse ou pressione Espaço para girar.</div>
+            <button class="btn-eng-action" id="btn-delete-element" style="margin-top:8px; width:100%; justify-content:center; color:#ef4444; border-color:#fca5a5; background:#fef2f2;">
               <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
               Excluir Prumada [Del]
             </button>
@@ -2365,7 +2491,43 @@
             engine.notify();
           });
 
+          document.getElementById('btn-reset-riser-lbl')?.addEventListener('click', () => {
+            engine.saveSnapshot();
+            r.labelOffset = { x: 0, y: 0 };
+            r.labelRotation = 0;
+            engine.render(ctx, canvas.width, canvas.height);
+          });
+
+          document.getElementById('btn-rot-riser-lbl')?.addEventListener('click', () => {
+            engine.saveSnapshot();
+            r.labelRotation = ((r.labelRotation || 0) + 45) % 360;
+            engine.render(ctx, canvas.width, canvas.height);
+          });
+
+          document.getElementById('btn-riser-lbl-up')?.addEventListener('click', () => {
+            if (!r.labelOffset) r.labelOffset = { x: 0, y: 0 };
+            r.labelOffset.y -= 0.15;
+            engine.render(ctx, canvas.width, canvas.height);
+          });
+          document.getElementById('btn-riser-lbl-down')?.addEventListener('click', () => {
+            if (!r.labelOffset) r.labelOffset = { x: 0, y: 0 };
+            r.labelOffset.y += 0.15;
+            engine.render(ctx, canvas.width, canvas.height);
+          });
+          document.getElementById('btn-riser-lbl-left')?.addEventListener('click', () => {
+            if (!r.labelOffset) r.labelOffset = { x: 0, y: 0 };
+            r.labelOffset.x -= 0.15;
+            engine.render(ctx, canvas.width, canvas.height);
+          });
+          document.getElementById('btn-riser-lbl-right')?.addEventListener('click', () => {
+            if (!r.labelOffset) r.labelOffset = { x: 0, y: 0 };
+            r.labelOffset.x += 0.15;
+            engine.render(ctx, canvas.width, canvas.height);
+          });
+
           document.getElementById('btn-delete-element')?.addEventListener('click', deleteCurrentSelection);
+          return;
+        }
           return;
         }
       }

@@ -386,7 +386,9 @@ export class SymbolRenderer {
     const offX = (node.labelOffset?.x || 0) * viewport.zoom;
     const offY = (node.labelOffset?.y || 0) * viewport.zoom;
     const side = node.wallSide || 1;
-    const stemLen = 10;
+    const wallTh = node.wallThickness || 0.15;
+    const hTh = (wallTh / 2) * viewport.zoom;
+    const stemLen = 9;
 
     let localX = offX;
     let localY = offY;
@@ -394,20 +396,20 @@ export class SymbolRenderer {
 
     if (node.type.startsWith('switch')) {
       const swR = 13 * 0.65;
-      localY += side * -(stemLen + swR * 2 + 7);
+      localY += side * (hTh + stemLen + swR + 7);
       text = node.command || 'a';
     } else if (node.type.startsWith('outlet')) {
       const sz = 13 * 0.9;
-      localY += side * -(stemLen + sz * 1.2 + 7);
+      localY += side * (hTh + stemLen + sz * 1.2 + 8);
       text = String(node.circuitId || 1);
     } else if (node.type === 'combo_switch_outlet') {
       const swR = 13 * 0.55;
       localX += (-13 * 0.55);
-      localY += side * -(stemLen + swR * 2 + 6);
+      localY += side * (hTh + stemLen + swR + 7);
       text = node.modules?.[0]?.command || node.command || 'a';
     } else if (node.type === 'combo_switch_switch') {
       const swR = 13 * 0.75;
-      localY += side * -(stemLen + swR);
+      localY += side * (hTh + stemLen + swR + 7);
       text = node.command || 'a,b';
     } else {
       return null;
@@ -436,10 +438,12 @@ export class SymbolRenderer {
     const offX = (node.labelOffset?.x || 0) * viewport.zoom;
     const offY = (node.labelOffset?.y || 0) * viewport.zoom;
     const side = node.wallSide || 1;
-    const stemLen = 10;
+    const wallTh = node.wallThickness || 0.15;
+    const hTh = (wallTh / 2) * viewport.zoom;
+    const stemLen = 9;
 
     if (isSelected) {
-      const cySelect = (node.type.startsWith('switch') || node.type.startsWith('combo')) ? (side * -(stemLen + (r * 0.65))) : node.type.startsWith('outlet') ? (side * -(stemLen + (r * 0.5))) : 0;
+      const cySelect = (node.type.startsWith('switch') || node.type.startsWith('combo')) ? (side * (hTh + stemLen + (r * 0.65))) : node.type.startsWith('outlet') ? (side * (hTh + stemLen + (r * 0.5))) : 0;
       ctx.strokeStyle = '#0284c7';
       ctx.fillStyle = 'rgba(2, 132, 199, 0.15)';
       ctx.lineWidth = 2.5;
@@ -511,13 +515,13 @@ export class SymbolRenderer {
       case 'outlet_medium':
       case 'outlet_high': {
         const sz = r * 0.9;
-        const outStem = 8;
-        const baseY = side * -outStem;
-        const tipY = side * -(outStem + sz * 1.2);
+        const stemStart = side * hTh;
+        const baseY = side * (hTh + stemLen);
+        const tipY = side * (hTh + stemLen + sz * 1.2);
 
-        // Perninha técnica conectando o símbolo à alvenaria
+        // Perninha técnica conectando o símbolo à face acabada da alvenaria
         ctx.beginPath();
-        ctx.moveTo(0, 0);
+        ctx.moveTo(0, stemStart);
         ctx.lineTo(0, baseY);
         ctx.stroke();
 
@@ -544,34 +548,42 @@ export class SymbolRenderer {
           ctx.fill();
         }
 
+        const circY = tipY + side * 8 + offY;
+        ctx.save();
+        ctx.translate(offX, circY);
+        if (node.labelRotation) ctx.rotate((node.labelRotation * Math.PI) / 180);
         ctx.fillStyle = isLabelSelected ? '#0284c7' : '#000000';
         ctx.font = 'bold 9px Arial, sans-serif';
         ctx.textAlign = 'center';
-        const circY = tipY + side * -7 + offY;
-        if (node.circuitId) ctx.fillText(String(node.circuitId), offX, circY);
-        if (node.powerWatts && node.powerWatts > 100) {
-          ctx.font = '8px Arial, sans-serif';
-          ctx.fillText(`${node.powerWatts}W`, offX + sz + 12, (baseY + tipY) / 2 + offY);
-        }
+        ctx.textBaseline = 'middle';
+        if (node.circuitId) ctx.fillText(String(node.circuitId), 0, 0);
+
         if (isLabelSelected) {
-          ctx.save();
           ctx.strokeStyle = '#0284c7';
           ctx.lineWidth = 1.2;
           ctx.setLineDash([3, 2]);
-          ctx.strokeRect(offX - 8, circY - 8, 16, 16);
-          ctx.restore();
+          ctx.strokeRect(-8, -8, 16, 16);
+        }
+        ctx.restore();
+
+        if (node.powerWatts && node.powerWatts > 100) {
+          ctx.font = '8px Arial, sans-serif';
+          ctx.fillStyle = '#000000';
+          ctx.fillText(`${node.powerWatts}W`, offX + sz + 12, (baseY + tipY) / 2 + offY);
         }
         break;
       }
       case 'switch_simple':
       case 'switch_three_way': {
         const swR = r * 0.65;
-        const cy = side * -(stemLen + swR);
+        const stemStart = side * hTh;
+        const stemEnd = side * (hTh + stemLen);
+        const cy = side * (hTh + stemLen + swR);
 
-        // Perninha técnica conectando o interruptor à alvenaria
+        // Perninha técnica conectando o interruptor à face acabada da alvenaria
         ctx.beginPath();
-        ctx.moveTo(0, 0);
-        ctx.lineTo(0, side * -stemLen);
+        ctx.moveTo(0, stemStart);
+        ctx.lineTo(0, stemEnd);
         ctx.stroke();
 
         // Círculo do interruptor
@@ -591,21 +603,23 @@ export class SymbolRenderer {
 
         if (node.command) {
           const lblX = offX;
-          const lblY = cy + side * -(swR + 7) + offY;
+          const lblY = cy + side * (swR + 7) + offY;
+          ctx.save();
+          ctx.translate(lblX, lblY);
+          if (node.labelRotation) ctx.rotate((node.labelRotation * Math.PI) / 180);
           ctx.fillStyle = isLabelSelected ? '#0284c7' : '#000000';
           ctx.font = 'bold 10px Arial, sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText(node.command, lblX, lblY);
+          ctx.fillText(node.command, 0, 0);
 
           if (isLabelSelected) {
-            ctx.save();
             ctx.strokeStyle = '#0284c7';
             ctx.lineWidth = 1.2;
             ctx.setLineDash([3, 2]);
-            ctx.strokeRect(lblX - 7, lblY - 7, 14, 14);
-            ctx.restore();
+            ctx.strokeRect(-7, -7, 14, 14);
           }
+          ctx.restore();
         }
         break;
       }
@@ -613,13 +627,14 @@ export class SymbolRenderer {
         // Dispositivo conjugado NBR 5410 e NBR 6492: Interruptor + Tomada Média (1,20m)
         const swR = r * 0.55;
         const sz = r * 0.75;
-        const baseY = side * -stemLen;
+        const stemStart = side * hTh;
+        const baseY = side * (hTh + stemLen);
         const swMod = node.modules?.[0] || { command: node.command || 'a', circuitId: node.circuitId || 1 };
         const outMod = node.modules?.[1] || { circuitId: 2, powerWatts: node.powerWatts || 600 };
 
         // Perninha bifurcada na alvenaria
         ctx.beginPath();
-        ctx.moveTo(0, 0);
+        ctx.moveTo(0, stemStart);
         ctx.lineTo(0, baseY);
         ctx.moveTo(-r * 0.55, baseY);
         ctx.lineTo(r * 0.55, baseY);
@@ -628,7 +643,7 @@ export class SymbolRenderer {
         // 1. Interruptor Simples à esquerda
         ctx.save();
         ctx.translate(-r * 0.55, 0);
-        const cySw = side * -(stemLen + swR);
+        const cySw = side * (hTh + stemLen + swR);
         ctx.fillStyle = '#ffffff';
         ctx.beginPath();
         ctx.arc(0, cySw, swR, 0, Math.PI * 2);
@@ -637,28 +652,30 @@ export class SymbolRenderer {
 
         if (swMod.command) {
           const lblX = offX;
-          const lblY = cySw + side * -(swR + 6) + offY;
+          const lblY = cySw + side * (swR + 6) + offY;
+          ctx.save();
+          ctx.translate(lblX, lblY);
+          if (node.labelRotation) ctx.rotate((node.labelRotation * Math.PI) / 180);
           ctx.fillStyle = isLabelSelected ? '#0284c7' : '#000000';
           ctx.font = 'bold 9px Arial, sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText(swMod.command, lblX, lblY);
+          ctx.fillText(swMod.command, 0, 0);
 
           if (isLabelSelected) {
-            ctx.save();
             ctx.strokeStyle = '#0284c7';
             ctx.lineWidth = 1.2;
             ctx.setLineDash([3, 2]);
-            ctx.strokeRect(lblX - 7, lblY - 7, 14, 14);
-            ctx.restore();
+            ctx.strokeRect(-7, -7, 14, 14);
           }
+          ctx.restore();
         }
         ctx.restore();
 
         // 2. Tomada Média à direita (semi-preenchida conforme NBR 6492)
         ctx.save();
         ctx.translate(r * 0.55, 0);
-        const tipYCombo = side * -(stemLen + sz * 1.2);
+        const tipYCombo = side * (hTh + stemLen + sz * 1.2);
         ctx.fillStyle = '#ffffff';
         ctx.beginPath();
         ctx.moveTo(-sz * 0.8, baseY);
@@ -679,21 +696,23 @@ export class SymbolRenderer {
         ctx.fillStyle = '#000000';
         ctx.font = 'bold 9px Arial, sans-serif';
         ctx.textAlign = 'center';
-        if (outMod.circuitId) ctx.fillText(String(outMod.circuitId), 0, tipYCombo + side * -7);
+        if (outMod.circuitId) ctx.fillText(String(outMod.circuitId), 0, tipYCombo + side * 8);
         ctx.restore();
         break;
       }
       case 'combo_switch_switch': {
         // Interruptor de 2 Seções / 2 Teclas (NBR 6492)
         const swR = r * 0.75;
-        const cy = side * -(stemLen + swR);
+        const stemStart = side * hTh;
+        const stemEnd = side * (hTh + stemLen);
+        const cy = side * (hTh + stemLen + swR);
         const cmdA = node.modules?.[0]?.command || 'a';
         const cmdB = node.modules?.[1]?.command || 'b';
 
         // Perninha
         ctx.beginPath();
-        ctx.moveTo(0, 0);
-        ctx.lineTo(0, side * -stemLen);
+        ctx.moveTo(0, stemStart);
+        ctx.lineTo(0, stemEnd);
         ctx.stroke();
 
         ctx.fillStyle = '#ffffff';
@@ -717,7 +736,7 @@ export class SymbolRenderer {
 
         if (node.circuitId) {
           ctx.font = 'bold 8px Arial, sans-serif';
-          ctx.fillText(String(node.circuitId), offX, cy + side * -(swR + 7) + offY);
+          ctx.fillText(String(node.circuitId), offX, cy + side * (swR + 7) + offY);
         }
 
         if (isLabelSelected) {
@@ -757,8 +776,8 @@ export class WireRenderer {
     const u = dir.normalize();
     const n = u.orthogonal().mul(side || 1);
     const sc = 0.85;
-    const h = 9 * sc;
-    const circDist = h + 8;
+    const h = 10 * sc;
+    const circDist = h + 11;
     const offX = wireLabelOffset?.x || 0;
     const offY = wireLabelOffset?.y || 0;
 
@@ -770,7 +789,7 @@ export class WireRenderer {
     };
   }
 
-  static renderWiresOnConduit(ctx, sA, sB, ctrlPt, wires, t = 0.5, side = 1, isSelected = false, wireLabelOffset = null) {
+  static renderWiresOnConduit(ctx, sA, sB, ctrlPt, wires, t = 0.5, side = 1, isSelected = false, wireLabelOffset = null, wireLabelRotation = 0) {
     if (!wires || wires.length === 0) return;
 
     const mt = 1 - t;
@@ -788,9 +807,9 @@ export class WireRenderer {
     // Multiplica pela orientação de lado do eletroduto (side: +1 ou -1)
     const n = u.orthogonal().mul(side || 1);
 
-    const spacing = 6;
+    const spacing = 10;
     const sc = 0.85;
-    const h = 9 * sc;
+    const h = 10 * sc;
 
     ctx.save();
 
@@ -837,7 +856,7 @@ export class WireRenderer {
         ctx.lineTo(p.x + n.x * (h * 0.9), p.y + n.y * (h * 0.9));
         ctx.stroke();
         if (w.command) {
-          const cmdDist = h + 6.5;
+          const cmdDist = h + 8;
           const cmdPos = new Vector2D(p.x + n.x * cmdDist, p.y + n.y * cmdDist);
           ctx.save();
           ctx.fillStyle = isSelected ? '#0284c7' : '#000000';
@@ -854,24 +873,28 @@ export class WireRenderer {
     // Número do Circuito posicionado no lado oposto (-n) ou deslocado manualmente pelo usuário
     const circIds = [...new Set(wires.map(w => w.circuitId).filter(Boolean))].join(',');
     if (circIds) {
-      const circDist = h + 8;
+      const circDist = h + 11;
       const offX = wireLabelOffset?.x || 0;
       const offY = wireLabelOffset?.y || 0;
       const labelPos = new Vector2D(base.x - n.x * circDist + offX, base.y - n.y * circDist + offY);
 
       ctx.save();
+      ctx.translate(labelPos.x, labelPos.y);
+      if (wireLabelRotation) {
+        ctx.rotate((wireLabelRotation * Math.PI) / 180);
+      }
       ctx.fillStyle = isSelected ? '#0284c7' : '#000000';
       ctx.font = 'bold 9px Arial, sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(circIds, labelPos.x, labelPos.y);
+      ctx.fillText(circIds, 0, 0);
 
       if (isSelected) {
         ctx.strokeStyle = '#0284c7';
         ctx.lineWidth = 1.0;
         ctx.setLineDash([2, 2]);
         const tw = ctx.measureText(circIds).width;
-        ctx.strokeRect(labelPos.x - tw / 2 - 3, labelPos.y - 6, tw + 6, 12);
+        ctx.strokeRect(-tw / 2 - 3, -6, tw + 6, 12);
       }
       ctx.restore();
     }
@@ -1377,6 +1400,18 @@ export class CadEngine {
 
     this.switchLevel(id);
     return newLevel;
+  }
+
+  updateLevel(levelId, { name, elevation, height } = {}) {
+    const lvl = this.levels.find(l => l.id === levelId);
+    if (!lvl) return false;
+    if (typeof name === 'string' && name.trim()) lvl.name = name.trim();
+    if (typeof elevation === 'number' && !isNaN(elevation)) lvl.elevation = elevation;
+    if (typeof height === 'number' && !isNaN(height)) lvl.height = height;
+    this.levels.sort((a, b) => a.elevation - b.elevation);
+    this.saveSnapshot();
+    this.notify();
+    return true;
   }
 
   deleteLevel(levelId) {
@@ -2019,11 +2054,60 @@ export class CadEngine {
   }
 
   toggleFlip() {
-    this.doorOrientationIndex = (this.doorOrientationIndex + 1) % 4;
-    if (this.selectedElement && this.selectedElement.type === 'door') {
-      const d = this.doors[this.selectedElement.index];
+    if (!this.selectedElement) {
+      this.doorOrientationIndex = (this.doorOrientationIndex + 1) % 4;
+      this.notify();
+      return;
+    }
+
+    const sel = this.selectedElement;
+    if (sel.type === 'door') {
+      const d = this.doors[sel.index];
       if (d) {
+        this.doorOrientationIndex = (this.doorOrientationIndex + 1) % 4;
         d.orientationIndex = this.doorOrientationIndex;
+        this.saveSnapshot();
+      }
+    } else if (sel.type === 'node') {
+      const node = this.nodes.find(n => n.id === sel.id);
+      if (node) {
+        const isWallDevice = node.type.startsWith('switch') || node.type.startsWith('outlet') || node.type.startsWith('combo') || node.type === 'distribution_board';
+        if (isWallDevice) {
+          node.wallSide = (node.wallSide || 1) * -1;
+        } else {
+          node.rotation = ((node.rotation || 0) + 45) % 360;
+        }
+        this.saveSnapshot();
+      }
+    } else if (sel.type === 'node_label') {
+      const node = this.nodes.find(n => n.id === sel.id);
+      if (node) {
+        node.labelRotation = ((node.labelRotation || 0) + 45) % 360;
+        this.saveSnapshot();
+      }
+    } else if (sel.type === 'wire_label') {
+      const c = this.conduits.find(item => item.id === sel.conduitId);
+      if (c) {
+        c.wireLabelRotation = ((c.wireLabelRotation || 0) + 45) % 360;
+        this.saveSnapshot();
+      }
+    } else if (sel.type === 'wire_tag' || sel.type === 'conduit') {
+      const cId = sel.conduitId || sel.id;
+      const c = this.conduits.find(item => item.id === cId);
+      if (c) {
+        c.wireSide = (c.wireSide || 1) * -1;
+        this.saveSnapshot();
+      }
+    } else if (sel.type === 'riser_label') {
+      const r = this.risers ? this.risers.find(item => item.id === sel.id) : null;
+      if (r) {
+        r.labelRotation = ((r.labelRotation || 0) + 45) % 360;
+        this.saveSnapshot();
+      }
+    } else if (sel.type === 'riser') {
+      const r = this.risers ? this.risers.find(item => item.id === sel.id) : null;
+      if (r) {
+        r.labelRotation = ((r.labelRotation || 0) + 45) % 360;
         this.saveSnapshot();
       }
     }
@@ -2902,6 +2986,17 @@ export class CadEngine {
           };
           this.notify();
           return;
+        } else if (cand.type === 'riser_label') {
+          this.selectedElement = { type: 'riser_label', id: cand.id, riser: cand.riser };
+          this.selectedNodeId = null;
+          this.isDragging = true;
+          this.dragStartWorld = worldPos;
+          this.dragInitialOffset = {
+            x: cand.riser.labelOffset?.x || 0,
+            y: cand.riser.labelOffset?.y || 0
+          };
+          this.notify();
+          return;
         } else if (cand.type === 'riser') {
           this.selectedElement = { type: 'riser', id: cand.id, riser: cand.riser };
           this.selectedNodeId = null;
@@ -3290,6 +3385,20 @@ export class CadEngine {
           this.notify();
         }
       }
+      // 7.2 Mover Rótulo de Prumada Vertical
+      else if (this.selectedElement && this.selectedElement.type === 'riser_label') {
+        const riser = this.risers ? this.risers.find(r => r.id === this.selectedElement.id) : null;
+        if (riser) {
+          const dx = curWorld.x - (this.dragStartWorld?.x || curWorld.x);
+          const dy = curWorld.y - (this.dragStartWorld?.y || curWorld.y);
+          if (!riser.labelOffset) riser.labelOffset = { x: 0, y: 0 };
+          riser.labelOffset = {
+            x: Math.round(((this.dragInitialOffset?.x || 0) + dx) * 100) / 100,
+            y: Math.round(((this.dragInitialOffset?.y || 0) + dy) * 100) / 100
+          };
+          this.notify();
+        }
+      }
       // 8. Mover Rótulo Nativo de Ponto Elétrico
       else if (this.selectedElement && this.selectedElement.type === 'node_label') {
         const node = this.nodes.find(n => n.id === this.selectedElement.id);
@@ -3445,7 +3554,23 @@ export class CadEngine {
       if (this.risers) {
         for (const r of this.risers) {
           const sR = this.viewport.worldToScreen(r.position);
-          if (sR.distanceTo(screenPt) < 22) {
+          const offX = (r.labelOffset?.x || 0) * this.viewport.zoom;
+          const offY = (r.labelOffset?.y || 0) * this.viewport.zoom;
+          const sLbl = new Vector2D(sR.x + 9 + 6 + offX, sR.y + offY);
+
+          // 1. Rótulo da Prumada (clique para arrastar ou rotacionar com Espaço)
+          if (sLbl.distanceTo(screenPt) < 24) {
+            candidates.push({
+              type: 'riser_label',
+              id: r.id,
+              riser: r,
+              label: `Rótulo da Prumada ${r.name || 'P'} [Arraste p/ mover / Espaço p/ girar]`,
+              pos: this.viewport.screenToWorld(sLbl)
+            });
+          }
+
+          // 2. Símbolo da Prumada
+          if (sR.distanceTo(screenPt) < 20) {
             candidates.push({
               type: 'riser',
               id: r.id,
@@ -4702,15 +4827,16 @@ export class CadEngine {
       }
 
       const s = this.viewport.worldToScreen(r.position);
-      const isSelected = this.selectedElement && this.selectedElement.type === 'riser' && this.selectedElement.id === r.id;
+      const isRiserSelected = this.selectedElement && this.selectedElement.type === 'riser' && this.selectedElement.id === r.id;
+      const isLabelSelected = this.selectedElement && this.selectedElement.type === 'riser_label' && this.selectedElement.id === r.id;
 
       ctx.save();
       const radius = 9;
-      ctx.strokeStyle = isSelected ? '#0284c7' : '#0f172a';
-      ctx.lineWidth = isSelected ? 2.5 : 1.6;
+      ctx.strokeStyle = isRiserSelected ? '#0284c7' : '#0f172a';
+      ctx.lineWidth = isRiserSelected ? 2.5 : 1.6;
       ctx.fillStyle = '#ffffff';
 
-      if (isSelected) {
+      if (isRiserSelected) {
         ctx.save();
         ctx.strokeStyle = '#0284c7';
         ctx.lineWidth = 1.6;
@@ -4726,7 +4852,7 @@ export class CadEngine {
       ctx.fill();
       ctx.stroke();
 
-      ctx.fillStyle = isSelected ? '#0284c7' : '#0f172a';
+      ctx.fillStyle = isRiserSelected ? '#0284c7' : '#0f172a';
       if (direction === 'up') {
         ctx.beginPath();
         ctx.moveTo(s.x, s.y - radius + 2);
@@ -4750,11 +4876,30 @@ export class CadEngine {
         ctx.stroke();
       }
 
+      const labelText = `${r.name} (${targetName}) ⌀${r.diameter || 25}mm`;
+      const offX = (r.labelOffset?.x || 0) * this.viewport.zoom;
+      const offY = (r.labelOffset?.y || 0) * this.viewport.zoom;
+      const rot = r.labelRotation || 0;
+      const lblX = s.x + radius + 6 + offX;
+      const lblY = s.y + offY;
+
+      ctx.save();
+      ctx.translate(lblX, lblY);
+      if (rot) ctx.rotate((rot * Math.PI) / 180);
       ctx.font = '600 10px Inter, sans-serif';
-      ctx.fillStyle = isSelected ? '#0284c7' : '#334155';
+      ctx.fillStyle = (isRiserSelected || isLabelSelected) ? '#0284c7' : '#334155';
       ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
-      ctx.fillText(`${r.name} (${targetName}) ⌀${r.diameter || 25}mm`, s.x + radius + 5, s.y);
+      ctx.fillText(labelText, 0, 0);
+
+      if (isLabelSelected) {
+        const tw = ctx.measureText(labelText).width;
+        ctx.strokeStyle = '#0284c7';
+        ctx.lineWidth = 1.2;
+        ctx.setLineDash([3, 2]);
+        ctx.strokeRect(-2, -8, tw + 4, 16);
+      }
+      ctx.restore();
 
       ctx.restore();
     }
@@ -4967,7 +5112,7 @@ export class CadEngine {
               (this.selectedElement.type === 'wire_label' && this.selectedElement.conduitId === c.id) ||
               (this.selectedElement.type === 'conduit' && this.selectedElement.id === c.id)
             );
-            WireRenderer.renderWiresOnConduit(ctx, sA, sB, ctrlPt, wires, wireT, wireSide, isWireSelected, c.wireLabelOffset);
+            WireRenderer.renderWiresOnConduit(ctx, sA, sB, ctrlPt, wires, wireT, wireSide, isWireSelected, c.wireLabelOffset, c.wireLabelRotation);
           }
         }
       }
